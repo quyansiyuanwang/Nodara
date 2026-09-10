@@ -26,14 +26,18 @@
 //! API clients, exactly as the document requires.
 
 pub mod api;
+pub mod approval;
 pub mod config;
 pub mod error;
 pub mod runs;
 pub mod server;
+pub mod sessions;
 pub mod state;
 
+pub use approval::SessionApprovalHandler;
 pub use config::{PolicyMode, RuntimeConfig};
 pub use error::{ApiError, RuntimeError, RuntimeResult};
 pub use runs::{RunHandle, RunManager, RunSnapshot};
 pub use server::serve;
+pub use sessions::{AgentSessionStore, DEFAULT_APPROVAL_TIMEOUT};
 pub use state::{RuntimeBuilder, RuntimeState};

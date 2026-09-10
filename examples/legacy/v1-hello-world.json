@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1,
   "id": "legacy.hello-world",
   "name": "Legacy Hello World",
   "nodes": [

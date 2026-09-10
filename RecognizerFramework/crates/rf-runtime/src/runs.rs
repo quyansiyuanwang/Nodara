@@ -251,6 +251,21 @@ impl RunManager {
         variables: BTreeMap<String, serde_json::Value>,
     ) -> Arc<RunHandle> {
         let run_id = uuid::Uuid::new_v4().to_string();
+        self.start_with_run_id(run_id, workflow, variables)
+    }
+
+    /// Start a run under a caller-chosen id.
+    ///
+    /// The runtime uses this so it can bind the run to an agent session *before*
+    /// the run thread starts. Binding afterwards would race: a gated node could
+    /// ask for approval before the session knew the run existed, and the request
+    /// would be refused.
+    pub fn start_with_run_id(
+        self: &Arc<Self>,
+        run_id: String,
+        workflow: Workflow,
+        variables: BTreeMap<String, serde_json::Value>,
+    ) -> Arc<RunHandle> {
         let control = RunControl::new();
         let handle = RunHandle::new(run_id.clone(), workflow.id.clone(), control.clone());
         self.runs.lock().insert(run_id.clone(), handle.clone());

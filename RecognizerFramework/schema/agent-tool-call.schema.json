@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A request to run one capability.",
+  "properties": {
+    "call_id": {
+      "description": "Caller-chosen correlation id, echoed back in the result.",
+      "type": "string"
+    },
+    "capability": {
+      "description": "Capability identifier, conventionally the node type.",
+      "type": "string"
+    },
+    "input": {
+      "default": null,
+      "description": "The input the capability would receive."
+    },
+    "node_type": {
+      "description": "Node type that would be executed.",
+      "type": "string"
+    },
+    "reason": {
+      "description": "Why the caller wants it. Surfaced verbatim in approval prompts.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requested_permissions": {
+      "default": [],
+      "description": "Permissions the caller expects to need.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "run_id": {
+      "description": "Run the call belongs to, when it is part of a workflow run.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "call_id",
+    "capability",
+    "node_type"
+  ],
+  "title": "ToolCall",
+  "type": "object"
+}

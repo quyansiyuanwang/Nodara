@@ -22,7 +22,9 @@ pub mod planner;
 pub mod policy;
 pub mod prompt;
 pub mod provider;
+pub mod report;
 pub mod runtime_client;
+pub mod selector;
 
 pub use agent::{Agent, AgentConfig, AgentOutcome};
 pub use audit::{AuditTrace, TraceEntry, TraceStep};
@@ -32,4 +34,6 @@ pub use planner::{PlanRequest, Planner};
 pub use policy::{Budget, GuardrailPolicy, ToolPolicy};
 pub use prompt::system_prompt;
 pub use provider::{LlmProvider, MockProvider, OpenAiProvider};
+pub use report::ExecutionReport;
 pub use runtime_client::RuntimeClient;
+pub use selector::ToolSelector;

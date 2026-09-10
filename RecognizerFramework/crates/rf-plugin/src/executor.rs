@@ -37,23 +37,34 @@ impl PluginExecutor {
     }
 
     fn map_error(&self, error: PluginError) -> NodeError {
-        let node_type = self.descriptor.node_type.clone();
-        match error {
-            PluginError::Remote { code, message, .. } => match code {
-                codes::APP_INVALID_CONFIG => NodeError::InvalidConfig(message),
-                codes::APP_PERMISSION_DENIED => NodeError::denied(node_type, message),
-                codes::APP_CANCELLED => NodeError::Cancelled,
-                codes::APP_TIMEOUT => NodeError::Timeout,
-                codes::APP_UNSUPPORTED => NodeError::Unsupported(message),
-                codes::APP_IO => NodeError::Io(message),
-                _ => NodeError::Execution(message),
-            },
-            PluginError::Timeout { .. } => NodeError::Timeout,
-            PluginError::Disconnected => {
-                NodeError::Execution(format!("plugin `{}` disconnected", self.client.info().id))
-            }
-            other => NodeError::Execution(other.to_string()),
+        map_error(&error, &self.descriptor.node_type, &self.client.info().id)
+    }
+}
+
+/// Translate a transport or protocol failure into the engine's error model.
+///
+/// This mapping is the contract between the plugin protocol's error table and
+/// the engine: a plugin reporting `E_INVALID_CONFIG` must look like any other
+/// invalid configuration to the caller, or the plugin boundary would leak.
+pub fn map_error(error: &PluginError, node_type: &str, plugin_id: &str) -> NodeError {
+    match error {
+        PluginError::Remote { code, message, .. } => match *code {
+            codes::APP_INVALID_CONFIG => NodeError::InvalidConfig(message.clone()),
+            codes::APP_PERMISSION_DENIED => NodeError::denied(node_type, message.clone()),
+            codes::APP_CANCELLED => NodeError::Cancelled,
+            codes::APP_TIMEOUT => NodeError::Timeout,
+            codes::APP_UNSUPPORTED => NodeError::Unsupported(message.clone()),
+            codes::APP_IO => NodeError::Io(message.clone()),
+            _ => NodeError::Execution(message.clone()),
+        },
+        PluginError::Timeout { .. } => NodeError::Timeout,
+        PluginError::Disconnected => {
+            NodeError::Execution(format!("plugin `{plugin_id}` disconnected"))
         }
+        PluginError::Launch { id, source } => {
+            NodeError::Execution(format!("plugin `{id}` could not be launched: {source}"))
+        }
+        other => NodeError::Execution(other.to_string()),
     }
 }
 
@@ -84,5 +95,61 @@ impl NodeExecutor for PluginExecutor {
             }),
             Err(error) => Err(self.map_error(error)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn application_codes_map_onto_engine_errors() {
+        let cases = [
+            (codes::APP_INVALID_CONFIG, "E_INVALID_CONFIG"),
+            (codes::APP_PERMISSION_DENIED, "E_PERMISSION_DENIED"),
+            (codes::APP_CANCELLED, "E_CANCELLED"),
+            (codes::APP_TIMEOUT, "E_TIMEOUT"),
+            (codes::APP_UNSUPPORTED, "E_UNSUPPORTED"),
+            (codes::APP_IO, "E_IO"),
+            (codes::APP_EXECUTION, "E_EXECUTION"),
+        ];
+        for (code, expected) in cases {
+            let error = PluginError::Remote {
+                code,
+                message: "boom".to_string(),
+                data: None,
+            };
+            assert_eq!(
+                map_error(&error, "test.Node", "rf.test").code(),
+                expected,
+                "code {code} mapped incorrectly"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_code_falls_back_to_execution() {
+        let error = PluginError::Remote {
+            code: -99999,
+            message: "mystery".to_string(),
+            data: None,
+        };
+        assert_eq!(
+            map_error(&error, "test.Node", "rf.test").code(),
+            "E_EXECUTION"
+        );
+    }
+
+    #[test]
+    fn transport_failures_are_distinguished() {
+        let timeout = PluginError::Timeout {
+            method: "execute".to_string(),
+            timeout_ms: 10,
+        };
+        assert_eq!(map_error(&timeout, "n", "p").code(), "E_TIMEOUT");
+
+        let mapped = map_error(&PluginError::Disconnected, "n", "rf.demo");
+        assert_eq!(mapped.code(), "E_EXECUTION");
+        assert!(mapped.to_string().contains("rf.demo"));
     }
 }

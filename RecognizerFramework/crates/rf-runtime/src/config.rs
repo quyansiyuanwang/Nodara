@@ -1,6 +1,7 @@
 //! Runtime configuration.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// How capability decisions are made.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -29,6 +30,8 @@ pub struct RuntimeConfig {
     pub policy: PolicyMode,
     /// Automatically approve policy requests that require approval.
     pub auto_approve: bool,
+    /// How long a run waits for an operator decision when approval is required.
+    pub approval_timeout: Duration,
     /// Append audit records to this file instead of keeping them in memory.
     pub audit_path: Option<PathBuf>,
     /// Send permissive CORS headers (the Studio is a browser client).
@@ -53,6 +56,7 @@ impl Default for RuntimeConfig {
             autoload_plugins: true,
             policy: PolicyMode::default(),
             auto_approve: true,
+            approval_timeout: crate::sessions::DEFAULT_APPROVAL_TIMEOUT,
             audit_path: None,
             permissive_cors: true,
         }

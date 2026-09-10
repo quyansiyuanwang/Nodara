@@ -77,7 +77,8 @@ src/
     ├── palette.ts         nodes discovered at runtime
     ├── canvas.ts          SVG graph editor: drag, connect, select, delete
     ├── inspector.ts       schema-driven configuration forms
-    └── event-log.ts       the runtime event stream
+    ├── event-log.ts       the runtime event stream
+    └── agent-panel.ts     agent sessions, plan preview, approval prompts
 ```
 
 ## What the editor does
@@ -92,3 +93,39 @@ src/
 * `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control;
 * the **Events** tab streams the same events the CLI prints, and highlights the
   running, finished and failed nodes on the canvas.
+
+## The Agent tab
+
+The Studio never calls the agent. It reads `GET /api/v1/agent/sessions` — the
+session API the architecture document designates as the channel between them —
+and writes back exactly one thing: an operator's decision on a pending approval.
+
+That decision is not cosmetic. When policy requires approval, the runtime's
+approval handler is *blocking the run thread*; the Approve button in this panel
+is what releases it. The session card shows:
+
+* the goal and the conversation between operator, agent and runtime;
+* the **plan preview** — the proposed graph, its node list, and the runtime's own
+  validation diagnostics, with a button to load it into the editor;
+* every approval request, with the node, the permissions it wants and the exact
+  input it would receive, so the decision can be judged rather than rubber-stamped;
+* a link to the run the session started, which opens in the Events tab.
+
+The tab is marked when something is waiting, so an approval is not missed.
+
+## Tests
+
+```bash
+npm test
+```
+
+Thirty tests cover the six areas the architecture document lists:
+
+| Area | File |
+|------|------|
+| Dynamic node discovery | `src/ui/palette.test.ts` |
+| Schema-driven configuration forms | `src/schema/form.test.ts` |
+| Node drop, connect and delete | `src/ui/canvas.test.ts` |
+| Run-status visualisation | `src/ui/event-log.test.ts` |
+| Runtime disconnect and recovery | `src/runtime/client.test.ts` |
+| Document model and local validation | `src/model/workflow.test.ts` |

@@ -4,6 +4,7 @@
 //! [`ValidationReport`] full of [`Diagnostic`]s so an editor can underline every
 //! issue and an agent can repair them in one pass.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -13,7 +14,9 @@ use crate::version::is_compatible_schema_version;
 use crate::workflow::{Node, Workflow};
 
 /// Severity of a validation diagnostic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
     /// Purely informational; does not affect validity.
@@ -25,7 +28,7 @@ pub enum Severity {
 }
 
 /// A single validation finding.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Diagnostic {
     /// Severity of the finding.
     pub severity: Severity,

@@ -3,15 +3,17 @@
 use std::sync::Arc;
 
 use rf_core::{
-    register_builtins, AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove, AutoDeny,
+    register_builtins, AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove,
     CapabilityPolicy, CapabilityRegistry, DefaultPolicy, InMemoryAuditLog, JsonlAuditLog,
     NodeExecutor, WorkflowEngine,
 };
 use rf_plugin::PluginHost;
 
+use crate::approval::SessionApprovalHandler;
 use crate::config::{PolicyMode, RuntimeConfig};
 use crate::error::RuntimeResult;
 use crate::runs::RunManager;
+use crate::sessions::AgentSessionStore;
 
 /// Everything a request handler needs.
 pub struct RuntimeState {
@@ -23,6 +25,8 @@ pub struct RuntimeState {
     pub host: Arc<PluginHost>,
     /// Active and completed runs.
     pub runs: Arc<RunManager>,
+    /// Agent sessions and the approvals they are waiting on.
+    pub sessions: Arc<AgentSessionStore>,
     /// The engine, shared with the run manager.
     pub engine: WorkflowEngine,
     /// Plugin loading failures, surfaced through `GET /api/v1/plugins`.
@@ -131,12 +135,13 @@ impl RuntimeBuilder {
         }
         host.install_into(&mut self.registry);
 
+        let sessions = AgentSessionStore::new(self.config.approval_timeout);
         let policy = self
             .policy
             .unwrap_or_else(|| default_policy(&self.config.policy));
         let approval = self
             .approval
-            .unwrap_or_else(|| default_approval(self.config.auto_approve));
+            .unwrap_or_else(|| default_approval(&self.config, sessions.clone()));
         let audit: Arc<dyn rf_core::AuditLog> = match &self.config.audit_path {
             Some(path) => Arc::new(JsonlAuditLog::open(path)?),
             None => Arc::new(InMemoryAuditLog::new()),
@@ -154,6 +159,7 @@ impl RuntimeBuilder {
             registry,
             host,
             runs,
+            sessions,
             engine,
             plugin_failures,
         }))
@@ -168,10 +174,23 @@ fn default_policy(mode: &PolicyMode) -> Arc<dyn CapabilityPolicy> {
     }
 }
 
-fn default_approval(auto_approve: bool) -> Arc<dyn ApprovalHandler> {
-    if auto_approve {
+/// Choose the approval strategy.
+///
+/// With `auto_approve` the runtime consents on the operator's behalf, which is
+/// the documented "phase one" behaviour for unattended runs. Otherwise every
+/// request is raised against the owning agent session and the run blocks until
+/// an operator answers. A run that belongs to no session is refused, because an
+/// unanswered approval request must never silently authorise a side effect.
+fn default_approval(
+    config: &RuntimeConfig,
+    sessions: Arc<AgentSessionStore>,
+) -> Arc<dyn ApprovalHandler> {
+    if config.auto_approve {
         Arc::new(AutoApprove)
     } else {
-        Arc::new(AutoDeny)
+        Arc::new(SessionApprovalHandler::new(
+            sessions,
+            config.approval_timeout,
+        ))
     }
 }

@@ -9,7 +9,13 @@ import "./styles.css";
 
 import { emptyWorkflow, localProblems } from "./model/workflow";
 import { RuntimeClient, RuntimeError } from "./runtime/client";
-import { Diagnostic, NodeDescriptor, RunStatus, Workflow } from "./runtime/types";
+import {
+  Diagnostic,
+  NodeDescriptor,
+  RunStatus,
+  Workflow,
+} from "./runtime/types";
+import { AgentPanel } from "./ui/agent-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
@@ -39,6 +45,8 @@ class Studio {
   private readonly canvas: Canvas;
   private readonly inspector: Inspector;
   private readonly log: EventLog;
+  private readonly agents: AgentPanel;
+  private agentPoll: number | null = null;
 
   constructor() {
     const canvasElement = element<SVGSVGElement>("canvas");
@@ -66,6 +74,12 @@ class Studio {
       { onChange: () => this.refresh() },
     );
     this.log = new EventLog(element("events"), this.canvas);
+    this.agents = new AgentPanel(element("agent"), {
+      onDecide: (sessionId, approvalId, approve) =>
+        void this.decideApproval(sessionId, approvalId, approve),
+      onLoadPlan: (sessionId) => this.loadPlan(sessionId),
+      onOpenRun: (runId) => void this.openRun(runId),
+    });
 
     this.bindToolbar();
     this.refresh();
@@ -145,7 +159,11 @@ class Studio {
     });
 
     for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
-      tab.addEventListener("click", () => this.showTab(tab.dataset.tab ?? "events"));
+      tab.addEventListener("click", () => {
+        const name = tab.dataset.tab ?? "events";
+        this.showTab(name);
+        if (name === "agent") void this.pollAgentSessions();
+      });
     }
 
     element("btn-apply-json").addEventListener("click", () => {
@@ -293,6 +311,90 @@ class Studio {
     try {
       const snapshot = await this.client[action](this.runId);
       this.setStatus(snapshot.status);
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
+  /** Poll the runtime for agent sessions while the Agent tab is open. */
+  private async pollAgentSessions(): Promise<void> {
+    if (this.agentPoll !== null) {
+      window.clearTimeout(this.agentPoll);
+      this.agentPoll = null;
+    }
+    try {
+      const list = await this.client.agentSessions();
+      this.agents.setSessions(list);
+      if (AgentPanel.needsAttention(list)) {
+        this.pulseAgentTab(true);
+      }
+    } catch (error) {
+      this.reportError(error);
+    } finally {
+      // Keep polling only while the tab is visible; a hidden tab costs nothing.
+      const visible = !element("panel-agent").hidden;
+      if (visible) {
+        this.agentPoll = window.setTimeout(() => void this.pollAgentSessions(), 1500);
+      } else {
+        this.agentPoll = null;
+      }
+    }
+  }
+
+  /** Mark the Agent tab when an approval is waiting, so it is not missed. */
+  private pulseAgentTab(attention: boolean): void {
+    const tab = document.querySelector<HTMLButtonElement>('.tab[data-tab="agent"]');
+    if (tab) tab.classList.toggle("tab--attention", attention);
+  }
+
+  private async decideApproval(
+    sessionId: string,
+    approvalId: string,
+    approve: boolean,
+  ): Promise<void> {
+    try {
+      await this.client.decideApproval(
+        sessionId,
+        approvalId,
+        approve ? "approved" : "denied",
+      );
+      this.pushLocal(
+        `${approve ? "approved" : "denied"} ${approvalId.slice(0, 8)}… in session ${sessionId.slice(0, 8)}…`,
+      );
+      await this.pollAgentSessions();
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
+  /** Replace the document with the plan the agent proposed. */
+  private loadPlan(sessionId: string): void {
+    const session = this.agents.selectedSession();
+    if (!session || session.id !== sessionId || !session.plan) {
+      this.pushLocal("that session has no plan to load");
+      return;
+    }
+    this.replaceWorkflow(session.plan.workflow);
+    this.showTab("json");
+    this.pushLocal(`loaded plan from session ${sessionId.slice(0, 8)}…`);
+  }
+
+  /** Follow the run a session started. */
+  private async openRun(runId: string): Promise<void> {
+    this.runId = runId;
+    this.closeStream?.();
+    this.log.clear();
+    this.showTab("events");
+    try {
+      const snapshot = await this.client.getRun(runId);
+      this.setStatus(snapshot.status);
+      this.closeStream = this.client.streamRunEvents(runId, {
+        onEvent: (envelope) => {
+          this.log.append(envelope);
+          this.applyEvent(envelope.event);
+        },
+        onClose: () => void this.refreshRun(),
+      });
     } catch (error) {
       this.reportError(error);
     }

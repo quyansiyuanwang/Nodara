@@ -96,6 +96,10 @@ jobs:
         working-directory: RecognizerFramework-Studio
         run: npm run build
 
+      - name: Tests
+        working-directory: RecognizerFramework-Studio
+        run: npm test
+
   agent:
     name: Agent (RecognizerFramework-Agent)
     runs-on: ubuntu-latest

@@ -14,7 +14,10 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::StreamExt;
 use rf_plugin::PluginSummary;
-use rf_schema::{validate_with, NodeDescriptor, ValidationOptions, ValidationReport, Workflow};
+use rf_schema::{
+    validate_with, AgentSession, ApprovalDecisionRequest, NodeDescriptor, PlanPreview,
+    SessionMessageRequest, SessionRequest, ValidationOptions, ValidationReport, Workflow,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
@@ -34,7 +37,24 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
         .route("/runs/{id}/resume", post(resume_run))
         .route("/runs/{id}/step", post(step_run))
         .route("/runs/{id}/cancel", post(cancel_run))
-        .route("/runs/{id}/events", get(stream_run_events));
+        // `events` is the WebSocket stream the plan specifies. The agent, which
+        // already speaks REST, reads the same sequence over `event-log` rather
+        // than carrying a WebSocket client of its own.
+        .route("/runs/{id}/events", get(stream_run_events))
+        .route("/runs/{id}/event-log", get(run_events))
+        .route(
+            "/agent/sessions",
+            get(list_agent_sessions).post(create_agent_session),
+        )
+        .route("/agent/sessions/{id}", get(get_agent_session))
+        .route("/agent/sessions/{id}/messages", post(append_agent_message))
+        .route("/agent/sessions/{id}/plan", post(publish_agent_plan))
+        .route("/agent/sessions/{id}/status", post(set_agent_status))
+        .route(
+            "/agent/sessions/{id}/approvals/{approval_id}",
+            post(decide_agent_approval),
+        )
+        .route("/agent/approvals", get(list_pending_approvals));
 
     let mut router = Router::new()
         .route("/api/v1", get(root))
@@ -172,6 +192,13 @@ pub struct CreateRunRequest {
     /// Variables that override the workflow's own defaults.
     #[serde(default)]
     pub variables: BTreeMap<String, serde_json::Value>,
+    /// Agent session this run belongs to, when one started it.
+    ///
+    /// Binding the run to its session *before* it starts is what makes gated
+    /// capabilities work: a node that needs approval can only ask a session that
+    /// already knows about the run.
+    #[serde(default)]
+    pub session_id: Option<String>,
     /// Validate before running. Defaults to the engine setting.
     #[serde(default)]
     pub validate: Option<bool>,
@@ -195,7 +222,19 @@ async fn create_run(
         .with_detail(serde_json::to_value(&report).unwrap_or_default()));
     }
 
-    let handle = state.runs.start(request.workflow, request.variables);
+    let run_id = uuid::Uuid::new_v4().to_string();
+    if let Some(session_id) = &request.session_id {
+        if state.sessions.get(session_id).is_none() {
+            return Err(ApiError::not_found(
+                "E_SESSION_NOT_FOUND",
+                format!("no session with id `{session_id}`"),
+            ));
+        }
+        state.sessions.attach_run(session_id, &run_id);
+    }
+    let handle = state
+        .runs
+        .start_with_run_id(run_id, request.workflow, request.variables);
     Ok((axum::http::StatusCode::ACCEPTED, Json(handle.snapshot())))
 }
 
@@ -254,6 +293,147 @@ async fn stream_run_events(
         .get(&id)
         .ok_or_else(|| ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{id}`")))?;
     Ok(upgrade.on_upgrade(move |socket| pump(socket, handle)))
+}
+
+/// `GET /runs/{id}/event-log` — the buffered event history.
+///
+/// The Studio streams over the WebSocket; the agent polls this instead, because
+/// a batch process that already speaks REST does not need a WebSocket stack to
+/// observe a run. Both read the same sequence, so neither can miss an event the
+/// other saw.
+async fn run_events(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<rf_schema::EventEnvelope>>, ApiError> {
+    let handle = state
+        .runs
+        .get(&id)
+        .ok_or_else(|| ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{id}`")))?;
+    Ok(Json(handle.history()))
+}
+
+#[derive(Debug, Serialize)]
+struct AgentSessionList {
+    sessions: Vec<AgentSession>,
+    pending_approvals: Vec<PendingApproval>,
+}
+
+#[derive(Debug, Serialize)]
+struct PendingApproval {
+    session_id: String,
+    approval: rf_schema::ApprovalRequest,
+}
+
+async fn list_agent_sessions(State(state): State<Arc<RuntimeState>>) -> Json<AgentSessionList> {
+    Json(AgentSessionList {
+        sessions: state.sessions.list(),
+        pending_approvals: state
+            .sessions
+            .pending_approvals()
+            .into_iter()
+            .map(|(session_id, approval)| PendingApproval {
+                session_id,
+                approval,
+            })
+            .collect(),
+    })
+}
+
+async fn create_agent_session(
+    State(state): State<Arc<RuntimeState>>,
+    Json(request): Json<SessionRequest>,
+) -> (axum::http::StatusCode, Json<AgentSession>) {
+    let session = state.sessions.create(request.goal, request.provider);
+    (axum::http::StatusCode::CREATED, Json(session))
+}
+
+async fn get_agent_session(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+) -> Result<Json<AgentSession>, ApiError> {
+    state.sessions.get(&id).map(Json).ok_or_else(|| {
+        ApiError::not_found("E_SESSION_NOT_FOUND", format!("no session with id `{id}`"))
+    })
+}
+
+async fn append_agent_message(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+    Json(request): Json<SessionMessageRequest>,
+) -> Result<Json<AgentSession>, ApiError> {
+    state
+        .sessions
+        .append_message(&id, request.role, request.text);
+    state.sessions.get(&id).map(Json).ok_or_else(|| {
+        ApiError::not_found("E_SESSION_NOT_FOUND", format!("no session with id `{id}`"))
+    })
+}
+
+async fn publish_agent_plan(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+    Json(preview): Json<PlanPreview>,
+) -> Result<Json<AgentSession>, ApiError> {
+    state
+        .sessions
+        .set_plan(&id, preview)
+        .map(Json)
+        .ok_or_else(|| {
+            ApiError::not_found("E_SESSION_NOT_FOUND", format!("no session with id `{id}`"))
+        })
+}
+
+async fn decide_agent_approval(
+    State(state): State<Arc<RuntimeState>>,
+    Path((id, approval_id)): Path<(String, String)>,
+    Json(request): Json<ApprovalDecisionRequest>,
+) -> Result<Json<AgentSession>, ApiError> {
+    state
+        .sessions
+        .decide(&id, &approval_id, request.decision, &request.decided_by)
+        .map(Json)
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "E_APPROVAL_NOT_FOUND",
+                format!("no approval `{approval_id}` in session `{id}`"),
+            )
+        })
+}
+
+#[derive(Debug, Deserialize)]
+struct SessionStatusRequest {
+    status: rf_schema::SessionStatus,
+}
+
+/// Let the agent mark a session finished, failed or cancelled.
+async fn set_agent_status(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+    Json(request): Json<SessionStatusRequest>,
+) -> Result<Json<AgentSession>, ApiError> {
+    state
+        .sessions
+        .set_status(&id, request.status)
+        .map(Json)
+        .ok_or_else(|| {
+            ApiError::not_found("E_SESSION_NOT_FOUND", format!("no session with id `{id}`"))
+        })
+}
+
+async fn list_pending_approvals(
+    State(state): State<Arc<RuntimeState>>,
+) -> Json<Vec<PendingApproval>> {
+    Json(
+        state
+            .sessions
+            .pending_approvals()
+            .into_iter()
+            .map(|(session_id, approval)| PendingApproval {
+                session_id,
+                approval,
+            })
+            .collect(),
+    )
 }
 
 /// Replay the buffered events, then forward live ones until the client leaves.

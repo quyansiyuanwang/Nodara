@@ -183,3 +183,69 @@ export interface ApiErrorBody {
   message: string;
   detail?: unknown;
 }
+
+/* --- Agent sessions ------------------------------------------------------ */
+
+export type SessionStatus =
+  | "draft"
+  | "planning"
+  | "awaiting_approval"
+  | "ready"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type MessageRole = "operator" | "agent" | "runtime";
+
+export interface SessionMessage {
+  seq: number;
+  at_ms: number;
+  role: MessageRole;
+  text: string;
+}
+
+export type ApprovalDecision = "approved" | "denied";
+
+export interface ApprovalRequest {
+  id: string;
+  requested_at_ms: number;
+  run_id: string;
+  node_id: string;
+  node_type: string;
+  capability: string;
+  permissions: string[];
+  reason: string;
+  input: unknown;
+  decision?: ApprovalDecision;
+  decided_at_ms?: number;
+  decided_by?: string;
+}
+
+export interface PlanPreview {
+  at_ms: number;
+  workflow: Workflow;
+  valid: boolean;
+  errors: number;
+  warnings: number;
+  diagnostics: Diagnostic[];
+}
+
+export interface AgentSession {
+  id: string;
+  goal: string;
+  provider: string;
+  status: SessionStatus;
+  created_at_ms: number;
+  updated_at_ms: number;
+  messages: SessionMessage[];
+  plan?: PlanPreview;
+  approvals: ApprovalRequest[];
+  run_id?: string;
+  tokens_used: number;
+}
+
+export interface AgentSessionList {
+  sessions: AgentSession[];
+  pending_approvals: { session_id: string; approval: ApprovalRequest }[];
+}

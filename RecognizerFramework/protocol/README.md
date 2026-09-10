@@ -26,7 +26,8 @@ Compatibility rules:
 * [`runtime-api.md`](runtime-api.md) — the HTTP and WebSocket API the Studio, the
   CLI and the agent all use.
 * [`../schema/`](../schema) — generated JSON Schema for the workflow document,
-  the plugin manifest, node descriptors and execution events.
+  the plugin manifest, node descriptors, execution events, agent sessions and
+  agent tool calls.
 
 ## Generating the schemas
 

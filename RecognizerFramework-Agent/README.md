@@ -22,23 +22,30 @@ depend on the prompt" is enforced by the crate graph.
 ## What it does
 
 ```text
-operator goal
-     │
-     ▼
-Prompt builder ── node catalogue fetched from GET /node-types
-     │
-     ▼
-Planner ⇄ LLM provider        draft → validate → repair → validate …
-     │
-     ▼
-Guardrails                    node allowlist, refuse dangerous/privileged nodes
-     │
-     ▼
-Runtime tool client           POST /runs, GET /runs/{id}, pause/resume/cancel
-     │
-     ▼
-Audit trace                   JSON Lines, replayable
+discover capabilities ──▶ select tools ──▶ plan ──▶ guardrails ──▶ publish preview
+       ▲                                                              │
+       │                                                              ▼
+  re-plan from the failure              run (bound to the session)
+       ▲                                                              │
+       │                                                              ▼
+       └──────── observe events (GET .../event-log) ──── report ──────┘
 ```
+
+* **Tool selection.** Before prompting, the catalogue is narrowed to the node
+  types that could plausibly serve the goal, so the prompt stays small and the
+  model is not tempted into an irrelevant capability. Selection only removes
+  candidates; it never widens authority.
+* **The session is published first.** The Studio watches it, and a gated node
+  later has somewhere to ask for approval — which is why the run is started
+  *bound* to the session rather than attached afterwards.
+* **Re-planning is bounded and selective.** A run that failed for a reason the
+  model could fix (a bad configuration, a node that errored) becomes another
+  planning turn with the failure as feedback. A run the runtime *refused* —
+  policy, cancellation, a plugin crash — is not re-planned: no amount of
+  re-planning changes the runtime's answer.
+* **Observation uses the same events as the Studio.** The agent polls
+  `GET /runs/{id}/event-log`, which returns the identical sequence the Studio
+  streams over its WebSocket.
 
 The planner is a loop rather than a single call: it drafts, asks the runtime to
 validate, feeds the runtime's own diagnostics back to the model, and retries
@@ -76,6 +83,32 @@ Plan and run:
 ```bash
 cargo run -p rf-agent -- run "write the clipboard contents to the log" \
   --variables '{"expected":"hello"}' --timeout 120
+```
+
+Print the Markdown execution report:
+
+```bash
+cargo run -p rf-agent -- --report run "log a greeting"
+```
+
+### Watching and steering from a terminal
+
+When the runtime is started with `--require-approval`, a gated node blocks until
+an operator answers. These commands are the terminal equivalent of the Studio's
+Agent panel:
+
+```bash
+# What is running, and what is waiting on a human?
+cargo run -p rf-agent -- sessions
+
+# Release or refuse the run that is blocked.
+cargo run -p rf-agent -- approve <session-id> <approval-id>
+cargo run -p rf-agent -- approve <session-id> <approval-id> --deny --by alice
+
+# Pause, resume or stop a run.
+cargo run -p rf-agent -- control <run-id> pause
+cargo run -p rf-agent -- control <run-id> resume
+cargo run -p rf-agent -- control <run-id> cancel
 ```
 
 Replay a recorded session:
@@ -120,10 +153,12 @@ crates/rf-agent/src/
 ├── lib.rs              re-exports and the dependency rule
 ├── provider.rs         LlmProvider trait, OpenAI-compatible adapter, mock
 ├── prompt.rs           system prompt built from the runtime's node catalogue
+├── selector.rs         narrows the catalogue to the tools a goal needs
 ├── planner.rs          draft → validate → repair loop
 ├── policy.rs           budgets and node-type guardrails
 ├── runtime_client.rs   the HTTP client (the only route into a system)
 ├── audit.rs            JSON Lines decision trace and replay
+├── report.rs           the Markdown execution report
 ├── agent.rs            session composition
 └── bin/rf-agent.rs     the command line
 ```
@@ -135,5 +170,8 @@ cargo test
 ```
 
 The tests cover the repair loop (including that diagnostics reach the model),
-guardrail refusal, budget exhaustion, trace round-tripping, and the transport
-error a caller sees when the runtime is down.
+guardrail refusal, budget exhaustion, trace round-tripping, tool selection, the
+transport error a caller sees when the runtime is down, and — against a scripted
+runtime speaking real HTTP — session publication, plan previews, run observation,
+re-planning after a fixable failure, refusing to re-plan after a policy refusal,
+and pausing, resuming and cancelling a run.

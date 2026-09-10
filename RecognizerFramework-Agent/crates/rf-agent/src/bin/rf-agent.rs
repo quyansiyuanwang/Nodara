@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use rf_agent::{
     audit::{self, AuditTrace},
     Agent, AgentConfig, AgentResult, GuardrailPolicy, LlmProvider, MockProvider, OpenAiProvider,
-    ToolPolicy,
+    RuntimeClient, ToolPolicy,
 };
 
 #[derive(Parser)]
@@ -37,6 +37,10 @@ struct Cli {
     /// Allow only these node types (repeatable). Implies an allowlist.
     #[arg(long = "allow", global = true, value_name = "NODE_TYPE")]
     allow: Vec<String>,
+
+    /// Print the execution report as Markdown when the command finishes.
+    #[arg(long, global = true)]
+    report: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -82,6 +86,9 @@ enum Command {
         /// Seconds to wait for the run.
         #[arg(long, default_value_t = 300)]
         timeout: u64,
+        /// Replay these canned model replies instead of calling a provider.
+        #[arg(long = "mock", value_name = "JSON", hide = true)]
+        mock: Vec<String>,
     },
 
     /// Replay a recorded decision trace.
@@ -89,6 +96,47 @@ enum Command {
         /// Trace file written by `--trace`.
         file: PathBuf,
     },
+
+    /// List agent sessions and any approvals waiting on an operator.
+    Sessions {
+        /// Emit as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Answer a pending approval that is blocking a run.
+    Approve {
+        /// Session the approval belongs to.
+        session_id: String,
+        /// Approval to decide.
+        approval_id: String,
+        /// Refuse it instead of granting it.
+        #[arg(long)]
+        deny: bool,
+        /// Who is deciding, recorded in the audit trail.
+        #[arg(long, default_value = "operator")]
+        by: String,
+    },
+
+    /// Pause, resume or cancel a run.
+    Control {
+        /// Run to steer.
+        run_id: String,
+        /// What to do.
+        #[arg(value_enum)]
+        action: ControlAction,
+    },
+}
+
+/// Run-control actions available from the command line.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum ControlAction {
+    /// Suspend at the next node boundary.
+    Pause,
+    /// Continue.
+    Resume,
+    /// Stop.
+    Cancel,
 }
 
 fn main() {
@@ -163,6 +211,9 @@ fn run() -> AgentResult<()> {
             let agent = Agent::new(provider.as_ref(), config);
             let outcome = agent.plan(&goal, &constraints)?;
             print_outcome(&outcome)?;
+            if cli.report {
+                print!("{}", outcome.report.to_markdown());
+            }
             if let (Some(workflow), Some(path)) = (&outcome.workflow, out) {
                 write_workflow(workflow, &path)?;
                 eprintln!("wrote {}", path.display());
@@ -178,8 +229,9 @@ fn run() -> AgentResult<()> {
             constraints,
             variables,
             timeout,
+            mock,
         } => {
-            let provider = build_provider(&[])?;
+            let provider = build_provider(&mock)?;
             let mut config = config;
             config.auto_run = true;
             config.run_timeout = Duration::from_secs(timeout);
@@ -187,6 +239,9 @@ fn run() -> AgentResult<()> {
             let agent = Agent::new(provider.as_ref(), config);
             let outcome = agent.plan_and_run(&goal, &constraints)?;
             print_outcome(&outcome)?;
+            if cli.report {
+                print!("{}", outcome.report.to_markdown());
+            }
             if !outcome.accepted {
                 std::process::exit(2);
             }
@@ -200,6 +255,105 @@ fn run() -> AgentResult<()> {
             let entries = AuditTrace::load(&file)?;
             println!("{}", audit::render(&entries));
             Ok(())
+        }
+
+        Command::Sessions { json } => {
+            let client = RuntimeClient::new(cli.runtime.clone());
+            let payload = client.sessions()?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&payload)?);
+            } else {
+                print_sessions(&payload);
+            }
+            Ok(())
+        }
+
+        Command::Approve {
+            session_id,
+            approval_id,
+            deny,
+            by,
+        } => {
+            let client = RuntimeClient::new(cli.runtime.clone());
+            let decision = if deny {
+                rf_schema::ApprovalDecision::Denied
+            } else {
+                rf_schema::ApprovalDecision::Approved
+            };
+            let session = client.decide_approval(&session_id, &approval_id, decision, &by)?;
+            eprintln!("session {session_id} is now {:?}", session.status);
+            Ok(())
+        }
+
+        Command::Control { run_id, action } => {
+            let client = RuntimeClient::new(cli.runtime.clone());
+            let snapshot = match action {
+                ControlAction::Pause => client.pause(&run_id)?,
+                ControlAction::Resume => client.resume(&run_id)?,
+                ControlAction::Cancel => client.cancel(&run_id)?,
+            };
+            eprintln!(
+                "run {run_id} is now {}",
+                snapshot
+                    .get("status")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("unknown")
+            );
+            Ok(())
+        }
+    }
+}
+
+fn print_sessions(payload: &serde_json::Value) {
+    let sessions = payload
+        .get("sessions")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if sessions.is_empty() {
+        println!("no sessions");
+    }
+    for session in &sessions {
+        println!(
+            "{}  {:<10}  {}",
+            session
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("-"),
+            session
+                .get("status")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("-"),
+            session
+                .get("goal")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("-")
+        );
+    }
+    let pending = payload
+        .get("pending_approvals")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if !pending.is_empty() {
+        println!("\nawaiting approval:");
+        for entry in &pending {
+            let approval = &entry["approval"];
+            println!(
+                "  session {} approval {} -> {}",
+                entry
+                    .get("session_id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("-"),
+                approval
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("-"),
+                approval
+                    .get("reason")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("-")
+            );
         }
     }
 }

@@ -6,7 +6,10 @@
 
 use std::time::Duration;
 
-use rf_schema::{NodeDescriptor, ValidationReport, Workflow};
+use rf_schema::{
+    AgentSession, ApprovalRequest, EventEnvelope, MessageRole, NodeDescriptor, PlanPreview,
+    SessionStatus, ValidationReport, Workflow,
+};
 use serde_json::Value;
 
 use crate::error::{AgentError, AgentResult};
@@ -115,6 +118,118 @@ impl RuntimeClient {
     /// Read a run snapshot.
     pub fn get_run(&self, run_id: &str) -> AgentResult<Value> {
         self.get(&format!("/api/v1/runs/{run_id}"))
+    }
+
+    /// The buffered event sequence for a run.
+    ///
+    /// The Studio streams over the WebSocket; the agent reads the same sequence
+    /// here. Observing a run therefore does not require carrying a WebSocket
+    /// stack in a command-line tool whose other calls are already REST.
+    pub fn event_log(&self, run_id: &str) -> AgentResult<Vec<EventEnvelope>> {
+        let payload = self.get(&format!("/api/v1/runs/{run_id}/event-log"))?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Create an agent session so the Studio can watch the work.
+    pub fn create_session(&self, goal: &str, provider: &str) -> AgentResult<AgentSession> {
+        let payload = self.post(
+            "/api/v1/agent/sessions",
+            serde_json::json!({ "goal": goal, "provider": provider }),
+        )?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Read a session.
+    pub fn get_session(&self, session_id: &str) -> AgentResult<AgentSession> {
+        let payload = self.get(&format!("/api/v1/agent/sessions/{session_id}"))?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Append a conversation turn.
+    pub fn append_message(
+        &self,
+        session_id: &str,
+        role: MessageRole,
+        text: &str,
+    ) -> AgentResult<AgentSession> {
+        let payload = self.post(
+            &format!("/api/v1/agent/sessions/{session_id}/messages"),
+            serde_json::json!({ "role": role, "text": text }),
+        )?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Publish the plan preview the Studio renders.
+    pub fn publish_plan(
+        &self,
+        session_id: &str,
+        preview: &PlanPreview,
+    ) -> AgentResult<AgentSession> {
+        let payload = self.post(
+            &format!("/api/v1/agent/sessions/{session_id}/plan"),
+            serde_json::to_value(preview)?,
+        )?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Mark a session finished, failed or cancelled.
+    pub fn set_session_status(
+        &self,
+        session_id: &str,
+        status: SessionStatus,
+    ) -> AgentResult<AgentSession> {
+        let payload = self.post(
+            &format!("/api/v1/agent/sessions/{session_id}/status"),
+            serde_json::json!({ "status": status }),
+        )?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Approvals waiting for an operator, across every session.
+    pub fn pending_approvals(&self) -> AgentResult<Vec<ApprovalRequest>> {
+        let payload = self.get("/api/v1/agent/approvals")?;
+        let approvals = payload.as_array().cloned().unwrap_or_default();
+        Ok(approvals
+            .into_iter()
+            .filter_map(|entry| serde_json::from_value(entry.get("approval")?.clone()).ok())
+            .collect())
+    }
+
+    /// Record an operator decision on a pending approval.
+    pub fn decide_approval(
+        &self,
+        session_id: &str,
+        approval_id: &str,
+        decision: rf_schema::ApprovalDecision,
+        decided_by: &str,
+    ) -> AgentResult<AgentSession> {
+        let payload = self.post(
+            &format!("/api/v1/agent/sessions/{session_id}/approvals/{approval_id}"),
+            serde_json::json!({ "decision": decision, "decided_by": decided_by }),
+        )?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// Every session the runtime knows about, with the raw pending approvals.
+    pub fn sessions(&self) -> AgentResult<Value> {
+        self.get("/api/v1/agent/sessions")
+    }
+
+    /// Start a run bound to a session, so gated nodes can ask for approval.
+    pub fn start_run_for_session(
+        &self,
+        session_id: &str,
+        workflow: &Workflow,
+        variables: serde_json::Value,
+    ) -> AgentResult<Value> {
+        self.post(
+            "/api/v1/runs",
+            serde_json::json!({
+                "workflow": workflow,
+                "variables": variables,
+                "session_id": session_id,
+            }),
+        )
     }
 
     /// Pause a run.

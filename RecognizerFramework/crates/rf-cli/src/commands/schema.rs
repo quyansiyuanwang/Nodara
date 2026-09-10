@@ -13,6 +13,8 @@ const DOCUMENTS: &[Document] = &[
     ("plugin-manifest.schema.json", rf_schema::manifest_schema),
     ("node-descriptor.schema.json", rf_schema::descriptor_schema),
     ("execution-event.schema.json", rf_schema::event_schema),
+    ("agent-session.schema.json", rf_schema::session_schema),
+    ("agent-tool-call.schema.json", rf_schema::tool_call_schema),
 ];
 
 /// Write or print the JSON Schema documents generated from the Rust types.

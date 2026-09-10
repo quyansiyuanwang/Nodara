@@ -1,0 +1,711 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ApprovalDecision": {
+      "description": "An operator decision on a gated capability.",
+      "oneOf": [
+        {
+          "description": "Allow the capability to run.",
+          "enum": [
+            "approved"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Refuse it.",
+          "enum": [
+            "denied"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "ApprovalRequest": {
+      "description": "One pending or resolved approval.",
+      "properties": {
+        "capability": {
+          "description": "Capability under evaluation.",
+          "type": "string"
+        },
+        "decided_at_ms": {
+          "description": "When the decision was taken.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "decided_by": {
+          "description": "Who decided.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApprovalDecision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Decision, once taken."
+        },
+        "id": {
+          "description": "Identifier used to decide it.",
+          "type": "string"
+        },
+        "input": {
+          "default": null,
+          "description": "The input the capability would receive, so the operator can judge it."
+        },
+        "node_id": {
+          "description": "Node that is waiting.",
+          "type": "string"
+        },
+        "node_type": {
+          "description": "Node type that is waiting.",
+          "type": "string"
+        },
+        "permissions": {
+          "default": [],
+          "description": "Permissions the node declares.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "description": "Why policy asked for approval, and what the node would do.",
+          "type": "string"
+        },
+        "requested_at_ms": {
+          "description": "Unix epoch milliseconds the request was raised.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "run_id": {
+          "description": "Run that is waiting.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "id",
+        "node_id",
+        "node_type",
+        "reason",
+        "requested_at_ms",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "Diagnostic": {
+      "description": "A single validation finding.",
+      "properties": {
+        "code": {
+          "description": "Stable machine-readable code, e.g. `WF103`.",
+          "type": "string"
+        },
+        "edge_id": {
+          "description": "Related edge, when applicable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hint": {
+          "description": "Suggested remediation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "description": "Human-readable explanation.",
+          "type": "string"
+        },
+        "node_id": {
+          "description": "Related node, when applicable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "JSON-pointer-ish location, e.g. `/nodes/2/config`.",
+          "type": "string"
+        },
+        "severity": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Severity"
+            }
+          ],
+          "description": "Severity of the finding."
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Edge": {
+      "description": "A directed edge between two nodes.",
+      "properties": {
+        "condition": {
+          "description": "Optional guard expression. The edge is only taken when it evaluates truthy.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Unique identifier within the workflow.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Optional display label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "Source node id.",
+          "type": "string"
+        },
+        "source_port": {
+          "description": "Optional named output port on the source node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "Target node id.",
+          "type": "string"
+        },
+        "target_port": {
+          "description": "Optional named input port on the target node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "MessageRole": {
+      "description": "Who authored a message.",
+      "oneOf": [
+        {
+          "description": "The human operator.",
+          "enum": [
+            "operator"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The agent.",
+          "enum": [
+            "agent"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The runtime.",
+          "enum": [
+            "runtime"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Metadata": {
+      "description": "Human-facing metadata attached to a workflow.",
+      "properties": {
+        "author": {
+          "default": null,
+          "description": "Author or owning team.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "default": null,
+          "description": "ISO-8601 creation timestamp.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "default": null,
+          "description": "Longer description.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extensions": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Extension bag. Unknown keys are preserved on round-trip.",
+          "type": "object"
+        },
+        "name": {
+          "default": "",
+          "description": "Display name.",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "description": "Free-form tags used for search.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "updated_at": {
+          "default": null,
+          "description": "ISO-8601 last-modified timestamp.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "default": null,
+          "description": "Semantic version of the workflow itself.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Node": {
+      "description": "A node in the workflow graph.",
+      "properties": {
+        "config": {
+          "default": {},
+          "description": "Node-type specific configuration. Shape is described by the node descriptor."
+        },
+        "id": {
+          "description": "Unique, stable identifier within the workflow.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Optional display label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "description": "Extension bag.",
+          "type": "object"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Position"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Editor position (ignored by the runtime)."
+        },
+        "type": {
+          "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "type": "object"
+    },
+    "PlanPreview": {
+      "description": "The plan the agent proposed, with the runtime's verdict on it.",
+      "properties": {
+        "at_ms": {
+          "description": "Unix epoch milliseconds the preview was published.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "diagnostics": {
+          "default": [],
+          "description": "Full diagnostics, so the editor can underline the problems.",
+          "items": {
+            "$ref": "#/definitions/Diagnostic"
+          },
+          "type": "array"
+        },
+        "errors": {
+          "description": "Blocking error count.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "valid": {
+          "description": "Whether the runtime accepted it.",
+          "type": "boolean"
+        },
+        "warnings": {
+          "description": "Warning count.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "workflow": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Workflow"
+            }
+          ],
+          "description": "The proposed workflow."
+        }
+      },
+      "required": [
+        "at_ms",
+        "errors",
+        "valid",
+        "warnings",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "Position": {
+      "description": "Canvas position for editor round-tripping. Ignored by the runtime.",
+      "properties": {
+        "x": {
+          "description": "Horizontal offset in canvas units.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Vertical offset in canvas units.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "SessionMessage": {
+      "description": "One turn in the conversation.",
+      "properties": {
+        "at_ms": {
+          "description": "Unix epoch milliseconds.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "role": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MessageRole"
+            }
+          ],
+          "description": "Author."
+        },
+        "seq": {
+          "description": "Monotonic sequence number within the session.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "text": {
+          "description": "Body text.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "at_ms",
+        "role",
+        "seq",
+        "text"
+      ],
+      "type": "object"
+    },
+    "SessionStatus": {
+      "description": "Lifecycle of an agent session.",
+      "oneOf": [
+        {
+          "description": "Created, nothing planned yet.",
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The agent is asking the model.",
+          "enum": [
+            "planning"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A plan exists but a capability needs operator consent.",
+          "enum": [
+            "awaiting_approval"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A plan exists and policy has cleared it.",
+          "enum": [
+            "ready"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The planned workflow is executing.",
+          "enum": [
+            "running"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The run finished successfully.",
+          "enum": [
+            "completed"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The run failed, or planning did.",
+          "enum": [
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "An operator stopped it.",
+          "enum": [
+            "cancelled"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Severity": {
+      "description": "Severity of a validation diagnostic.",
+      "oneOf": [
+        {
+          "description": "Purely informational; does not affect validity.",
+          "enum": [
+            "info"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Likely a mistake, but execution can proceed.",
+          "enum": [
+            "warning"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Blocks execution.",
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Variable": {
+      "description": "A variable declared at workflow scope.",
+      "properties": {
+        "description": {
+          "default": null,
+          "description": "Optional documentation string.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secret": {
+          "default": false,
+          "description": "Marks a value that must never be written to logs or audit records.",
+          "type": "boolean"
+        },
+        "value": {
+          "default": null,
+          "description": "Default value."
+        }
+      },
+      "type": "object"
+    },
+    "Workflow": {
+      "description": "A complete workflow document.",
+      "properties": {
+        "edges": {
+          "default": [],
+          "description": "All edges in the graph.",
+          "items": {
+            "$ref": "#/definitions/Edge"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Stable workflow identifier, e.g. `workflow.example`.",
+          "type": "string"
+        },
+        "metadata": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Metadata"
+            }
+          ],
+          "default": {
+            "author": null,
+            "created_at": null,
+            "description": null,
+            "extensions": {},
+            "name": "",
+            "tags": [],
+            "updated_at": null,
+            "version": null
+          },
+          "description": "Human-facing metadata."
+        },
+        "nodes": {
+          "default": [],
+          "description": "All nodes in the graph.",
+          "items": {
+            "$ref": "#/definitions/Node"
+          },
+          "type": "array"
+        },
+        "schema_version": {
+          "default": "2.0",
+          "description": "Workflow format version. See [`crate::version::SCHEMA_VERSION`].",
+          "type": "string"
+        },
+        "variables": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Variable"
+          },
+          "default": {},
+          "description": "Workflow-scoped variables.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "A complete agent session.",
+  "properties": {
+    "approvals": {
+      "default": [],
+      "description": "Approvals raised during the session.",
+      "items": {
+        "$ref": "#/definitions/ApprovalRequest"
+      },
+      "type": "array"
+    },
+    "created_at_ms": {
+      "description": "Creation time.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "goal": {
+      "description": "What the operator asked for.",
+      "type": "string"
+    },
+    "id": {
+      "description": "Identifier.",
+      "type": "string"
+    },
+    "messages": {
+      "default": [],
+      "description": "Conversation, oldest first.",
+      "items": {
+        "$ref": "#/definitions/SessionMessage"
+      },
+      "type": "array"
+    },
+    "plan": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PlanPreview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Latest plan preview."
+    },
+    "provider": {
+      "default": "",
+      "description": "Provider the agent used, for display.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "Run started from this session.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/SessionStatus"
+        }
+      ],
+      "description": "Lifecycle state."
+    },
+    "tokens_used": {
+      "default": 0,
+      "description": "Tokens the agent has spent.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "updated_at_ms": {
+      "description": "Last mutation time.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "created_at_ms",
+    "goal",
+    "id",
+    "status",
+    "updated_at_ms"
+  ],
+  "title": "AgentSession",
+  "type": "object"
+}

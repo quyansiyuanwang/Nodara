@@ -6,6 +6,9 @@
  */
 
 import {
+  AgentSession,
+  AgentSessionList,
+  ApprovalDecision,
   ApiErrorBody,
   EventEnvelope,
   JsonSchema,
@@ -125,6 +128,29 @@ export class RuntimeClient {
 
   cancel(runId: string): Promise<RunSnapshot> {
     return this.post(`/runs/${encodeURIComponent(runId)}/cancel`);
+  }
+
+  /** Every agent session, plus the approvals waiting on an operator. */
+  agentSessions(): Promise<AgentSessionList> {
+    return this.request<AgentSessionList>("/agent/sessions");
+  }
+
+  /**
+   * Answer an approval that is blocking a run.
+   *
+   * The run is genuinely parked until this returns: the runtime's approval
+   * handler is blocking the run thread on the decision, not merely recording it.
+   */
+  decideApproval(
+    sessionId: string,
+    approvalId: string,
+    decision: ApprovalDecision,
+    decidedBy = "studio",
+  ): Promise<AgentSession> {
+    return this.post(
+      `/agent/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(approvalId)}`,
+      { decision, decided_by: decidedBy },
+    );
   }
 
   private post<T>(path: string, body: unknown = {}): Promise<T> {

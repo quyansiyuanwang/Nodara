@@ -30,6 +30,8 @@ pub mod event;
 pub mod graph;
 pub mod manifest;
 pub mod migration;
+pub mod session;
+pub mod tool;
 pub mod validation;
 pub mod version;
 pub mod workflow;
@@ -40,6 +42,11 @@ pub use event::{EventEnvelope, ExecutionEvent, LogLevel, RunStatus};
 pub use graph::{GraphError, WorkflowGraph};
 pub use manifest::{PluginManifest, MANIFEST_FILE};
 pub use migration::{migrate, MigrationReport};
+pub use session::{
+    AgentSession, ApprovalDecision, ApprovalDecisionRequest, ApprovalRequest, MessageRole,
+    PlanPreview, SessionMessage, SessionMessageRequest, SessionRequest, SessionStatus,
+};
+pub use tool::{ToolCall, ToolCallOutcome};
 pub use validation::{
     validate, validate_with, Diagnostic, NodeTypeIndex, Severity, ValidationOptions,
     ValidationReport,
@@ -70,4 +77,14 @@ pub fn descriptor_schema() -> serde_json::Value {
 /// JSON Schema for an execution event envelope.
 pub fn event_schema() -> serde_json::Value {
     json_schema::<EventEnvelope>()
+}
+
+/// JSON Schema for an agent tool call.
+pub fn tool_call_schema() -> serde_json::Value {
+    json_schema::<ToolCall>()
+}
+
+/// JSON Schema for an agent session.
+pub fn session_schema() -> serde_json::Value {
+    json_schema::<AgentSession>()
 }

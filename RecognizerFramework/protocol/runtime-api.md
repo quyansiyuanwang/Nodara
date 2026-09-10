@@ -20,6 +20,15 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/runs/{id}/step` | Allow exactly one more node |
 | `POST` | `/api/v1/runs/{id}/cancel` | Cancel, including in-flight plugin calls |
 | `WS` | `/api/v1/runs/{id}/events` | Replay then stream execution events |
+| `GET` | `/api/v1/runs/{id}/event-log` | The same event sequence over REST |
+| `GET` | `/api/v1/agent/sessions` | Agent sessions and pending approvals |
+| `POST` | `/api/v1/agent/sessions` | Create a session |
+| `GET` | `/api/v1/agent/sessions/{id}` | One session |
+| `POST` | `/api/v1/agent/sessions/{id}/messages` | Append a conversation turn |
+| `POST` | `/api/v1/agent/sessions/{id}/plan` | Publish a plan preview |
+| `POST` | `/api/v1/agent/sessions/{id}/status` | Set the session status |
+| `POST` | `/api/v1/agent/sessions/{id}/approvals/{approval_id}` | Decide an approval |
+| `GET` | `/api/v1/agent/approvals` | Every approval waiting on an operator |
 
 ## Discover, then render
 
@@ -144,3 +153,47 @@ Failures use a structured body:
 | `404` | unknown run |
 | `409` | control command sent to a finished run |
 | `422` | workflow failed validation before starting |
+
+## Agent sessions, and why approvals live there
+
+The architecture document requires that the Studio and the agent never call each
+other, and that they cooperate through the runtime's session and event API. The
+runtime stores sessions as **data**: it never builds a prompt, never calls a
+model and never plans. The agent process produces all of that and publishes it
+here; the Studio reads it back.
+
+That is also how approvals work, and it is the reason they are enforced rather
+than decorative:
+
+```text
+agent  --POST /agent/sessions-------->  session (draft)
+agent  --POST /agent/sessions/{id}/plan> plan preview + validation report
+agent  --POST /runs {session_id}------>  run bound to the session
+                                          |
+                       gated node reached |
+                                          v
+   policy says require_approval -> runtime raises an ApprovalRequest
+                                   and BLOCKS the run thread
+                                          |
+studio --POST .../approvals/{aid}------>  decision released to the run
+```
+
+Three properties follow, and all three are covered by tests:
+
+* a run bound to no session is **refused** when approval is required, because an
+  unanswered request must never silently authorise a side effect;
+* an approval that times out (`--approval-timeout`) is denied, not granted;
+* the decision, who took it, and when, are recorded on the session and in the
+  audit log.
+
+Run `rf-cli serve --require-approval` to make this the live behaviour; the
+default (`auto_approve`) is the documented phase-one mode for unattended runs,
+and it still records `capability_decision` events for every gated node.
+
+### Reading events without a WebSocket
+
+`WS /runs/{id}/events` is the stream for the Studio. `GET /runs/{id}/event-log`
+returns the identical sequence as JSON, which is what the agent polls: a batch
+command that already speaks REST does not need a WebSocket client to observe a
+run. Both read the same runtime-assigned `seq`, so neither can miss an event the
+other saw.

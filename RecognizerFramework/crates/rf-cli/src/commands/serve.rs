@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use rf_core::{AllowAllPolicy, AllowlistPolicy, CapabilityPolicy, DefaultPolicy};
 use rf_runtime::{PolicyMode, RuntimeBuilder, RuntimeConfig};
@@ -24,6 +25,10 @@ pub struct ServeArgs {
     pub allow_all: bool,
     /// Audit file.
     pub audit: Option<PathBuf>,
+    /// Require an operator decision for every gated capability.
+    pub require_approval: bool,
+    /// How long to wait for that decision.
+    pub approval_timeout: Duration,
 }
 
 /// Start the runtime server.
@@ -37,6 +42,8 @@ pub fn execute(args: ServeArgs) -> CliResult<()> {
         port: args.port,
         autoload_plugins: !args.in_process,
         policy,
+        auto_approve: !args.require_approval,
+        approval_timeout: args.approval_timeout,
         audit_path: args.audit.clone(),
         ..RuntimeConfig::default()
     };

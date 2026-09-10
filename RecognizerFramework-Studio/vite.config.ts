@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 /**
  * The Studio talks to a runtime over HTTP, so during development we proxy
@@ -21,5 +21,9 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+  },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.ts"],
   },
 });

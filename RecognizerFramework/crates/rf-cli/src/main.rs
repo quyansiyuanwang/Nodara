@@ -94,6 +94,12 @@ enum Command {
         /// Destination file. Defaults to stdout.
         #[arg(long, value_name = "FILE")]
         out: Option<PathBuf>,
+        /// Assert that the source document is this schema major version.
+        #[arg(long, value_name = "MAJOR")]
+        from: Option<u32>,
+        /// Assert that the result is this schema major version.
+        #[arg(long, value_name = "MAJOR")]
+        to: Option<u32>,
     },
 
     /// List plugins found under the configured directories.
@@ -139,6 +145,13 @@ enum Command {
         /// Append audit records to this file.
         #[arg(long, value_name = "FILE")]
         audit: Option<PathBuf>,
+        /// Require an operator decision for every gated capability
+        /// (raises a request against the owning agent session).
+        #[arg(long)]
+        require_approval: bool,
+        /// Seconds to wait for that decision.
+        #[arg(long, value_name = "SECONDS", default_value_t = 300)]
+        approval_timeout: u64,
     },
 }
 
@@ -181,7 +194,12 @@ fn run() -> CliResult<()> {
             in_process,
         } => commands::simulate::execute(&file, json, &plugin_dirs, in_process),
         Command::Inspect { file, json } => commands::inspect::execute(&file, json),
-        Command::Migrate { file, out } => commands::migrate::execute(&file, out.as_deref()),
+        Command::Migrate {
+            file,
+            out,
+            from,
+            to,
+        } => commands::migrate::execute(&file, out.as_deref(), from, to),
         Command::Plugins { plugin_dirs, json } => commands::plugins::execute(&plugin_dirs, json),
         Command::Schema { out, stdout } => commands::schema::execute(&out, stdout),
         Command::Serve {
@@ -192,6 +210,8 @@ fn run() -> CliResult<()> {
             allow,
             allow_all,
             audit,
+            require_approval,
+            approval_timeout,
         } => commands::serve::execute(commands::serve::ServeArgs {
             host,
             port,
@@ -200,6 +220,8 @@ fn run() -> CliResult<()> {
             allow,
             allow_all,
             audit,
+            require_approval,
+            approval_timeout: std::time::Duration::from_secs(approval_timeout),
         }),
     }
 }
