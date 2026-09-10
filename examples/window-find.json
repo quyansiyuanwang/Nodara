@@ -1,0 +1,31 @@
+{
+  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.window-find",
+  "metadata": {
+    "name": "Find a window",
+    "description": "Locates a window by title and logs its geometry. Read-only; requires the platform plugin.",
+    "tags": ["windows", "plugin"]
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start" },
+    {
+      "id": "find",
+      "type": "windows.Window.Find",
+      "label": "Find Notepad",
+      "config": { "title": "Notepad", "output_var": "window" }
+    },
+    {
+      "id": "report",
+      "type": "core.Log",
+      "config": { "message": "found {{window.title}} at {{window.rect.width}}x{{window.rect.height}}" }
+    },
+    { "id": "end", "type": "core.End" }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "find" },
+    { "id": "e2", "source": "find", "target": "report" },
+    { "id": "e3", "source": "report", "target": "end" }
+  ],
+  "variables": {}
+}

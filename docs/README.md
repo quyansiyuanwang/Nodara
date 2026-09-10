@@ -1,83 +1,49 @@
-# Documentation
+# Documentation index
 
-Welcome to RecognizerFramework documentation.
+Everything published, in one place.
 
-## Getting Started
+## Getting started
 
-- [Quick Start Guide](../QUICKSTART.md) - Get up and running in 5 minutes
-- [Installation](installation.md) - Detailed installation instructions
-- [First Workflow](tutorials/first-workflow.md) - Create your first automation
+| Document | Contents |
+|----------|----------|
+| [../README.md](../README.md) | What the project is and how the pieces fit |
+| [../QUICKSTART.md](../QUICKSTART.md) | End-to-end walkthrough in five minutes |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Repository layout and dependency rules |
+| [../examples/README.md](../examples/README.md) | Runnable example workflows |
 
-## User Guides
+## Core
 
-### Visual Editor
-- [Studio Overview](studio-guide.md) - Visual workflow editor guide
-- [Node Types](node-reference.md) - Available node types and configuration
-- [Connecting Nodes](tutorials/connecting-nodes.md) - Building workflow graphs
-- [Running Workflows](tutorials/running-workflows.md) - Execution and debugging
+| Document | Contents |
+|----------|----------|
+| [../RecognizerFramework/docs/architecture.md](../RecognizerFramework/docs/architecture.md) | Crate detail, execution model, policy and audit |
+| [../RecognizerFramework/docs/node-authoring.md](../RecognizerFramework/docs/node-authoring.md) | Writing a capability, in process or as a plugin |
+| [../RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) | JSON-RPC over stdio, lifecycle, error codes |
+| [../RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) | HTTP and WebSocket API, diagnostic codes |
+| [../RecognizerFramework/schema](../RecognizerFramework/schema) | Generated JSON Schema documents |
+| [../RecognizerFramework/plugins/README.md](../RecognizerFramework/plugins/README.md) | Plugin layout and executable resolution |
 
-### Command Line
-- [CLI Reference](cli-reference.md) - Command-line interface documentation
-- [Workflow Validation](tutorials/validation.md) - Schema validation
-- [Permissions](permissions.md) - Security and capability model
+## Clients
 
-### Windows Automation
-- [Window Management](windows/window-management.md) - Finding and controlling windows
-- [Input Control](windows/input-control.md) - Keyboard and mouse automation
-- [Screen Capture](windows/screen-capture.md) - Screenshots and window capture
-- [Clipboard Operations](windows/clipboard.md) - Reading and writing clipboard
+| Document | Contents |
+|----------|----------|
+| [../RecognizerFramework-Studio/README.md](../RecognizerFramework-Studio/README.md) | The visual editor |
+| [../RecognizerFramework-Agent/README.md](../RecognizerFramework-Agent/README.md) | The planner and operator |
 
-## Advanced Topics
+## Project
 
-### AI Integration
-- [AI Agent Overview](ai-integration.md) - Using AI to create workflows
-- [Tool Authorization](ai-tools.md) - Controlling AI capabilities
-- [Custom Models](ai-custom-models.md) - Integrating your own AI models
+| Document | Contents |
+|----------|----------|
+| [../CHANGELOG.md](../CHANGELOG.md) | Version history |
+| [../LICENSE](../LICENSE) | MIT licence |
 
-### Development
-- [Architecture](architecture.md) - System architecture overview
-- [API Reference](api.md) - Rust API documentation
-- [Platform Adapters](platform-adapters.md) - Implementing platform support
-- [Vision & OCR](vision-ocr.md) - Computer vision integration
+## Regenerating the schemas
 
-### Workflow Schema
-- [Schema v2 Specification](schema-v2.md) - Workflow JSON schema
-- [Migration from v1](migration-v1-to-v2.md) - Upgrading legacy workflows
-- [Expression Language](expressions.md) - Calculate expressions
+The JSON Schema documents are generated from the Rust types. After changing a
+type in `rf-schema`, regenerate and commit them:
 
-## Examples
+```bash
+cd RecognizerFramework
+cargo run -p rf-cli -- schema --out schema
+```
 
-- [Basic Examples](../examples/README.md) - Simple workflow examples
-- [Windows Automation Examples](../examples/windows/) - Platform-specific examples
-- [AI Examples](../examples/ai/) - AI-generated workflows
-
-## Reference
-
-- [Node Type Reference](node-reference.md) - All available node types
-- [Error Codes](error-codes.md) - Error messages and solutions
-- [Configuration Options](configuration.md) - Runtime configuration
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
-
-## Contributing
-
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute
-- [Development Setup](development.md) - Setting up development environment
-- [Testing Guide](testing.md) - Writing and running tests
-- [Release Process](release-process.md) - How releases are made
-
-## Additional Resources
-
-- [FAQ](faq.md) - Frequently asked questions
-- [Glossary](glossary.md) - Terms and definitions
-- [Changelog](../CHANGELOG.md) - Version history
-- [License](../LICENSE) - MIT License
-
-## Need Help?
-
-- 💬 [GitHub Issues](https://github.com/yourusername/RecognizerFramework/issues) - Report bugs or request features
-- 📖 [API Documentation](https://docs.rs/rf-core) - Rust crate documentation
-- 🔍 Search this documentation using your browser's search (Ctrl+F)
-
----
-
-**Documentation Version**: 2.0.0 | **Last Updated**: 2024-09-11
+CI fails if the checked-in schemas are stale, so they cannot drift unnoticed.

@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "PortDescriptor": {
+      "description": "A single input or output port on a node.",
+      "properties": {
+        "default": {
+          "description": "Default value shown in the editor."
+        },
+        "description": {
+          "description": "Optional documentation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "display_name": {
+          "description": "Human-facing label.",
+          "type": "string"
+        },
+        "kind": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PortKind"
+            }
+          ],
+          "description": "Direction of the port."
+        },
+        "name": {
+          "description": "Stable port name used by edges.",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "description": "Whether an edge must be attached for execution to succeed.",
+          "type": "boolean"
+        },
+        "value_type": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ValueType"
+            }
+          ],
+          "description": "Abstract type carried by the port."
+        }
+      },
+      "required": [
+        "display_name",
+        "kind",
+        "name",
+        "value_type"
+      ],
+      "type": "object"
+    },
+    "PortKind": {
+      "description": "Direction of a port.",
+      "oneOf": [
+        {
+          "description": "Data flows into the node.",
+          "enum": [
+            "input"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Data flows out of the node.",
+          "enum": [
+            "output"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "ValueType": {
+      "description": "Abstract data type used for editor-time compatibility checking.",
+      "oneOf": [
+        {
+          "description": "Any JSON value.",
+          "enum": [
+            "any"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "UTF-8 string.",
+          "enum": [
+            "string"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Integer or float.",
+          "enum": [
+            "number"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Boolean.",
+          "enum": [
+            "boolean"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "JSON object.",
+          "enum": [
+            "object"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "JSON array.",
+          "enum": [
+            "array"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Raw image bytes plus dimensions.",
+          "enum": [
+            "image"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A native window handle.",
+          "enum": [
+            "window"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A filesystem path.",
+          "enum": [
+            "path"
+          ],
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "description": "Machine-readable description of a node type.",
+  "properties": {
+    "allows_additional_config": {
+      "default": true,
+      "description": "Whether unknown config keys are permitted.",
+      "type": "boolean"
+    },
+    "capabilities": {
+      "default": [],
+      "description": "Capability identifiers this node uses, e.g. `Input.Keyboard`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "category": {
+      "description": "Palette grouping, e.g. `Input`.",
+      "type": "string"
+    },
+    "config_schema": {
+      "default": null,
+      "description": "JSON Schema describing the `config` object."
+    },
+    "dangerous": {
+      "default": false,
+      "description": "Whether the node performs a side effect that policy may gate.",
+      "type": "boolean"
+    },
+    "description": {
+      "default": "",
+      "description": "Short description shown as a tooltip.",
+      "type": "string"
+    },
+    "display_name": {
+      "description": "Human-facing name shown in the palette.",
+      "type": "string"
+    },
+    "inputs": {
+      "default": [],
+      "description": "Declared input ports.",
+      "items": {
+        "$ref": "#/definitions/PortDescriptor"
+      },
+      "type": "array"
+    },
+    "node_type": {
+      "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.",
+      "type": "string"
+    },
+    "outputs": {
+      "default": [],
+      "description": "Declared output ports.",
+      "items": {
+        "$ref": "#/definitions/PortDescriptor"
+      },
+      "type": "array"
+    },
+    "permissions": {
+      "default": [],
+      "description": "Permissions required, e.g. `input.control`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "plugin_id": {
+      "description": "Contributing plugin id, when the node comes from a plugin.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "version": {
+      "default": "",
+      "description": "Semantic version of this node type's contract.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "category",
+    "display_name",
+    "node_type"
+  ],
+  "title": "NodeDescriptor",
+  "type": "object"
+}

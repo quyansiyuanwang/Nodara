@@ -1,264 +1,145 @@
 # RecognizerFramework
 
-A high-performance workflow automation framework with visual editor, AI-powered workflow generation, and cross-platform support.
+A plugin-based desktop automation platform. Workflows are JSON graphs; every
+capability — keyboard, windows, OCR, or a third party's plugin — is a separate
+process described by a manifest. Editors and AI agents drive the same runtime
+over the same API.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-
-## Overview
-
-RecognizerFramework is a modern automation platform built in Rust, featuring:
-
-- 🎨 **Visual Workflow Editor** - Browser-based graph editor with drag-and-drop interface
-- 🤖 **AI Integration** - Create and optimize workflows using natural language
-- ⚡ **High Performance** - Rust implementation with deterministic execution
-- 🖥️ **Windows Automation** - Complete input control, window management, and screen capture
-- 👁️ **Vision & OCR** - Template matching and text recognition
-- 📱 **Desktop Application** - Native desktop app built with Tauri
-
-## Quick Start
-
-### Prerequisites
-
-- Rust 1.70+ ([install here](https://rustup.rs))
-- Windows 10/11 (for platform features)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/RecognizerFramework.git
-cd RecognizerFramework
-
-# Build the project
-cd RecognizerFramework
-cargo build --release
-
-# Run tests
-cargo test --workspace
+```text
+RecognizerFramework/         core runtime, SDK, plugin protocol, CLI
+RecognizerFramework-Studio/  visual workflow editor (Tauri + web)
+RecognizerFramework-Agent/   natural-language planner and operator
+examples/                    ready-to-run workflow documents
 ```
 
-### Run Visual Editor
+## What makes it different
 
-```bash
-# Start a local web server from project root
-python -m http.server 4173
+**Editing and execution are separate.** The core has no UI. The Studio has no
+execution logic. They meet at a versioned HTTP/WebSocket API.
 
-# Open in browser
-# Navigate to: http://localhost:4173/RecognizerFramework/studio/
-```
+**Capabilities are processes, not modules.** `rf-core` never references the
+Windows or vision capabilities. The runtime discovers them from a directory of
+manifests, exactly like a third-party plugin would be discovered. A plugin crash
+cannot take the runtime down, and a plugin can be upgraded on its own.
 
-### Create Your First Workflow
+**The UI adapts to installed plugins.** Node types are not hardcoded anywhere.
+The Studio fetches node descriptors and their JSON Schemas at start-up and builds
+the palette and the configuration forms from them. Installing a plugin changes
+the editor without rebuilding it.
 
-**Using Visual Editor:**
-1. Open Studio in browser
-2. Drag "System.Log" from palette to canvas
-3. Connect Start → System.Log → Exit
-4. Configure node: `{"message": "Hello World!"}`
-5. Click "▶ Run" to execute
+**Permission does not depend on a prompt.** The agent links only the published
+contract crate, so it cannot execute anything without the runtime's policy layer
+seeing the call. Every capability decision is written to an audit log.
 
-**Using CLI:**
+## Quick start
+
+Requires Rust 1.75+ (and Node 20+ for the Studio).
+
 ```bash
 cd RecognizerFramework
 
-# Validate workflow
-cargo run -p rf-cli -- validate examples/hello-world.json
-
-# Run workflow
-cargo run -p rf-cli -- run examples/hello-world.json
+# Validate, plan and run a workflow
+cargo run -p rf-cli -- validate ../examples/hello-world.json
+cargo run -p rf-cli -- simulate ../examples/hello-world.json
+cargo run -p rf-cli -- run      ../examples/hello-world.json
 ```
 
-## Features
+Expected output ends with:
 
-### Visual Workflow Editor
-
-Browser-based graph editor with:
-- **Node palette** - Drag-and-drop interface
-- **Visual connections** - Connect nodes with lines
-- **Property editor** - Configure node parameters
-- **Real-time validation** - Instant error feedback
-- **Execution controls** - Run, pause, resume, step, cancel
-
-### AI-Powered Workflow Creation
-
-```rust
-// Create workflows using natural language
-let agent = AgentController::new(model, policy);
-let workflow = agent.execute(
-    "Create a workflow that logs a message and waits 2 seconds"
-).await?;
+```text
+run completed: 5 node(s) in 3ms
 ```
 
-**AI Features:**
-- Natural language to workflow conversion
-- Workflow validation and repair
-- Tool authorization and safety controls
-- Budget enforcement (steps, time, tokens)
+### Start the runtime
 
-### Windows Automation
-
-Complete Windows platform support:
-- **Window Management** - Find, focus, enumerate windows
-- **Input Control** - Keyboard, mouse, text input
-- **Screen Capture** - Desktop and window screenshots
-- **Clipboard Operations** - Read/write clipboard
-- **Background Input** - Send input to hidden windows
-
-### Vision & OCR
-
-Lightweight vision capabilities:
-- Template matching without OpenCV dependency
-- System OCR integration
-- Tesseract support (optional)
-- Remote OCR providers
-
-## Architecture
-
+```bash
+cargo run -p rf-cli -- serve --in-process --plugin-dir plugins
+# runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
 ```
-RecognizerFramework/
-├── crates/
-│   ├── rf-schema/      # Workflow types and validation
-│   ├── rf-core/        # Execution engine
-│   ├── rf-platform/    # Platform adapters (Windows/macOS/Linux)
-│   ├── rf-vision/      # Vision and OCR
-│   ├── rf-agent/       # AI agent integration
-│   └── rf-cli/         # Command-line interface
-├── studio/             # Visual workflow editor
-├── desktop/            # Tauri desktop application
-├── schema/             # JSON schemas
-└── examples/           # Example workflows
+
+`--in-process` registers the official capabilities directly; omit it to launch
+`plugins/*/manifest.json` as real child processes instead.
+
+### Open the editor
+
+```bash
+cd ../RecognizerFramework-Studio
+npm install
+npm run dev        # http://localhost:4173
 ```
+
+### Plan with the agent
+
+```bash
+cd ../RecognizerFramework-Agent
+RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "open Notepad and type a greeting"
+```
+
+Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
+
+## The three contracts
+
+| Contract | Field | Current |
+|----------|-------|---------|
+| Workflow document | `schema_version` | `2.0` |
+| Plugin / runtime wire | `protocol_version` | `1` |
+| Public HTTP API | `api_version` | `v1` |
+
+Workflow documents look like this ([full schema](RecognizerFramework/schema/workflow.schema.json)):
+
+```json
+{
+  "schema_version": "2.0",
+  "id": "workflow.hello-world",
+  "metadata": { "name": "Hello World" },
+  "nodes": [
+    { "id": "start", "type": "core.Start" },
+    { "id": "log", "type": "core.Log", "config": { "message": "Hello, {{name}}!" } },
+    { "id": "end", "type": "core.End" }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start", "target": "log" },
+    { "id": "e2", "source": "log", "target": "end" }
+  ],
+  "variables": { "name": { "value": "World" } }
+}
+```
+
+Node types are namespaced: `core.*`, `system.*`, `windows.*`, `vision.*`,
+`agent.*`, plus whatever a third-party plugin introduces.
+
+## Capabilities
+
+| Plugin | Node types | Requires |
+|--------|-----------|----------|
+| built in | `core.Start`, `core.End`, `core.Log`, `core.Calculate`, `core.SetVariable`, `system.Delay` | — |
+| `rf.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard` | `input.control`, `window.control`, `screen.capture`, `clipboard` |
+| `rf.vision` | `vision.TemplateMatch`, `vision.Ocr` | `vision.analyze` |
+
+Nodes that declare permissions are gated: policy is consulted before every
+execution, and the decision appears in the event stream and the audit log.
 
 ## Documentation
 
-- [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
-- [Visual Editor Guide](RecognizerFramework/studio/README.md) - Studio documentation
-- [API Documentation](docs/api.md) - Developer reference
-- [Examples](examples/) - Sample workflows
+| Document | Contents |
+|----------|----------|
+| [QUICKSTART.md](QUICKSTART.md) | End-to-end walkthrough in five minutes |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Repository layout and dependency rules |
+| [RecognizerFramework/docs/architecture.md](RecognizerFramework/docs/architecture.md) | Crate detail, execution model, policy path |
+| [RecognizerFramework/protocol/](RecognizerFramework/protocol) | Plugin protocol and runtime API |
+| [RecognizerFramework/docs/node-authoring.md](RecognizerFramework/docs/node-authoring.md) | Writing a capability |
+| [RecognizerFramework/plugins/README.md](RecognizerFramework/plugins/README.md) | Plugin layout and installation |
+| [examples/README.md](examples/README.md) | The example workflows |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
-## Examples
-
-### Simple Automation
-
-```json
-{
-  "version": 2,
-  "nodes": [
-    {"id": "start", "kind": "Start", "config": {}},
-    {
-      "id": "log",
-      "kind": "System.Log",
-      "config": {"message": "Hello World!"}
-    },
-    {
-      "id": "wait",
-      "kind": "System.Delay",
-      "config": {"seconds": 2}
-    }
-  ],
-  "edges": [
-    {"from": "start", "to": "log"},
-    {"from": "log", "to": "wait"},
-    {"from": "wait", "to": "exit"}
-  ]
-}
-```
-
-### Window Automation
-
-```json
-{
-  "id": "find-notepad",
-  "kind": "Window.Find",
-  "config": {
-    "title": "Notepad",
-    "exact": false
-  }
-}
-```
-
-More examples in [examples/](examples/) directory.
-
-## CLI Usage
+## Testing
 
 ```bash
-# Validate workflow
-cargo run -p rf-cli -- validate workflow.json
-
-# Simulate (dry-run)
-cargo run -p rf-cli -- simulate workflow.json
-
-# Execute with permissions
-cargo run -p rf-cli -- run workflow.json \
-  --allow window.enumerate,input.control \
-  --allow-shell
-
-# Migrate from v1
-cargo run -p rf-cli -- migrate legacy.json new.json
+cd RecognizerFramework && cargo test --workspace
+cd ../RecognizerFramework-Agent && cargo test --workspace
+cd ../RecognizerFramework-Studio && npm run build
 ```
-
-## Development
-
-### Build
-
-```bash
-cd RecognizerFramework
-cargo build --release
-```
-
-### Test
-
-```bash
-# Run all tests
-cargo test --workspace
-
-# Run specific test
-cargo test -p rf-platform test_name
-
-# With output
-cargo test -- --nocapture
-```
-
-### Format & Lint
-
-```bash
-cargo fmt --all
-cargo clippy --all-targets
-```
-
-### Desktop App
-
-```bash
-cd RecognizerFramework/desktop
-npm install
-npm run tauri dev
-npm run tauri build
-```
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-- **Documentation**: [docs/](docs/)
-- **Examples**: [examples/](examples/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/RecognizerFramework/issues)
-
-## Acknowledgments
-
-Built with ❤️ using Rust, designed for reliability and performance.
-
----
-
-**Status**: Production Ready | **Latest Version**: 2.0.0 | **Platform**: Windows (macOS/Linux planned)
+MIT — see [LICENSE](LICENSE).

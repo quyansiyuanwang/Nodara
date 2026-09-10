@@ -1,121 +1,87 @@
 # Changelog
 
-All notable changes to RecognizerFramework will be documented in this file.
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.0.0] — plugin-ecosystem rearchitecture
 
-## [2.0.0] - 2024-09-11
+The repository was rebuilt around the contracts described in `.tmp/PLAN.md`:
+three independent product repositories joined only by JSON Schema and the
+runtime API.
 
 ### Added
 
-#### Visual Editor (Studio)
-- Browser-based graph editor with drag-and-drop interface
-- Visual node connections with SVG rendering
-- Real-time property editor with validation
-- Execution controls (Run, Pause, Resume, Step, Cancel)
-- Import/Export workflow JSON files
-- Layout persistence in workflow metadata
-- Zero-dependency implementation (no npm, no build step)
+**Core (`RecognizerFramework/`)**
 
-#### AI Agent Integration
-- `AgentController` for bounded observe-plan-act loops
-- OpenAI-compatible adapter with provider-neutral design
-- Tool registry with 5 built-in tools (Create, Validate, Simulate, Inspect, Repair)
-- Authorization policy with risk levels (Safe, Moderate, High)
-- Budget enforcement (max steps, time, tokens)
-- Structured output with schema validation
-- Complete audit trail for all tool calls
+- `rf-schema` — workflow (`schema_version` 2.0), plugin manifest, node descriptor
+  and execution event contracts, all deriving `JsonSchema` so the published
+  schemas are generated rather than hand-maintained.
+- Structured validation that never stops at the first problem: stable diagnostic
+  codes (`WF1xx`), severities, JSON-pointer paths and repair hints, plus
+  capability-aware checks against the live registry.
+- Graph algorithms (topological order, cycle detection, reachability) shared by
+  the editor, the CLI and the agent.
+- `rf-cli migrate`, which upgrades legacy documents: namespaced node types,
+  `from`/`to` to `source`/`target`, and configuration keys that changed meaning
+  (`seconds` to `duration_ms`).
+- `rf-core` — the `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`,
+  deterministic pause/resume/step/cancel, policy decisions and an audit log.
+- A dependency-free expression evaluator with a documented grammar.
+- `rf-plugin` — JSON-RPC 2.0 over stdio, manifest discovery, a plugin host, an
+  in-process transport for tests, and `serve_stdio` for writing plugins.
+- `rf-runtime` — the headless runtime with the HTTP/WebSocket API, a run manager
+  and a policy layer.
+- `rf-platform` and `rf-vision` — real Windows capabilities (input, windows,
+  capture, clipboard) and vision (template matching, pluggable OCR), each built
+  as both a library and a plugin binary.
+- `rf-cli` — `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`,
+  `schema` and `serve`.
+- `rf-testkit` — a workflow builder, recording and failing executors, and an
+  in-process plugin harness.
 
-#### Windows Platform Support
-- Window enumeration with title/className/process filters (`Window.Find`)
-- Window focus control via `SetForegroundWindow`
-- Background input routing via `SendMessageW`
-- Keyboard input with virtual key codes and chord support
-- Mouse input (click, move, drag)
-- Text input with proper key sequence generation
-- Desktop screen capture (`Desktop.Capture`)
-- Window capture with occlusion control (`Window.Capture`)
-- Clipboard read/write operations (`System.Paste`)
+**Studio (`RecognizerFramework-Studio/`)**
 
-#### Core Engine
-- Deterministic graph execution engine
-- Event streaming with `RunEvent` for UI integration
-- Execution control (pause, resume, step, cancel)
-- Variable scoping and binding
-- Retry logic with exponential backoff
-- Hook system (before/after node execution)
-- Dependency resolution with cycle detection
+- A typed web client with no hardcoded node types: the palette and every
+  configuration form are built from the runtime's descriptors.
+- An SVG graph editor with drag, connect, select, delete, schema-driven
+  properties and a live event viewer.
+- A Tauri v2 shell around the same bundle.
 
-#### Schema & Validation
-- Workflow v2 JSON Schema with strict validation
-- v1-to-v2 migration tooling
-- Overload inheritance with deep-merge semantics
-- Schema-driven node configuration
+**Agent (`RecognizerFramework-Agent/`)**
 
-#### Vision & OCR
-- Grayscale template matching (no OpenCV dependency)
-- Provider injection pattern for OCR
-- Optional Tesseract integration
-- Remote OCR transport protocol
-- Model package manifest with checksum verification
-
-#### CLI
-- `validate` - Validate workflow schema
-- `simulate` - Dry-run workflow without side effects
-- `run` - Execute workflow with permission control
-- `migrate` - Convert v1 workflows to v2
-
-#### Documentation
-- Complete README with feature overview
-- Quick start guide (5-minute setup)
-- Contributing guidelines
-- API documentation structure
-- Example workflows
+- A provider-neutral planner with a draft to validate to repair loop that feeds
+  the runtime's own diagnostics back to the model.
+- Guardrails, budgets, a JSON Lines decision trace and replay.
 
 ### Changed
-- Complete rewrite from Python to Rust
-- Event-driven architecture replacing polling
-- Schema-first design with JSON Schema validation
-- Provider-neutral AI integration (was hardcoded OpenAI)
-- Injected transport pattern (no HTTP in core library)
 
-### Improved
-- **Performance**: 10x+ faster execution vs Python
-- **Memory Safety**: Rust guarantees, no segfaults
-- **Type Safety**: Compile-time validation
-- **Error Handling**: Result types with proper error propagation
-- **Test Coverage**: 94 comprehensive tests
+- The workspace layout is now three sibling repositories instead of one crate
+  tree with an embedded editor and an embedded agent.
+- `rf-platform` and `rf-vision` are no longer core modules; the core does not
+  reference them.
+- Workflow documents use `schema_version` and namespaced node types
+  (`core.Start`, `windows.Input.Keyboard`, `vision.Ocr`).
+- Example workflows were rewritten in the current format; the legacy shape is
+  kept as a migration fixture under `examples/legacy/`.
+
+### Removed
+
+- The `rf-agent` crate from the core workspace (superseded by
+  `RecognizerFramework-Agent`).
+- The old `studio/` prototype from the core repository (superseded by
+  `RecognizerFramework-Studio`).
+- The `meval` dependency: expression evaluation is now in-crate, which also
+  removes an unmaintained transitive dependency.
 
 ### Security
-- Explicit permission model for high-risk operations
-- Tool authorization for AI agent
-- Budget limits prevent runaway execution
-- Safe Rust for memory safety
-- Proper resource cleanup in unsafe blocks
 
-### Platform Compatibility
-- Windows 10/11: Full support ✅
-- macOS: Planned (interface defined)
-- Linux: Planned (interface defined)
+- Agent capability calls are authorised by the runtime, not by a prompt. The
+  agent links only the contract crate, so it has no route to execution that
+  bypasses policy.
+- Every capability evaluation, approval and denial is written to the audit log.
 
-### Breaking Changes from v1
-- New JSON schema (v2) - use migration tool
-- Different CLI command syntax
-- Capability-based permission model
-- Expression evaluation improvements (right-associative power)
+## [1.0.0]
 
-## [1.0.0] - Legacy Python Implementation
-
-### Features
-- Python-based workflow engine
-- Basic Windows automation
-- Template matching with OpenCV
-- Simple workflow execution
-
----
-
-For upgrade instructions, see [docs/migration-v1-to-v2.md](docs/migration-v1-to-v2.md).
-
-[2.0.0]: https://github.com/yourusername/RecognizerFramework/releases/tag/v2.0.0
-[1.0.0]: https://github.com/yourusername/RecognizerFramework/releases/tag/v1.0.0
+Initial Rust rewrite of the Python RecognizerFramework: a workflow schema, a
+graph-based executor, Windows platform adapters, vision helpers and a CLI.

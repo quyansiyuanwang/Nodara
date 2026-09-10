@@ -1,0 +1,206 @@
+//! Execution event stream contract.
+//!
+//! Events are the single observability surface shared by the CLI, the Studio
+//! event viewer, the autonomous agent and the audit log. They are immutable,
+//! monotonically sequenced records.
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Lifecycle state of a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    /// Accepted but not yet started.
+    Pending,
+    /// Currently executing.
+    Running,
+    /// Suspended by an operator or policy.
+    Paused,
+    /// Finished successfully.
+    Completed,
+    /// Finished with an error.
+    Failed,
+    /// Stopped by an operator.
+    Cancelled,
+}
+
+impl RunStatus {
+    /// True when no further progress is possible without a new run.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
+    }
+}
+
+/// Severity of a log event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LogLevel {
+    /// Verbose diagnostics.
+    Debug,
+    /// Normal progress information.
+    Info,
+    /// Recoverable problem.
+    Warn,
+    /// Serious problem.
+    Error,
+}
+
+/// Payload of an execution event.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ExecutionEvent {
+    /// A run was accepted and is about to start.
+    RunStarted {
+        /// Workflow being executed.
+        workflow_id: String,
+    },
+    /// A node began executing.
+    NodeStarted {
+        /// Node id.
+        node_id: String,
+        /// Node type.
+        node_type: String,
+    },
+    /// A node reported incremental progress.
+    NodeProgress {
+        /// Node id.
+        node_id: String,
+        /// Fraction in `0.0..=1.0`, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        progress: Option<f64>,
+        /// Human-readable status.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
+    /// A node finished successfully.
+    NodeFinished {
+        /// Node id.
+        node_id: String,
+        /// Node outputs.
+        #[serde(default)]
+        outputs: BTreeMap<String, serde_json::Value>,
+        /// Wall-clock duration in milliseconds.
+        duration_ms: u64,
+    },
+    /// A node failed.
+    NodeFailed {
+        /// Node id.
+        node_id: String,
+        /// Machine-readable error code.
+        code: String,
+        /// Human-readable message.
+        message: String,
+        /// Whether the runtime will retry.
+        #[serde(default)]
+        retryable: bool,
+    },
+    /// A structured log record.
+    Log {
+        /// Severity.
+        level: LogLevel,
+        /// Message.
+        message: String,
+        /// Node that produced the record, when applicable.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        node_id: Option<String>,
+    },
+    /// Execution was suspended.
+    RunPaused,
+    /// Execution resumed.
+    RunResumed,
+    /// Execution was cancelled.
+    RunCancelled {
+        /// Why the run was cancelled.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    /// Execution finished successfully.
+    RunCompleted {
+        /// Number of nodes executed.
+        nodes_executed: usize,
+        /// Total wall-clock duration in milliseconds.
+        duration_ms: u64,
+    },
+    /// Execution failed.
+    RunFailed {
+        /// Machine-readable error code.
+        code: String,
+        /// Human-readable message.
+        message: String,
+    },
+    /// A capability call was evaluated by policy.
+    CapabilityDecision {
+        /// Capability under evaluation.
+        capability: String,
+        /// Decision string: `allow`, `deny` or `require_approval`.
+        decision: String,
+        /// Node that triggered the check.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        node_id: Option<String>,
+    },
+}
+
+/// A sequenced envelope around an [`ExecutionEvent`].
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct EventEnvelope {
+    /// Run this event belongs to.
+    pub run_id: String,
+    /// Monotonically increasing sequence number within the run.
+    pub seq: u64,
+    /// Unix epoch milliseconds.
+    pub timestamp_ms: u64,
+    /// Event payload.
+    pub event: ExecutionEvent,
+}
+
+impl EventEnvelope {
+    /// Wrap an event with a sequence number and the current time.
+    pub fn new(run_id: impl Into<String>, seq: u64, event: ExecutionEvent) -> Self {
+        Self {
+            run_id: run_id.into(),
+            seq,
+            timestamp_ms: now_ms(),
+            event,
+        }
+    }
+}
+
+/// Current Unix time in milliseconds.
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn terminal_states_are_detected() {
+        assert!(RunStatus::Completed.is_terminal());
+        assert!(RunStatus::Failed.is_terminal());
+        assert!(RunStatus::Cancelled.is_terminal());
+        assert!(!RunStatus::Running.is_terminal());
+        assert!(!RunStatus::Paused.is_terminal());
+    }
+
+    #[test]
+    fn events_round_trip_through_json() {
+        let envelope = EventEnvelope::new(
+            "run-1",
+            7,
+            ExecutionEvent::NodeStarted {
+                node_id: "log".into(),
+                node_type: "core.Log".into(),
+            },
+        );
+        let json = serde_json::to_string(&envelope).unwrap();
+        let back: EventEnvelope = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, envelope);
+        assert!(json.contains("\"type\":\"node_started\""));
+    }
+}

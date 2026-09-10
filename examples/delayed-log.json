@@ -1,38 +1,35 @@
 {
-  "$schema": "../RecognizerFramework/schema/generated.schema.json",
-  "version": 2,
+  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.delayed-log",
+  "metadata": {
+    "name": "Delayed Log",
+    "description": "Waits and then logs, demonstrating system.Delay and cancellation."
+  },
   "nodes": [
+    { "id": "start", "type": "core.Start" },
     {
-      "id": "start",
-      "kind": "Start",
-      "config": {}
-    },
-    {
-      "id": "log1",
-      "kind": "System.Log",
-      "config": {
-        "message": "Starting workflow..."
-      }
+      "id": "before",
+      "type": "core.Log",
+      "config": { "message": "starting up..." }
     },
     {
       "id": "wait",
-      "kind": "System.Delay",
-      "config": {
-        "seconds": 2
-      }
+      "type": "system.Delay",
+      "config": { "duration_ms": 1500 }
     },
     {
-      "id": "log2",
-      "kind": "System.Log",
-      "config": {
-        "message": "Workflow complete!"
-      }
-    }
+      "id": "after",
+      "type": "core.Log",
+      "config": { "message": "workflow complete" }
+    },
+    { "id": "end", "type": "core.End" }
   ],
   "edges": [
-    {"from": "start", "to": "log1"},
-    {"from": "log1", "to": "wait"},
-    {"from": "wait", "to": "log2"},
-    {"from": "log2", "to": "exit"}
-  ]
+    { "id": "e1", "source": "start", "target": "before" },
+    { "id": "e2", "source": "before", "target": "wait" },
+    { "id": "e3", "source": "wait", "target": "after" },
+    { "id": "e4", "source": "after", "target": "end" }
+  ],
+  "variables": {}
 }

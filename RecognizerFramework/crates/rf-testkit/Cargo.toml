@@ -1,0 +1,23 @@
+[package]
+name = "rf-testkit"
+description = "Test doubles and builders for plugins and workflows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "rf_testkit"
+path = "src/lib.rs"
+
+[dependencies]
+rf-schema = { path = "../rf-schema" }
+rf-core = { path = "../rf-core" }
+rf-plugin = { path = "../rf-plugin" }
+serde.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true

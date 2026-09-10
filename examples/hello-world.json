@@ -1,28 +1,45 @@
 {
-  "$schema": "../RecognizerFramework/schema/generated.schema.json",
-  "version": 2,
+  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.hello-world",
+  "metadata": {
+    "name": "Hello World",
+    "description": "Logs a message, evaluates an expression and logs the result.",
+    "tags": ["getting-started"]
+  },
   "nodes": [
+    { "id": "start", "type": "core.Start", "label": "Start" },
     {
-      "id": "start",
-      "kind": "Start",
-      "config": {}
+      "id": "greet",
+      "type": "core.Log",
+      "label": "Greet",
+      "config": { "message": "Hello, {{name}}!", "level": "info" }
     },
     {
-      "id": "hello",
-      "kind": "System.Log",
-      "config": {
-        "message": "Hello, World!"
-      }
-    }
+      "id": "compute",
+      "type": "core.Calculate",
+      "label": "Compute",
+      "config": { "expression": "2 + 2 * 3", "output_var": "answer" }
+    },
+    {
+      "id": "report",
+      "type": "core.Log",
+      "label": "Report",
+      "config": { "message": "the answer is {{answer}}" }
+    },
+    { "id": "end", "type": "core.End", "label": "End", "config": { "code": 0 } }
   ],
   "edges": [
-    {
-      "from": "start",
-      "to": "hello"
-    },
-    {
-      "from": "hello",
-      "to": "exit"
+    { "id": "e1", "source": "start", "target": "greet" },
+    { "id": "e2", "source": "greet", "target": "compute" },
+    { "id": "e3", "source": "compute", "target": "report" },
+    { "id": "e4", "source": "report", "target": "end" }
+  ],
+  "variables": {
+    "name": {
+      "value": "World",
+      "description": "Who to greet.",
+      "secret": false
     }
-  ]
+  }
 }

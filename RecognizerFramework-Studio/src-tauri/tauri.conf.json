@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RecognizerFramework Studio",
+  "version": "2.0.0",
+  "identifier": "dev.recognizerframework.studio",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:4173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "RecognizerFramework Studio",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8710 ws://127.0.0.1:8710; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  }
+}

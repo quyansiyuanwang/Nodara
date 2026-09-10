@@ -2,98 +2,125 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test
+  core:
+    name: Core (RecognizerFramework)
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            RecognizerFramework/target
+          key: ${{ runner.os }}-core-${{ hashFiles('RecognizerFramework/Cargo.lock') }}
 
-    - name: Cache cargo index
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Formatting
+        working-directory: RecognizerFramework
+        run: cargo fmt --all -- --check
 
-    - name: Cache target directory
-      uses: actions/cache@v3
-      with:
-        path: RecognizerFramework/target
-        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+      - name: Clippy
+        working-directory: RecognizerFramework
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-    - name: Run tests
-      working-directory: ./RecognizerFramework
-      run: cargo test --workspace --verbose
+      - name: Tests
+        working-directory: RecognizerFramework
+        run: cargo test --workspace
 
-    - name: Run clippy
-      working-directory: ./RecognizerFramework
-      run: cargo clippy --all-targets -- -D warnings
+      - name: Published schemas are up to date
+        working-directory: RecognizerFramework
+        shell: pwsh
+        run: |
+          cargo run -q -p rf-cli -- schema --out schema
+          $drift = git status --porcelain schema
+          if ($drift) {
+            Write-Error "schema/ is stale; run 'cargo run -p rf-cli -- schema --out schema'"
+          }
 
-    - name: Check formatting
-      working-directory: ./RecognizerFramework
-      run: cargo fmt --all -- --check
+      - name: Example workflows are valid
+        working-directory: RecognizerFramework
+        shell: pwsh
+        run: |
+          cargo run -q -p rf-cli -- validate ../examples/hello-world.json
+          cargo run -q -p rf-cli -- validate ../examples/delayed-log.json
+          cargo run -q -p rf-cli -- validate ../examples/branching.json
 
-  build:
-    name: Build
-    runs-on: windows-latest
+      - name: Build release artefacts
+        working-directory: RecognizerFramework
+        run: cargo build --release
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: recognizer-framework-windows
+          path: |
+            RecognizerFramework/target/release/rf-cli.exe
+            RecognizerFramework/target/release/rf-runtime.exe
+            RecognizerFramework/target/release/rf-platform-plugin.exe
+            RecognizerFramework/target/release/rf-vision-plugin.exe
+
+  studio:
+    name: Studio (RecognizerFramework-Studio)
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: RecognizerFramework-Studio/package-lock.json
 
-    - name: Build release
-      working-directory: ./RecognizerFramework
-      run: cargo build --release --verbose
+      - name: Install
+        working-directory: RecognizerFramework-Studio
+        run: npm ci
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: rf-cli-windows
-        path: RecognizerFramework/target/release/rf-cli.exe
+      - name: Type-check and build
+        working-directory: RecognizerFramework-Studio
+        run: npm run build
 
-  validate-examples:
-    name: Validate Examples
-    runs-on: windows-latest
+  agent:
+    name: Agent (RecognizerFramework-Agent)
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-    - name: Build CLI
-      working-directory: ./RecognizerFramework
-      run: cargo build --release -p rf-cli
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            RecognizerFramework-Agent/target
+          key: ${{ runner.os }}-agent-${{ hashFiles('RecognizerFramework-Agent/Cargo.lock') }}
 
-    - name: Validate hello-world
-      working-directory: ./RecognizerFramework
-      run: cargo run --release -p rf-cli -- validate ../examples/hello-world.json
+      - name: Formatting
+        working-directory: RecognizerFramework-Agent
+        run: cargo fmt --all -- --check
 
-    - name: Validate delayed-log
-      working-directory: ./RecognizerFramework
-      run: cargo run --release -p rf-cli -- validate ../examples/delayed-log.json
+      - name: Tests
+        working-directory: RecognizerFramework-Agent
+        run: cargo test --workspace

@@ -1,252 +1,138 @@
-# Quick Start Guide
+# Quick start
 
-Get up and running with RecognizerFramework in 5 minutes.
+Five minutes, from an empty checkout to a running workflow, an editor and a
+planning agent.
 
-## Step 1: Install Prerequisites
-
-### Required
-- **Rust 1.70+**: Download from [rustup.rs](https://rustup.rs)
-- **Windows 10/11**: For platform automation features
-
-### Optional
-- **Python 3.x**: For serving the visual editor
-- **Node.js 18+**: For desktop app development
-
-## Step 2: Clone and Build
+## 1. Build and run a workflow
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/RecognizerFramework.git
 cd RecognizerFramework
-
-# Navigate to core workspace
-cd RecognizerFramework
-
-# Build in release mode
-cargo build --release
-
-# Run tests to verify installation
-cargo test --workspace
+cargo build
+cargo run -p rf-cli -- run ../examples/hello-world.json
 ```
 
-Expected output: All tests pass ✅
-
-## Step 3: Choose Your Path
-
-### Option A: Visual Editor (Recommended)
-
-Perfect for beginners and visual workflow design.
-
-```bash
-# From project root directory
-cd ..
-python -m http.server 4173
+```text
+run started: workflow.hello-world
+     policy core.Start: allow
+  -> start (core.Start)
+  ok start in 0ms
+     ...
+     Hello, World!
+     ...
+run completed: 5 node(s) in 3ms
+audit: 20 record(s) in 4ms wall clock
 ```
 
-Open browser: `http://localhost:4173/RecognizerFramework/studio/`
+Note the `policy` lines: they are the runtime recording what it allowed, before
+it allowed it.
 
-**Create your first workflow:**
-1. Drag "System.Log" from left palette to canvas
-2. Connect: Start → System.Log → Exit (click and drag)
-3. Select the Log node
-4. In right panel, edit config: `{"message": "Hello from Studio!"}`
-5. Click "▶ Run" button
-6. Watch execution in event log at bottom
-
-### Option B: Command Line
-
-Perfect for developers and automation scripts.
+Try the other commands:
 
 ```bash
-cd RecognizerFramework
+# Structure and plan, without executing anything
+cargo run -p rf-cli -- inspect  ../examples/hello-world.json
+cargo run -p rf-cli -- simulate ../examples/branching.json
 
-# Create a simple workflow file
-cat > hello.json << 'EOF'
-{
-  "$schema": "./schema/generated.schema.json",
-  "version": 2,
-  "nodes": [
-    {"id": "start", "kind": "Start", "config": {}},
-    {
-      "id": "hello",
-      "kind": "System.Log",
-      "config": {"message": "Hello from CLI!"}
+# Override a variable
+cargo run -p rf-cli -- run ../examples/hello-world.json --var name=Codex
+```
+
+`simulate` tells you which nodes run, in what order, and which permissions they
+will need — useful before running something that touches your desktop.
+
+## 2. Start the runtime
+
+The runtime is the process the editor and the agent talk to.
+
+```bash
+cargo run -p rf-cli -- serve --in-process --plugin-dir plugins
+# runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
+```
+
+Check it from another terminal:
+
+```bash
+curl http://127.0.0.1:8710/api/v1/health
+curl http://127.0.0.1:8710/api/v1/node-types
+```
+
+Two ways to load the official capabilities:
+
+| Mode | Command | What happens |
+|------|---------|--------------|
+| in process | `--in-process` | the runtime registers them directly |
+| plugin processes | `--plugin-dir plugins` | the runtime launches `rf-platform-plugin.exe` and `rf-vision-plugin.exe` and talks JSON-RPC to them |
+
+The second is the architecture the project is built for; the first is convenient
+for development. Both expose exactly the same node types.
+
+## 3. Open the editor
+
+```bash
+cd ../RecognizerFramework-Studio
+npm install
+npm run dev
+```
+
+Open <http://localhost:4173>. The palette is populated from the runtime, so you
+should see Core, System, Input, Window, Desktop and Vision categories.
+
+Then:
+
+1. drag **Log** onto the canvas and connect `Start → Log → End`;
+2. select the Log node and set its message;
+3. press **Validate** — problems appear in the drawer, from the runtime;
+4. press **Run** and watch the Events tab; nodes light up as they execute.
+
+If you install a plugin and restart the runtime, reload the page: the new node
+types are simply there. Nothing in the editor needed to change.
+
+## 4. Plan with the agent
+
+```bash
+cd ../RecognizerFramework-Agent
+export RF_LLM_API_KEY=sk-...          # any OpenAI-compatible endpoint
+cargo run -p rf-agent -- plan "read the clipboard and log its contents" --trace trace.jsonl
+cargo run -p rf-agent -- replay trace.jsonl
+```
+
+`--safe` refuses every node that performs a side effect, and `--allow <TYPE>`
+restricts the agent to an explicit node allowlist. The trace records every
+decision: the goal, each model call, the runtime's validation verdict, the
+guardrail result and the run outcome.
+
+## 5. Write your own capability
+
+Implement one trait and serve it:
+
+```rust
+use rf_core::{ExecutionContext, NodeExecutor, NodeInput, NodeOutput, NodeResult};
+use rf_schema::NodeDescriptor;
+
+pub struct Slugify;
+
+impl NodeExecutor for Slugify {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("text.Slugify", "Slugify", "Text")
     }
-  ],
-  "edges": [
-    {"from": "start", "to": "hello"},
-    {"from": "hello", "to": "exit"}
-  ]
-}
-EOF
 
-# Validate
-cargo run -p rf-cli -- validate hello.json
-
-# Run
-cargo run -p rf-cli -- run hello.json
-```
-
-## Step 4: Explore Features
-
-### Try Input Automation
-
-```json
-{
-  "id": "type-text",
-  "kind": "Input.Text",
-  "config": {
-    "message": "Hello World"
-  }
-}
-```
-
-### Try Window Management
-
-```json
-{
-  "id": "find-window",
-  "kind": "Window.Find",
-  "config": {
-    "title": "Notepad",
-    "exact": false
-  }
-}
-```
-
-### Try Screen Capture
-
-```json
-{
-  "id": "screenshot",
-  "kind": "Desktop.Capture",
-  "config": {
-    "x": 0,
-    "y": 0,
-    "width": 1920,
-    "height": 1080
-  }
-}
-```
-
-### Try Calculations
-
-```json
-{
-  "id": "calculate",
-  "kind": "Calculate",
-  "config": {
-    "expression": "2 * 3 + 4",
-    "result": "answer"
-  }
-}
-```
-
-## Step 5: Build Something Real
-
-### Example: Automated Note Taking
-
-```json
-{
-  "version": 2,
-  "nodes": [
-    {"id": "start", "kind": "Start", "config": {}},
-    {
-      "id": "find-notepad",
-      "kind": "Window.Find",
-      "config": {"title": "Notepad", "exact": false}
-    },
-    {
-      "id": "type-title",
-      "kind": "Input.Text",
-      "config": {"message": "Meeting Notes\\n\\n"}
-    },
-    {
-      "id": "type-content",
-      "kind": "Input.Text",
-      "config": {"message": "- Item 1\\n- Item 2\\n- Item 3"}
+    fn execute(&self, input: NodeInput, _context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let text = input.require_str("text")?;
+        Ok(NodeOutput::new().with_output("out", serde_json::json!(text.to_lowercase())))
     }
-  ],
-  "edges": [
-    {"from": "start", "to": "find-notepad"},
-    {"from": "find-notepad", "to": "type-title"},
-    {"from": "type-title", "to": "type-content"},
-    {"from": "type-content", "to": "exit"}
-  ]
 }
 ```
 
-## Understanding Permissions
+See [RecognizerFramework/docs/node-authoring.md](RecognizerFramework/docs/node-authoring.md)
+for the full walkthrough, including the manifest and the tests.
 
-High-risk operations require explicit permission:
+## Where things are
 
-```bash
-# Window operations
-cargo run -p rf-cli -- run workflow.json --allow window.enumerate
-
-# Input control
-cargo run -p rf-cli -- run workflow.json --allow input.control
-
-# Shell commands
-cargo run -p rf-cli -- run workflow.json --allow-shell
-
-# Multiple permissions
-cargo run -p rf-cli -- run workflow.json \
-  --allow window.enumerate,input.control,desktop.capture \
-  --allow-shell
-```
-
-## Troubleshooting
-
-### Studio Won't Load
-- Ensure you're serving from project root
-- Check URL: `http://localhost:4173/RecognizerFramework/studio/`
-- Try a different port: `python -m http.server 8000`
-
-### Build Errors
-```bash
-# Update Rust
-rustup update
-
-# Clean and rebuild
-cargo clean
-cargo build --release
-```
-
-### Test Failures
-```bash
-# Update dependencies
-cargo update
-
-# Run with verbose output
-cargo test --workspace -- --nocapture
-```
-
-## Next Steps
-
-- 📖 Read [README.md](README.md) for complete feature overview
-- 🎓 Explore [examples/](examples/) for sample workflows
-- 🛠️ Check [docs/](docs/) for detailed documentation
-- 🤝 See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute
-
-## Common Questions
-
-**Q: Can I use this on macOS/Linux?**
-A: Platform adapters for macOS/Linux are planned. The core engine and editor work on all platforms.
-
-**Q: How do I integrate AI?**
-A: See [docs/ai-integration.md](docs/ai-integration.md) for AI agent usage.
-
-**Q: Is it production ready?**
-A: Yes! All tests pass and Windows platform features are fully implemented.
-
-**Q: Can I automate games?**
-A: The framework supports input and screen capture, but check game terms of service.
-
-## Getting Help
-
-- 📚 Documentation: [docs/](docs/)
-- 💬 GitHub Issues: Report bugs or request features
-- 📧 Community: Join discussions
-
-Happy automating! 🚀
+| I want to… | Look at |
+|-----------|---------|
+| run or debug a workflow | `rf-cli validate / simulate / run / inspect` |
+| drive the runtime from code | [protocol/runtime-api.md](RecognizerFramework/protocol/runtime-api.md) |
+| understand the plugin wire format | [protocol/plugin-protocol.md](RecognizerFramework/protocol/plugin-protocol.md) |
+| see the JSON contracts | [RecognizerFramework/schema/](RecognizerFramework/schema) |
+| understand the crate layout | [RecognizerFramework/docs/architecture.md](RecognizerFramework/docs/architecture.md) |
+| upgrade an old workflow | `rf-cli migrate old.json --out new.json` |

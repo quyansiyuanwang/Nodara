@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "id": "legacy.hello-world",
+  "name": "Legacy Hello World",
+  "nodes": [
+    { "id": "start", "kind": "Start", "config": {} },
+    {
+      "id": "hello",
+      "kind": "System.Log",
+      "config": { "message": "Hello from the legacy format" }
+    },
+    { "id": "wait", "kind": "System.Delay", "config": { "seconds": 1 } },
+    { "id": "exit", "kind": "Exit", "config": { "code": 0 } }
+  ],
+  "edges": [
+    { "from": "start", "to": "hello" },
+    { "from": "hello", "to": "wait" },
+    { "from": "wait", "to": "exit" }
+  ]
+}

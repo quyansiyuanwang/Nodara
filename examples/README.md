@@ -1,125 +1,67 @@
 # Examples
 
-This directory contains example workflows demonstrating RecognizerFramework features.
+Every file here is a workflow document in the current format
+(`schema_version: "2.0"`). The shape is defined by the generated
+[workflow schema](../RecognizerFramework/schema/workflow.schema.json).
 
-## Basic Examples
+| File | What it shows |
+|------|----------------|
+| `hello-world.json` | Variables, `{{interpolation}}`, `core.Calculate` |
+| `delayed-log.json` | `system.Delay`, and a run you can cancel mid-flight |
+| `branching.json` | Edge guards (`condition`) pruning branches |
+| `window-find.json` | A plugin-provided node type (`windows.Window.Find`) |
+| `legacy/v1-hello-world.json` | A pre-v2 document, kept as a migration fixture |
 
-### hello-world.json
-Simple "Hello World" workflow that logs a message.
+## Running them
 
-```bash
-cargo run -p rf-cli -- run examples/hello-world.json
-```
-
-### delayed-log.json
-Demonstrates System.Delay and multiple log statements.
-
-```bash
-cargo run -p rf-cli -- run examples/delayed-log.json
-```
-
-### calculation.json
-Shows expression evaluation and variable usage.
+All commands are run from `RecognizerFramework/`.
 
 ```bash
-cargo run -p rf-cli -- run examples/calculation.json
-```
+# Check the document is structurally sound and every node type is installed
+cargo run -p rf-cli -- validate ../examples/hello-world.json
 
-## Windows Automation Examples
-
-### window-find.json
-Find windows by title, className, or process name.
-
-```bash
-cargo run -p rf-cli -- run examples/windows/window-find.json \
-  --allow window.enumerate
-```
-
-### input-automation.json
-Keyboard and mouse input automation.
-
-```bash
-cargo run -p rf-cli -- run examples/windows/input-automation.json \
-  --allow input.control
-```
-
-### screen-capture.json
-Desktop and window screenshot examples.
-
-```bash
-cargo run -p rf-cli -- run examples/windows/screen-capture.json \
-  --allow desktop.capture
-```
-
-## Advanced Examples
-
-### conditional-flow.json
-Branching based on calculation results.
-
-### retry-example.json
-Demonstrates retry logic and error handling.
-
-### hook-example.json
-Before/after hooks for node execution.
-
-## Running Examples
-
-### Using CLI
-
-```bash
-# Validate
-cargo run -p rf-cli -- validate examples/hello-world.json
-
-# Simulate (dry-run)
-cargo run -p rf-cli -- simulate examples/hello-world.json
+# Show the plan without executing anything
+cargo run -p rf-cli -- simulate ../examples/branching.json
 
 # Execute
-cargo run -p rf-cli -- run examples/hello-world.json
+cargo run -p rf-cli -- run ../examples/hello-world.json
+
+# Override a variable
+cargo run -p rf-cli -- run ../examples/hello-world.json --var name=Codex
 ```
 
-### Using Visual Editor
+The `window-find.json` example uses a node type provided by the official
+platform plugin. Either let the runtime launch it:
 
-1. Start web server: `python -m http.server 4173`
-2. Open: `http://localhost:4173/RecognizerFramework/studio/`
-3. Click "Import" and select example file
-4. Edit and run in Studio
-
-## Creating Your Own Examples
-
-1. Start with a basic template
-2. Add nodes and edges
-3. Configure node properties
-4. Validate with CLI
-5. Test execution
-
-## Example Template
-
-```json
-{
-  "$schema": "../RecognizerFramework/schema/generated.schema.json",
-  "version": 2,
-  "nodes": [
-    {"id": "start", "kind": "Start", "config": {}},
-    {
-      "id": "your-node",
-      "kind": "System.Log",
-      "config": {"message": "Your message"}
-    }
-  ],
-  "edges": [
-    {"from": "start", "to": "your-node"},
-    {"from": "your-node", "to": "exit"}
-  ]
-}
+```bash
+cargo run -p rf-cli -- run ../examples/window-find.json --plugin-dir plugins
 ```
 
-## Contributing Examples
+or register the same capabilities in-process:
 
-Found a useful automation? Submit it as an example!
+```bash
+cargo run -p rf-cli -- run ../examples/window-find.json --in-process
+```
 
-1. Create workflow in `examples/` directory
-2. Test thoroughly
-3. Add documentation
-4. Submit pull request
+## Migrating a legacy document
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+```bash
+cargo run -p rf-cli -- migrate ../examples/legacy/v1-hello-world.json
+cargo run -p rf-cli -- migrate ../examples/legacy/v1-hello-world.json --out upgraded.json
+```
+
+Migration rewrites node kinds to the namespaced convention
+(`System.Delay` to `system.Delay`), converts `from`/`to` edges to
+`source`/`target`, and translates configuration keys that changed meaning
+(`seconds` to `duration_ms`).
+
+## Authoring your own
+
+Start from `hello-world.json`, then:
+
+1. `rf-cli simulate` to confirm the plan and the permissions it will need;
+2. `rf-cli validate` to confirm the document is valid;
+3. `rf-cli run` with `--allow` (or `--allow-all`) to execute.
+
+The Studio writes exactly this format, so anything created there can be dropped
+into this directory and run from the command line unchanged.

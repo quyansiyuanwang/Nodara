@@ -1,0 +1,400 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ExecutionEvent": {
+      "description": "Payload of an execution event.",
+      "oneOf": [
+        {
+          "description": "A run was accepted and is about to start.",
+          "properties": {
+            "type": {
+              "enum": [
+                "run_started"
+              ],
+              "type": "string"
+            },
+            "workflow_id": {
+              "description": "Workflow being executed.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "workflow_id"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A node began executing.",
+          "properties": {
+            "node_id": {
+              "description": "Node id.",
+              "type": "string"
+            },
+            "node_type": {
+              "description": "Node type.",
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "node_started"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "node_id",
+            "node_type",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A node reported incremental progress.",
+          "properties": {
+            "message": {
+              "description": "Human-readable status.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "node_id": {
+              "description": "Node id.",
+              "type": "string"
+            },
+            "progress": {
+              "description": "Fraction in `0.0..=1.0`, when known.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "node_progress"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "node_id",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A node finished successfully.",
+          "properties": {
+            "duration_ms": {
+              "description": "Wall-clock duration in milliseconds.",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "node_id": {
+              "description": "Node id.",
+              "type": "string"
+            },
+            "outputs": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Node outputs.",
+              "type": "object"
+            },
+            "type": {
+              "enum": [
+                "node_finished"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration_ms",
+            "node_id",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A node failed.",
+          "properties": {
+            "code": {
+              "description": "Machine-readable error code.",
+              "type": "string"
+            },
+            "message": {
+              "description": "Human-readable message.",
+              "type": "string"
+            },
+            "node_id": {
+              "description": "Node id.",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "description": "Whether the runtime will retry.",
+              "type": "boolean"
+            },
+            "type": {
+              "enum": [
+                "node_failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "node_id",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A structured log record.",
+          "properties": {
+            "level": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/LogLevel"
+                }
+              ],
+              "description": "Severity."
+            },
+            "message": {
+              "description": "Message.",
+              "type": "string"
+            },
+            "node_id": {
+              "description": "Node that produced the record, when applicable.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "log"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "level",
+            "message",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Execution was suspended.",
+          "properties": {
+            "type": {
+              "enum": [
+                "run_paused"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Execution resumed.",
+          "properties": {
+            "type": {
+              "enum": [
+                "run_resumed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Execution was cancelled.",
+          "properties": {
+            "reason": {
+              "description": "Why the run was cancelled.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "run_cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Execution finished successfully.",
+          "properties": {
+            "duration_ms": {
+              "description": "Total wall-clock duration in milliseconds.",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "nodes_executed": {
+              "description": "Number of nodes executed.",
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "type": {
+              "enum": [
+                "run_completed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration_ms",
+            "nodes_executed",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Execution failed.",
+          "properties": {
+            "code": {
+              "description": "Machine-readable error code.",
+              "type": "string"
+            },
+            "message": {
+              "description": "Human-readable message.",
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "run_failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A capability call was evaluated by policy.",
+          "properties": {
+            "capability": {
+              "description": "Capability under evaluation.",
+              "type": "string"
+            },
+            "decision": {
+              "description": "Decision string: `allow`, `deny` or `require_approval`.",
+              "type": "string"
+            },
+            "node_id": {
+              "description": "Node that triggered the check.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "capability_decision"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "capability",
+            "decision",
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "LogLevel": {
+      "description": "Severity of a log event.",
+      "oneOf": [
+        {
+          "description": "Verbose diagnostics.",
+          "enum": [
+            "debug"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Normal progress information.",
+          "enum": [
+            "info"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Recoverable problem.",
+          "enum": [
+            "warn"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Serious problem.",
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "description": "A sequenced envelope around an [`ExecutionEvent`].",
+  "properties": {
+    "event": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ExecutionEvent"
+        }
+      ],
+      "description": "Event payload."
+    },
+    "run_id": {
+      "description": "Run this event belongs to.",
+      "type": "string"
+    },
+    "seq": {
+      "description": "Monotonically increasing sequence number within the run.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "timestamp_ms": {
+      "description": "Unix epoch milliseconds.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "event",
+    "run_id",
+    "seq",
+    "timestamp_ms"
+  ],
+  "title": "EventEnvelope",
+  "type": "object"
+}

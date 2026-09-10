@@ -1,0 +1,268 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Edge": {
+      "description": "A directed edge between two nodes.",
+      "properties": {
+        "condition": {
+          "description": "Optional guard expression. The edge is only taken when it evaluates truthy.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Unique identifier within the workflow.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Optional display label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "description": "Source node id.",
+          "type": "string"
+        },
+        "source_port": {
+          "description": "Optional named output port on the source node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "Target node id.",
+          "type": "string"
+        },
+        "target_port": {
+          "description": "Optional named input port on the target node.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "Metadata": {
+      "description": "Human-facing metadata attached to a workflow.",
+      "properties": {
+        "author": {
+          "default": null,
+          "description": "Author or owning team.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "default": null,
+          "description": "ISO-8601 creation timestamp.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "default": null,
+          "description": "Longer description.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extensions": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Extension bag. Unknown keys are preserved on round-trip.",
+          "type": "object"
+        },
+        "name": {
+          "default": "",
+          "description": "Display name.",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "description": "Free-form tags used for search.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "updated_at": {
+          "default": null,
+          "description": "ISO-8601 last-modified timestamp.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "default": null,
+          "description": "Semantic version of the workflow itself.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Node": {
+      "description": "A node in the workflow graph.",
+      "properties": {
+        "config": {
+          "default": {},
+          "description": "Node-type specific configuration. Shape is described by the node descriptor."
+        },
+        "id": {
+          "description": "Unique, stable identifier within the workflow.",
+          "type": "string"
+        },
+        "label": {
+          "description": "Optional display label.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "description": "Extension bag.",
+          "type": "object"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Position"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Editor position (ignored by the runtime)."
+        },
+        "type": {
+          "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Position": {
+      "description": "Canvas position for editor round-tripping. Ignored by the runtime.",
+      "properties": {
+        "x": {
+          "description": "Horizontal offset in canvas units.",
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "description": "Vertical offset in canvas units.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "Variable": {
+      "description": "A variable declared at workflow scope.",
+      "properties": {
+        "description": {
+          "default": null,
+          "description": "Optional documentation string.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secret": {
+          "default": false,
+          "description": "Marks a value that must never be written to logs or audit records.",
+          "type": "boolean"
+        },
+        "value": {
+          "default": null,
+          "description": "Default value."
+        }
+      },
+      "type": "object"
+    }
+  },
+  "description": "A complete workflow document.",
+  "properties": {
+    "edges": {
+      "default": [],
+      "description": "All edges in the graph.",
+      "items": {
+        "$ref": "#/definitions/Edge"
+      },
+      "type": "array"
+    },
+    "id": {
+      "description": "Stable workflow identifier, e.g. `workflow.example`.",
+      "type": "string"
+    },
+    "metadata": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Metadata"
+        }
+      ],
+      "default": {
+        "author": null,
+        "created_at": null,
+        "description": null,
+        "extensions": {},
+        "name": "",
+        "tags": [],
+        "updated_at": null,
+        "version": null
+      },
+      "description": "Human-facing metadata."
+    },
+    "nodes": {
+      "default": [],
+      "description": "All nodes in the graph.",
+      "items": {
+        "$ref": "#/definitions/Node"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "2.0",
+      "description": "Workflow format version. See [`crate::version::SCHEMA_VERSION`].",
+      "type": "string"
+    },
+    "variables": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Variable"
+      },
+      "default": {},
+      "description": "Workflow-scoped variables.",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Workflow",
+  "type": "object"
+}

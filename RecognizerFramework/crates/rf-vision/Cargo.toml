@@ -1,0 +1,30 @@
+[package]
+name = "rf-vision"
+description = "Official vision plugin: template matching and pluggable OCR"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "rf_vision"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rf-vision-plugin"
+path = "src/bin/rf-vision-plugin.rs"
+
+[dependencies]
+rf-schema = { path = "../rf-schema" }
+rf-core = { path = "../rf-core" }
+rf-plugin = { path = "../rf-plugin" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+image.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true
