@@ -29,6 +29,7 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/agent/sessions/{id}/status` | Set the session status |
 | `POST` | `/api/v1/agent/sessions/{id}/approvals/{approval_id}` | Decide an approval |
 | `GET` | `/api/v1/agent/approvals` | Every approval waiting on an operator |
+| `GET` | `/api/v1/audit` | Audit records, filterable by run |
 
 ## Discover, then render
 
@@ -197,3 +198,23 @@ returns the identical sequence as JSON, which is what the agent polls: a batch
 command that already speaks REST does not need a WebSocket client to observe a
 run. Both read the same runtime-assigned `seq`, so neither can miss an event the
 other saw.
+
+## The audit log
+
+`GET /api/v1/audit` returns the durable account of what the runtime evaluated,
+allowed, refused and recorded. Query parameters:
+
+| Parameter | Meaning |
+|-----------|---------|
+| `run_id` | Restrict to one run |
+| `limit` | Return at most this many records (newest kept) |
+
+Each record carries a monotonic `seq`, a timestamp, a `category`
+(`run_started`, `node_finished`, `capability_evaluated`, `approval`, `log`, ...),
+and — for capability records — the `capability` and the `decision`.
+
+The event stream and the audit log are not the same thing, and both are needed:
+events are for live observation and a slow subscriber may fall behind, whereas
+audit records are what an operator reviews afterwards. `--audit <FILE>` makes
+them durable as JSON Lines; without it they are kept in memory for the life of
+the process.

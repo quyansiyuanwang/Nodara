@@ -16,6 +16,7 @@ import {
   Workflow,
 } from "./runtime/types";
 import { AgentPanel } from "./ui/agent-panel";
+import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
@@ -46,6 +47,7 @@ class Studio {
   private readonly inspector: Inspector;
   private readonly log: EventLog;
   private readonly agents: AgentPanel;
+  private readonly audit: AuditPanel;
   private agentPoll: number | null = null;
 
   constructor() {
@@ -80,6 +82,7 @@ class Studio {
       onLoadPlan: (sessionId) => this.loadPlan(sessionId),
       onOpenRun: (runId) => void this.openRun(runId),
     });
+    this.audit = new AuditPanel(element("audit"));
 
     this.bindToolbar();
     this.refresh();
@@ -163,8 +166,12 @@ class Studio {
         const name = tab.dataset.tab ?? "events";
         this.showTab(name);
         if (name === "agent") void this.pollAgentSessions();
+        if (name === "audit") void this.refreshAudit();
       });
     }
+
+    element("audit-refresh").addEventListener("click", () => void this.refreshAudit());
+    element("audit-current-run").addEventListener("change", () => void this.refreshAudit());
 
     element("btn-apply-json").addEventListener("click", () => {
       try {
@@ -395,6 +402,20 @@ class Studio {
         },
         onClose: () => void this.refreshRun(),
       });
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
+  /** Load the audit log, optionally narrowed to the run being watched. */
+  private async refreshAudit(): Promise<void> {
+    const onlyCurrent = element<HTMLInputElement>("audit-current-run").checked;
+    try {
+      const records = await this.client.audit({
+        runId: onlyCurrent && this.runId ? this.runId : undefined,
+        limit: 500,
+      });
+      this.audit.setRecords(records);
     } catch (error) {
       this.reportError(error);
     }

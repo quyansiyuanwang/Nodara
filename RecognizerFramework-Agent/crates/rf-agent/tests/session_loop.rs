@@ -5,7 +5,8 @@ mod support;
 use std::time::Duration;
 
 use rf_agent::{
-    Agent, AgentConfig, AgentError, GuardrailPolicy, MockProvider, ToolPolicy, ToolSelector,
+    Agent, AgentConfig, AgentError, ExplainTarget, GuardrailPolicy, MockProvider, ToolPolicy,
+    ToolSelector,
 };
 use serde_json::json;
 use support::{FakeRuntime, RunScript};
@@ -266,4 +267,91 @@ fn the_session_is_published_for_the_studio_to_render() {
     assert_eq!(session["plan"]["workflow"]["id"], "wf.preview");
     assert_eq!(session["plan"]["errors"], 0);
     assert_eq!(session["status"], "ready");
+}
+
+#[test]
+fn a_base_document_is_modified_rather_than_regenerated() {
+    let runtime = FakeRuntime::start(vec![]);
+    let provider = MockProvider::new([draft("wf.existing", "added a line")]);
+    let mut config = config(runtime.base());
+    config.auto_run = false;
+    config.base_workflow = Some(
+        serde_json::from_str(&draft("wf.existing", "original")).expect("the base workflow parses"),
+    );
+    let agent = Agent::new(&provider, config);
+
+    let outcome = agent.plan("add a log line", &[]).expect("planning returns");
+    assert!(outcome.accepted);
+
+    let first_turn = &provider.calls()[0].messages[1].content;
+    assert!(first_turn.contains("workflow the operator is currently editing"));
+    assert!(first_turn.contains("wf.existing"));
+}
+
+#[test]
+fn explain_asks_for_prose_and_includes_the_evidence() {
+    let runtime = FakeRuntime::start(vec![]);
+    let provider = MockProvider::new([
+        "The workflow reads the clipboard and logs it. The gate is `system.Clipboard`.".to_string(),
+    ]);
+    let agent = Agent::new(&provider, config(runtime.base()));
+
+    let workflow: rf_schema::Workflow =
+        serde_json::from_str(&draft("wf.explain", "hello")).expect("parses");
+    let explanation = agent
+        .explain(&ExplainTarget::workflow(workflow))
+        .expect("explain returns");
+
+    assert!(explanation.contains("system.Clipboard"));
+
+    let request = &provider.calls()[0];
+    assert!(!request.json_mode, "an explanation is prose, not JSON");
+    let prompt = &request.messages[1].content;
+    assert!(prompt.contains("wf.explain"), "the workflow must be quoted");
+    assert!(
+        prompt.contains("Validation diagnostics"),
+        "the runtime's own diagnostics must be included"
+    );
+    assert!(prompt.contains("most useful next action"));
+}
+
+#[test]
+fn explain_can_account_for_a_run() {
+    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+        status: "failed".to_string(),
+        code: Some("E_INVALID_CONFIG".to_string()),
+    }]);
+    let provider =
+        MockProvider::new(["The run failed because the expression was malformed.".to_string()]);
+    let agent = Agent::new(&provider, config(runtime.base()));
+
+    let workflow: rf_schema::Workflow =
+        serde_json::from_str(&draft("wf.run", "hello")).expect("parses");
+    let started = agent
+        .client()
+        .start_run(&workflow, json!({}))
+        .expect("the run starts");
+    let run_id = started["id"].as_str().unwrap().to_string();
+
+    let explanation = agent
+        .explain(&ExplainTarget::run(&run_id).with_run(&run_id))
+        .expect("explain returns");
+    assert!(explanation.contains("failed"));
+
+    let prompt = &provider.calls()[0].messages[1].content;
+    assert!(prompt.contains("Run snapshot"));
+    assert!(prompt.contains("Execution events"));
+    assert!(prompt.contains("E_INVALID_CONFIG"));
+}
+
+#[test]
+fn the_audit_endpoint_is_reachable_for_the_studio() {
+    let runtime = FakeRuntime::start(vec![]);
+    let provider = MockProvider::new([""]);
+    let agent = Agent::new(&provider, config(runtime.base()));
+    // The fake runtime in this suite does not implement /audit; the point here is
+    // that a missing endpoint surfaces as a structured runtime error rather than
+    // a panic, which is what the Studio's Audit tab relies on.
+    let error = agent.client().audit(None, None).expect_err("no such route");
+    assert!(matches!(error, AgentError::Runtime { status: 404, .. }));
 }

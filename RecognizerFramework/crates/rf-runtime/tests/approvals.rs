@@ -383,3 +383,70 @@ async fn the_event_log_exposes_the_full_sequence() {
     assert_eq!(events.first().unwrap()["event"]["type"], "run_started");
     assert_eq!(events.last().unwrap()["event"]["type"], "run_completed");
 }
+
+#[tokio::test]
+async fn the_audit_log_records_every_decision_and_can_be_filtered() {
+    let state = state(true, Duration::from_secs(5)).await;
+    let (_, run) = call(
+        &state,
+        post("/api/v1/runs", json!({ "workflow": gated_workflow() })),
+    )
+    .await;
+    let run_id = run["id"].as_str().unwrap().to_string();
+    loop {
+        if state
+            .runs
+            .get(&run_id)
+            .unwrap()
+            .snapshot()
+            .status
+            .is_terminal()
+        {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    let (status, records) = call(&state, get("/api/v1/audit")).await;
+    assert_eq!(status, StatusCode::OK);
+    let records = records.as_array().expect("an array of records");
+    assert!(
+        records.len() >= 8,
+        "expected a full account, got {}",
+        records.len()
+    );
+
+    // The decision an operator cares about must be present and explicit.
+    let decision = records
+        .iter()
+        .find(|record| record["capability"] == "test.Gated");
+    let decision = decision.expect("the gated capability is recorded");
+    assert_eq!(decision["category"], "capability_evaluated");
+    assert_eq!(decision["capability"], "test.Gated");
+    assert_eq!(decision["decision"], "require_approval");
+    assert_eq!(decision["node_id"], "gated");
+
+    // Every record carries a monotonic sequence number and a timestamp.
+    let mut previous = None;
+    for record in records {
+        let seq = record["seq"].as_u64().unwrap();
+        if let Some(previous) = previous {
+            assert!(seq > previous);
+        }
+        previous = Some(seq);
+        assert!(record["timestamp_ms"].as_u64().unwrap() > 0);
+    }
+
+    // Filtering by run keeps only that run's records.
+    let (status, filtered) = call(
+        &state,
+        get(&format!("/api/v1/audit?run_id={run_id}&limit=5")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let filtered = filtered.as_array().unwrap();
+    assert_eq!(filtered.len(), 5, "the limit must apply");
+    for record in filtered {
+        assert_eq!(record["run_id"], run_id);
+    }
+}

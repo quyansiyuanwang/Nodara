@@ -641,3 +641,62 @@ body {
 .message--runtime .message__who {
   color: var(--ok);
 }
+
+/* Audit view ------------------------------------------------------------- */
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.audit {
+  overflow: auto;
+  max-height: 190px;
+}
+
+.audit__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.audit__table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--text-dim);
+  text-align: left;
+  font-weight: 500;
+  padding: 3px 8px 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.audit__table td {
+  padding: 2px 8px 2px 0;
+  vertical-align: top;
+  border-bottom: 1px solid #1c2030;
+}
+
+.audit__decision {
+  font-weight: 600;
+}
+
+.audit__decision--allow,
+.audit__decision--approved {
+  color: var(--ok);
+}
+
+.audit__decision--deny,
+.audit__decision--rejected {
+  color: var(--error);
+}
+
+.audit__decision--require-approval {
+  color: var(--warn);
+}
+
+.audit__row--node-failed td {
+  color: var(--error);
+}

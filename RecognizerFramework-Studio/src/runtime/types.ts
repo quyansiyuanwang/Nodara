@@ -249,3 +249,35 @@ export interface AgentSessionList {
   sessions: AgentSession[];
   pending_approvals: { session_id: string; approval: ApprovalRequest }[];
 }
+
+/* --- Audit --------------------------------------------------------------- */
+
+export type AuditCategory =
+  | "run_started"
+  | "run_finished"
+  | "node_started"
+  | "node_finished"
+  | "node_failed"
+  | "capability_evaluated"
+  | "approval"
+  | "log";
+
+/**
+ * One audit record.
+ *
+ * The event stream is for live observation and a slow subscriber may fall
+ * behind; these records are the durable account of what the runtime allowed,
+ * refused and recorded.
+ */
+export interface AuditRecord {
+  seq: number;
+  timestamp_ms: number;
+  run_id: string;
+  category: AuditCategory;
+  node_id?: string;
+  node_type?: string;
+  capability?: string;
+  decision?: string;
+  message: string;
+  detail: unknown;
+}

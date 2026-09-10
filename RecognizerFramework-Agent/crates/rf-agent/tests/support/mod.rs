@@ -203,6 +203,21 @@ fn route(
             json!({ "status": "ok", "node_types": 6, "plugins": 0, "runs": 0 }),
         ),
         ("GET", "/api/v1/node-types") => (200, json!({ "node_types": catalogue() })),
+        // The fake runs the *real* validator against its own catalogue, so the
+        // agent's explain path sees the same diagnostics a live runtime produces.
+        ("POST", "/api/v1/workflows/validate") => {
+            let Ok(workflow) = serde_json::from_value::<rf_schema::Workflow>(
+                body.get("workflow").cloned().unwrap_or(Value::Null),
+            ) else {
+                return (
+                    400,
+                    json!({ "code": "E_BAD_REQUEST", "message": "not a workflow" }),
+                );
+            };
+            let index = CatalogueIndex(catalogue_descriptors());
+            let report = rf_schema::validate_with(&workflow, &index, &Default::default());
+            (200, serde_json::to_value(report).unwrap_or(Value::Null))
+        }
         ("POST", "/api/v1/agent/sessions") => {
             recorded.sessions_created += 1;
             state.session = json!({
@@ -320,7 +335,8 @@ fn route(
     }
 }
 
-fn catalogue() -> Vec<Value> {
+/// The node types this fake runtime can execute.
+fn catalogue_descriptors() -> Vec<rf_schema::NodeDescriptor> {
     [
         ("core.Start", "Start", "Core", false),
         ("core.End", "End", "Core", false),
@@ -329,23 +345,44 @@ fn catalogue() -> Vec<Value> {
         ("windows.Input.Keyboard", "Keyboard", "Input", true),
     ]
     .into_iter()
-    .map(|(node_type, display, category, dangerous)| {
-        json!({
-            "node_type": node_type,
-            "display_name": display,
-            "category": category,
-            "description": "",
-            "version": "2.0.0",
-            "inputs": [],
-            "outputs": [],
-            "config_schema": { "type": "object", "properties": {} },
-            "capabilities": [],
-            "permissions": if dangerous { json!(["input.control"]) } else { json!([]) },
-            "dangerous": dangerous,
-            "allows_additional_config": true
-        })
-    })
+    .map(
+        |(node_type, display, category, dangerous)| rf_schema::NodeDescriptor {
+            permissions: if dangerous {
+                vec!["input.control".to_string()]
+            } else {
+                Vec::new()
+            },
+            dangerous,
+            ..rf_schema::NodeDescriptor::new(node_type, display, category)
+        },
+    )
     .collect()
+}
+
+fn catalogue() -> Vec<Value> {
+    catalogue_descriptors()
+        .into_iter()
+        .filter_map(|descriptor| serde_json::to_value(descriptor).ok())
+        .collect()
+}
+
+/// The subset of the registry interface validation needs.
+struct CatalogueIndex(Vec<rf_schema::NodeDescriptor>);
+
+impl rf_schema::NodeTypeIndex for CatalogueIndex {
+    fn node_types(&self) -> Vec<String> {
+        self.0
+            .iter()
+            .map(|descriptor| descriptor.node_type.clone())
+            .collect()
+    }
+
+    fn descriptor(&self, node_type: &str) -> Option<rf_schema::NodeDescriptor> {
+        self.0
+            .iter()
+            .find(|descriptor| descriptor.node_type == node_type)
+            .cloned()
+    }
 }
 
 fn snapshot(id: &str, status: &str, code: Option<&str>, attempt: usize) -> Value {

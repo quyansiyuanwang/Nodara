@@ -27,6 +27,8 @@ pub struct RuntimeState {
     pub runs: Arc<RunManager>,
     /// Agent sessions and the approvals they are waiting on.
     pub sessions: Arc<AgentSessionStore>,
+    /// The audit log, exposed so operators can read what the runtime allowed.
+    pub audit: Arc<dyn rf_core::AuditLog>,
     /// The engine, shared with the run manager.
     pub engine: WorkflowEngine,
     /// Plugin loading failures, surfaced through `GET /api/v1/plugins`.
@@ -151,7 +153,7 @@ impl RuntimeBuilder {
         let engine = WorkflowEngine::new(registry.clone())
             .with_policy(policy)
             .with_approval(approval)
-            .with_audit(audit);
+            .with_audit(audit.clone());
         let runs = RunManager::new(engine.clone());
 
         Ok(Arc::new(RuntimeState {
@@ -160,6 +162,7 @@ impl RuntimeBuilder {
             host,
             runs,
             sessions,
+            audit,
             engine,
             plugin_failures,
         }))

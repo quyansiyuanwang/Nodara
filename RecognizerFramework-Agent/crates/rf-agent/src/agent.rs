@@ -61,6 +61,9 @@ pub struct AgentConfig {
     pub publish_session: bool,
     /// How the tool catalogue is narrowed before prompting.
     pub tool_selector: ToolSelector,
+    /// When present, `plan` and `plan_and_run` modify this document instead of
+    /// authoring one from nothing.
+    pub base_workflow: Option<Workflow>,
 }
 
 impl Default for AgentConfig {
@@ -76,7 +79,42 @@ impl Default for AgentConfig {
             variables: Value::Object(serde_json::Map::new()),
             publish_session: true,
             tool_selector: ToolSelector::default(),
+            base_workflow: None,
         }
+    }
+}
+
+/// What to explain.
+#[derive(Debug, Clone, Default)]
+pub struct ExplainTarget {
+    /// A workflow document to account for.
+    pub workflow: Option<Workflow>,
+    /// A run to account for.
+    pub run_id: Option<String>,
+}
+
+impl ExplainTarget {
+    /// Explain a workflow.
+    pub fn workflow(workflow: Workflow) -> Self {
+        Self {
+            workflow: Some(workflow),
+            run_id: None,
+        }
+    }
+
+    /// Explain a run.
+    pub fn run(run_id: impl Into<String>) -> Self {
+        Self {
+            workflow: None,
+            run_id: Some(run_id.into()),
+        }
+    }
+
+    /// Builder-style run id.
+    #[must_use]
+    pub fn with_run(mut self, run_id: impl Into<String>) -> Self {
+        self.run_id = Some(run_id.into());
+        self
     }
 }
 
@@ -157,6 +195,58 @@ impl<'a> Agent<'a> {
         self.client.cancel(run_id)
     }
 
+    /// Explain a workflow, a run, or both, in prose.
+    ///
+    /// The plan requires the agent to "解释节点和执行错误". This asks the model to
+    /// account for what a workflow does and why a run ended the way it did, with
+    /// the runtime's own diagnostics and events as the only evidence.
+    pub fn explain(&self, target: &ExplainTarget) -> AgentResult<String> {
+        let workflow_json = match &target.workflow {
+            Some(workflow) => Some(serde_json::to_string_pretty(workflow)?),
+            None => None,
+        };
+
+        let diagnostics = match &target.workflow {
+            Some(workflow) => self
+                .client
+                .validate(workflow)
+                .ok()
+                .and_then(|report| serde_json::to_value(report).ok()),
+            None => None,
+        };
+
+        let (snapshot, events) = match &target.run_id {
+            Some(run_id) => {
+                let snapshot = self.client.get_run(run_id).ok();
+                let events = self
+                    .client
+                    .event_log(run_id)
+                    .ok()
+                    .and_then(|events| serde_json::to_value(events).ok())
+                    .unwrap_or(Value::Null);
+                (snapshot, events)
+            }
+            None => (None, Value::Null),
+        };
+
+        let prompt = crate::prompt::explain_prompt(
+            workflow_json.as_deref(),
+            diagnostics.as_ref(),
+            snapshot.as_ref(),
+            &events,
+        );
+        let mut request = crate::model::ChatRequest::new(vec![
+            crate::model::ChatMessage::system(
+                "You explain automation workflows and their runs to the operator.",
+            ),
+            crate::model::ChatMessage::user(prompt),
+        ]);
+        // An explanation is prose, not a document.
+        request.json_mode = false;
+        request.temperature = 0.2;
+        Ok(self.provider.complete(&request)?.content)
+    }
+
     /// Plan a workflow without running it.
     pub fn plan(&self, goal: &str, constraints: &[String]) -> AgentResult<AgentOutcome> {
         self.session(goal, constraints, false)
@@ -216,6 +306,7 @@ impl<'a> Agent<'a> {
                 goal: goal.to_string(),
                 constraints: constraints.to_vec(),
                 max_repairs: self.config.max_repairs,
+                base: self.config.base_workflow.clone(),
             };
             if !feedback.is_empty() {
                 request

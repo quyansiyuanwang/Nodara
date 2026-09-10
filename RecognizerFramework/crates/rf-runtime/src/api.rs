@@ -54,7 +54,8 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
             "/agent/sessions/{id}/approvals/{approval_id}",
             post(decide_agent_approval),
         )
-        .route("/agent/approvals", get(list_pending_approvals));
+        .route("/agent/approvals", get(list_pending_approvals))
+        .route("/audit", get(list_audit_records));
 
     let mut router = Router::new()
         .route("/api/v1", get(root))
@@ -434,6 +435,37 @@ async fn list_pending_approvals(
             })
             .collect(),
     )
+}
+
+#[derive(Debug, Deserialize)]
+struct AuditQuery {
+    /// Restrict the answer to one run.
+    #[serde(default)]
+    run_id: Option<String>,
+    /// Return at most this many records, newest last.
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+/// `GET /audit` — what the runtime allowed, refused and recorded.
+///
+/// The audit log is the durable counterpart to the event stream: events are for
+/// live observation and a slow subscriber may fall behind, whereas these records
+/// are what an operator reviews afterwards.
+async fn list_audit_records(
+    State(state): State<Arc<RuntimeState>>,
+    axum::extract::Query(query): axum::extract::Query<AuditQuery>,
+) -> Json<Vec<rf_core::AuditRecord>> {
+    let mut records = state.audit.records();
+    if let Some(run_id) = &query.run_id {
+        records.retain(|record| record.run_id == *run_id);
+    }
+    if let Some(limit) = query.limit {
+        if records.len() > limit {
+            records.drain(..records.len() - limit);
+        }
+    }
+    Json(records)
 }
 
 /// Replay the buffered events, then forward live ones until the client leaves.

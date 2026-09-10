@@ -113,6 +113,15 @@ is what releases it. The session card shows:
 
 The tab is marked when something is waiting, so an approval is not missed.
 
+## The Audit tab
+
+The plan's final migration step calls for an audit interface. This is it: the
+durable record of every capability the runtime evaluated, every approval, and
+every node outcome, read from `GET /api/v1/audit`. The table shows the time, the
+run, the category, the node, the capability, the decision and the message, with
+decisions and failures highlighted and a filter for the run currently being
+watched.
+
 ## Tests
 
 ```bash
@@ -129,3 +138,4 @@ Thirty tests cover the six areas the architecture document lists:
 | Run-status visualisation | `src/ui/event-log.test.ts` |
 | Runtime disconnect and recovery | `src/runtime/client.test.ts` |
 | Document model and local validation | `src/model/workflow.test.ts` |
+| Audit rendering | `src/ui/audit-panel.test.ts` |

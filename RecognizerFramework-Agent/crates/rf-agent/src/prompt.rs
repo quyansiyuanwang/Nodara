@@ -147,3 +147,55 @@ Return a corrected workflow document. Fix every `error` diagnostic. Keep \
 everything that was already correct, and reply with the JSON object only."
     )
 }
+
+/// Build the user turn for "modify this workflow".
+///
+/// Modification is a different task from generation: the model must keep
+/// everything the operator did not ask to change, including node ids, so that
+/// saved positions, external references and diffs stay meaningful.
+pub fn modify_prompt(current: &str, instruction: &str) -> String {
+    format!(
+        "Here is the workflow the operator is currently editing:\n\n{current}\n\n\
+Apply this change:\n\n{instruction}\n\n\
+Return the whole document, not a patch. Keep every node id that still refers to \
+the same step, keep existing `position` values, and keep configuration for nodes \
+the change does not touch. Reply with the JSON object only."
+    )
+}
+
+/// Build the user turn for explaining a workflow and, optionally, a run.
+pub fn explain_prompt(
+    workflow: Option<&str>,
+    diagnostics: Option<&serde_json::Value>,
+    run: Option<&serde_json::Value>,
+    events: &serde_json::Value,
+) -> String {
+    let mut out = String::from(
+        "Explain the following to the operator. Say what the workflow does, then, \
+if a run is included, what happened and why it ended the way it did. Be \
+specific: name nodes by their id, quote the diagnostic codes and the log lines \
+that matter, and finish with the single most useful next action. Do not \
+speculate beyond the evidence given. Plain prose, no JSON.\n\n",
+    );
+    if let Some(workflow) = workflow {
+        out.push_str("## Workflow\n\n```json\n");
+        out.push_str(workflow);
+        out.push_str("\n```\n\n");
+    }
+    if let Some(diagnostics) = diagnostics {
+        out.push_str("## Validation diagnostics\n\n```json\n");
+        out.push_str(&diagnostics.to_string());
+        out.push_str("\n```\n\n");
+    }
+    if let Some(run) = run {
+        out.push_str("## Run snapshot\n\n```json\n");
+        out.push_str(&run.to_string());
+        out.push_str("\n```\n\n");
+    }
+    if !events.is_null() {
+        out.push_str("## Execution events\n\n```json\n");
+        out.push_str(&events.to_string());
+        out.push_str("\n```\n");
+    }
+    out
+}

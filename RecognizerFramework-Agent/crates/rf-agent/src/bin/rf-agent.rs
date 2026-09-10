@@ -6,8 +6,8 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use rf_agent::{
     audit::{self, AuditTrace},
-    Agent, AgentConfig, AgentResult, GuardrailPolicy, LlmProvider, MockProvider, OpenAiProvider,
-    RuntimeClient, ToolPolicy,
+    Agent, AgentConfig, AgentResult, ExplainTarget, GuardrailPolicy, LlmProvider, MockProvider,
+    OpenAiProvider, RuntimeClient, ToolPolicy,
 };
 
 #[derive(Parser)]
@@ -71,6 +71,9 @@ enum Command {
         /// Validate through the runtime (default when the runtime is reachable).
         #[arg(long)]
         offline: bool,
+        /// Modify this existing workflow instead of authoring a new one.
+        #[arg(long = "from", value_name = "FILE")]
+        from: Option<PathBuf>,
     },
 
     /// Plan a workflow and run it.
@@ -89,6 +92,9 @@ enum Command {
         /// Replay these canned model replies instead of calling a provider.
         #[arg(long = "mock", value_name = "JSON", hide = true)]
         mock: Vec<String>,
+        /// Modify this existing workflow instead of authoring a new one.
+        #[arg(long = "from", value_name = "FILE")]
+        from: Option<PathBuf>,
     },
 
     /// Replay a recorded decision trace.
@@ -97,8 +103,28 @@ enum Command {
         file: PathBuf,
     },
 
+    /// Explain a workflow, or why a run ended the way it did.
+    Explain {
+        /// Workflow JSON file.
+        #[arg(value_name = "FILE")]
+        file: Option<PathBuf>,
+        /// A run to account for, in addition to the workflow.
+        #[arg(long, value_name = "RUN_ID")]
+        run: Option<String>,
+    },
+
     /// List agent sessions and any approvals waiting on an operator.
     Sessions {
+        /// Emit as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Show the runtime's audit log — what it allowed, refused and recorded.
+    Audit {
+        /// Restrict to one run.
+        #[arg(long, value_name = "RUN_ID")]
+        run: Option<String>,
         /// Emit as JSON.
         #[arg(long)]
         json: bool,
@@ -200,9 +226,11 @@ fn run() -> AgentResult<()> {
             out,
             mock,
             offline,
+            from,
         } => {
             let provider = build_provider(&mock)?;
             let mut config = config;
+            config.base_workflow = read_base(&from)?;
             if offline {
                 // Offline planning still validates locally against the shipped
                 // schema rules, it just cannot consult the runtime's catalogue.
@@ -230,10 +258,12 @@ fn run() -> AgentResult<()> {
             variables,
             timeout,
             mock,
+            from,
         } => {
             let provider = build_provider(&mock)?;
             let mut config = config;
             config.auto_run = true;
+            config.base_workflow = read_base(&from)?;
             config.run_timeout = Duration::from_secs(timeout);
             config.variables = serde_json::from_str(&variables)?;
             let agent = Agent::new(provider.as_ref(), config);
@@ -257,6 +287,27 @@ fn run() -> AgentResult<()> {
             Ok(())
         }
 
+        Command::Explain { file, run } => {
+            let provider = build_provider(&[])?;
+            let agent = Agent::new(provider.as_ref(), config);
+            let mut target = match &file {
+                Some(path) => {
+                    let text = std::fs::read_to_string(path)?;
+                    ExplainTarget::workflow(serde_json::from_str(&text)?)
+                }
+                None => ExplainTarget::default(),
+            };
+            if let Some(run_id) = run {
+                target = target.with_run(run_id);
+            }
+            if target.workflow.is_none() && target.run_id.is_none() {
+                eprintln!("nothing to explain: pass a workflow file, a run id, or both");
+                std::process::exit(2);
+            }
+            println!("{}", agent.explain(&target)?);
+            Ok(())
+        }
+
         Command::Sessions { json } => {
             let client = RuntimeClient::new(cli.runtime.clone());
             let payload = client.sessions()?;
@@ -264,6 +315,40 @@ fn run() -> AgentResult<()> {
                 println!("{}", serde_json::to_string_pretty(&payload)?);
             } else {
                 print_sessions(&payload);
+            }
+            Ok(())
+        }
+
+        Command::Audit { run, json } => {
+            let client = RuntimeClient::new(cli.runtime.clone());
+            let records = client.audit(run.as_deref(), Some(200))?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&records)?);
+            } else if records.is_empty() {
+                println!("no audit records");
+            } else {
+                for record in &records {
+                    let decision = record
+                        .get("decision")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    println!(
+                        "{:<10} {:<20} {:<12} {}",
+                        record
+                            .get("category")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("-"),
+                        record
+                            .get("node_id")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or(""),
+                        decision,
+                        record
+                            .get("message")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                    );
+                }
             }
             Ok(())
         }
@@ -373,6 +458,15 @@ fn build_provider(mock: &[String]) -> AgentResult<Box<dyn LlmProvider>> {
 
 fn offline_provider() -> MockProvider {
     MockProvider::new([""])
+}
+
+/// Read the workflow a modification request starts from.
+fn read_base(path: &Option<PathBuf>) -> AgentResult<Option<rf_schema::Workflow>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let text = std::fs::read_to_string(path)?;
+    Ok(Some(serde_json::from_str(&text)?))
 }
 
 fn print_outcome(outcome: &rf_agent::AgentOutcome) -> AgentResult<()> {

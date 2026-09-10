@@ -10,6 +10,7 @@ import {
   AgentSessionList,
   ApprovalDecision,
   ApiErrorBody,
+  AuditRecord,
   EventEnvelope,
   JsonSchema,
   NodeDescriptor,
@@ -151,6 +152,15 @@ export class RuntimeClient {
       `/agent/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(approvalId)}`,
       { decision, decided_by: decidedBy },
     );
+  }
+
+  /** The audit log, optionally narrowed to one run. */
+  audit(options: { runId?: string; limit?: number } = {}): Promise<AuditRecord[]> {
+    const query = new URLSearchParams();
+    if (options.runId) query.set("run_id", options.runId);
+    if (options.limit) query.set("limit", String(options.limit));
+    const suffix = query.toString() ? `?${query}` : "";
+    return this.request<AuditRecord[]>(`/audit${suffix}`);
   }
 
   private post<T>(path: string, body: unknown = {}): Promise<T> {

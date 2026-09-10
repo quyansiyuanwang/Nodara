@@ -109,6 +109,33 @@ cargo run -p rf-agent -- approve <session-id> <approval-id> --deny --by alice
 cargo run -p rf-agent -- control <run-id> pause
 cargo run -p rf-agent -- control <run-id> resume
 cargo run -p rf-agent -- control <run-id> cancel
+
+# What did the runtime allow, refuse and record?
+cargo run -p rf-agent -- audit
+cargo run -p rf-agent -- audit --run <run-id>
+```
+
+### Modifying an existing workflow
+
+With `--from`, the model is asked to *modify* a document rather than author one,
+and the prompt requires it to keep node ids and positions it was not asked to
+change:
+
+```bash
+cargo run -p rf-agent -- plan "add a delay of two seconds before the log" \
+  --from examples/hello-world.json --out examples/hello-world.json
+```
+
+### Explaining a workflow or a failed run
+
+The plan lists "解释节点和执行错误" among the agent's jobs. `explain` sends the
+workflow, the runtime's own validation diagnostics and — when a run is given —
+the run snapshot and its event log, and asks for prose rather than JSON:
+
+```bash
+cargo run -p rf-agent -- explain examples/window-find.json
+cargo run -p rf-agent -- explain examples/window-find.json --run <run-id>
+cargo run -p rf-agent -- explain --run <run-id>
 ```
 
 Replay a recorded session:

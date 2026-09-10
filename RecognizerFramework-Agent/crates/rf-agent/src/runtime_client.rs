@@ -215,6 +215,24 @@ impl RuntimeClient {
         self.get("/api/v1/agent/sessions")
     }
 
+    /// The audit log, optionally narrowed to one run.
+    pub fn audit(&self, run_id: Option<&str>, limit: Option<usize>) -> AgentResult<Vec<Value>> {
+        let mut query = Vec::new();
+        if let Some(run_id) = run_id {
+            query.push(format!("run_id={run_id}"));
+        }
+        if let Some(limit) = limit {
+            query.push(format!("limit={limit}"));
+        }
+        let suffix = if query.is_empty() {
+            String::new()
+        } else {
+            format!("?{}", query.join("&"))
+        };
+        let payload = self.get(&format!("/api/v1/audit{suffix}"))?;
+        Ok(payload.as_array().cloned().unwrap_or_default())
+    }
+
     /// Start a run bound to a session, so gated nodes can ask for approval.
     pub fn start_run_for_session(
         &self,

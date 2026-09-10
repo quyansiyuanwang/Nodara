@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::error::AgentResult;
 use crate::model::{ChatMessage, ChatRequest};
-use crate::prompt::{repair_prompt, system_prompt, user_prompt};
+use crate::prompt::{modify_prompt, repair_prompt, system_prompt, user_prompt};
 use crate::provider::LlmProvider;
 
 /// Everything needed to plan one workflow.
@@ -23,6 +23,9 @@ pub struct PlanRequest {
     pub constraints: Vec<String>,
     /// How many repair attempts to allow after the first draft.
     pub max_repairs: u32,
+    /// When present, the model is asked to modify this document rather than
+    /// author one from nothing.
+    pub base: Option<Workflow>,
 }
 
 impl PlanRequest {
@@ -32,7 +35,15 @@ impl PlanRequest {
             goal: goal.into(),
             constraints: Vec::new(),
             max_repairs: 3,
+            base: None,
         }
+    }
+
+    /// Builder-style base document to modify.
+    #[must_use]
+    pub fn with_base(mut self, base: Workflow) -> Self {
+        self.base = Some(base);
+        self
     }
 
     /// Builder-style constraint.
@@ -87,10 +98,14 @@ impl<'a> Planner<'a> {
     /// Plan a workflow, repairing until the runtime accepts it.
     pub fn plan(&self, request: &PlanRequest) -> AgentResult<PlanOutcome> {
         let system = system_prompt(&self.descriptors);
-        let mut messages = vec![
-            ChatMessage::system(system),
-            ChatMessage::user(user_prompt(&request.goal, &request.constraints)),
-        ];
+        let opening = match &request.base {
+            Some(base) => {
+                let current = serde_json::to_string_pretty(base)?;
+                modify_prompt(&current, &user_prompt(&request.goal, &request.constraints))
+            }
+            None => user_prompt(&request.goal, &request.constraints),
+        };
+        let mut messages = vec![ChatMessage::system(system), ChatMessage::user(opening)];
 
         let first = self
             .provider
@@ -344,6 +359,7 @@ mod tests {
                 goal: "x".into(),
                 constraints: Vec::new(),
                 max_repairs: 0,
+                base: None,
             })
             .unwrap();
         assert!(!outcome.accepted);
@@ -352,5 +368,39 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "AG100"));
+    }
+
+    #[test]
+    fn a_base_document_is_sent_for_modification_not_generation() {
+        let mut base = Workflow::new("wf.existing");
+        base.add_node(rf_schema::Node::new("start", "core.Start"));
+        base.add_node(rf_schema::Node::new("log", "core.Log"));
+        base.add_node(rf_schema::Node::new("end", "core.End"));
+
+        let provider = MockProvider::new([serde_json::json!({
+            "schema_version": "2.0",
+            "id": "wf.existing",
+            "nodes": [
+                { "id": "start", "type": "core.Start" },
+                { "id": "log", "type": "core.Log", "config": { "message": "added" } },
+                { "id": "end", "type": "core.End" }
+            ],
+            "edges": [
+                { "id": "e1", "source": "start", "target": "log" },
+                { "id": "e2", "source": "log", "target": "end" }
+            ]
+        })
+        .to_string()]);
+
+        let planner = Planner::new(&provider, descriptors());
+        let outcome = planner
+            .plan(&PlanRequest::new("add a log line").with_base(base))
+            .unwrap();
+        assert!(outcome.accepted);
+
+        let first_turn = &provider.calls()[0].messages[1].content;
+        assert!(first_turn.contains("workflow the operator is currently editing"));
+        assert!(first_turn.contains("wf.existing"));
+        assert!(first_turn.contains("Return the whole document, not a patch"));
     }
 }
