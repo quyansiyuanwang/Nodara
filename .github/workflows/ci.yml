@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: RecognizerFramework/target
+        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run tests
+      working-directory: ./RecognizerFramework
+      run: cargo test --workspace --verbose
+
+    - name: Run clippy
+      working-directory: ./RecognizerFramework
+      run: cargo clippy --all-targets -- -D warnings
+
+    - name: Check formatting
+      working-directory: ./RecognizerFramework
+      run: cargo fmt --all -- --check
+
+  build:
+    name: Build
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build release
+      working-directory: ./RecognizerFramework
+      run: cargo build --release --verbose
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: rf-cli-windows
+        path: RecognizerFramework/target/release/rf-cli.exe
+
+  validate-examples:
+    name: Validate Examples
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build CLI
+      working-directory: ./RecognizerFramework
+      run: cargo build --release -p rf-cli
+
+    - name: Validate hello-world
+      working-directory: ./RecognizerFramework
+      run: cargo run --release -p rf-cli -- validate ../examples/hello-world.json
+
+    - name: Validate delayed-log
+      working-directory: ./RecognizerFramework
+      run: cargo run --release -p rf-cli -- validate ../examples/delayed-log.json

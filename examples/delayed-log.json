@@ -1,0 +1,38 @@
+{
+  "$schema": "../RecognizerFramework/schema/generated.schema.json",
+  "version": 2,
+  "nodes": [
+    {
+      "id": "start",
+      "kind": "Start",
+      "config": {}
+    },
+    {
+      "id": "log1",
+      "kind": "System.Log",
+      "config": {
+        "message": "Starting workflow..."
+      }
+    },
+    {
+      "id": "wait",
+      "kind": "System.Delay",
+      "config": {
+        "seconds": 2
+      }
+    },
+    {
+      "id": "log2",
+      "kind": "System.Log",
+      "config": {
+        "message": "Workflow complete!"
+      }
+    }
+  ],
+  "edges": [
+    {"from": "start", "to": "log1"},
+    {"from": "log1", "to": "wait"},
+    {"from": "wait", "to": "log2"},
+    {"from": "log2", "to": "exit"}
+  ]
+}

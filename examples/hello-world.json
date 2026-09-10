@@ -1,0 +1,28 @@
+{
+  "$schema": "../RecognizerFramework/schema/generated.schema.json",
+  "version": 2,
+  "nodes": [
+    {
+      "id": "start",
+      "kind": "Start",
+      "config": {}
+    },
+    {
+      "id": "hello",
+      "kind": "System.Log",
+      "config": {
+        "message": "Hello, World!"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "hello"
+    },
+    {
+      "from": "hello",
+      "to": "exit"
+    }
+  ]
+}
