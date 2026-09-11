@@ -243,7 +243,7 @@ fn run() -> AgentResult<()> {
                 print!("{}", outcome.report.to_markdown());
             }
             if let (Some(workflow), Some(path)) = (&outcome.workflow, out) {
-                write_workflow(workflow, &path)?;
+                write_workflow(workflow, &cli.runtime, &path)?;
                 eprintln!("wrote {}", path.display());
             }
             if !outcome.accepted {
@@ -491,15 +491,68 @@ fn print_outcome(outcome: &rf_agent::AgentOutcome) -> AgentResult<()> {
     Ok(())
 }
 
-fn write_workflow(workflow: &rf_schema::Workflow, path: &PathBuf) -> AgentResult<()> {
+/// Write a planned workflow to disk.
+///
+/// The document is stamped with the schema the runtime serves, so a file the
+/// agent produces is completed by an editor exactly like a hand-written one —
+/// node types, configuration keys, defaults and hover documentation — as long
+/// as the model did not already choose a schema of its own.
+fn write_workflow(
+    workflow: &rf_schema::Workflow,
+    runtime_url: &str,
+    path: &PathBuf,
+) -> AgentResult<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent)?;
         }
     }
+    let document = document_for_disk(workflow, runtime_url);
     std::fs::write(
         path,
-        format!("{}\n", serde_json::to_string_pretty(workflow)?),
+        format!("{}\n", serde_json::to_string_pretty(&document)?),
     )?;
     Ok(())
+}
+
+/// The document as it should be written: the planned workflow with the
+/// runtime's schema URL filled in when the plan did not carry one.
+fn document_for_disk(workflow: &rf_schema::Workflow, runtime_url: &str) -> rf_schema::Workflow {
+    let mut document = workflow.clone();
+    if document.schema_url.is_none() {
+        let base = runtime_url.trim_end_matches('/');
+        document.schema_url = Some(format!("{base}/api/v1/schema/workflow"));
+    }
+    document
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workflow() -> rf_schema::Workflow {
+        let mut workflow = rf_schema::Workflow::new("wf.planned");
+        workflow.add_node(rf_schema::Node::new("start", "core.Start"));
+        workflow
+    }
+
+    #[test]
+    fn planned_documents_point_at_the_runtime_schema() {
+        let document = document_for_disk(&workflow(), "http://127.0.0.1:8710/");
+        assert_eq!(
+            document.schema_url.as_deref(),
+            Some("http://127.0.0.1:8710/api/v1/schema/workflow")
+        );
+    }
+
+    #[test]
+    fn a_schema_the_model_chose_is_kept() {
+        let mut workflow = workflow();
+        workflow.schema_url = Some("./workflow.schema.json".to_string());
+        let document = document_for_disk(&workflow, "http://127.0.0.1:8710");
+        assert_eq!(
+            document.schema_url.as_deref(),
+            Some("./workflow.schema.json")
+        );
+    }
 }
