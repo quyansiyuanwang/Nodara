@@ -4,7 +4,7 @@
 
 这里是默认构建随附的节点类型目录：5 个核心节点、2 个系统节点、3 个输入节点、3 个窗口节点、
 桌面捕获与 2 个视觉节点。部署方可以通过安装插件扩展它们 —— 调用 `GET /api/v1/node-types`，
-或运行 `rf-cli simulate <工作流>` 查看某个文档需要哪些节点类型 —— 发布的工作流 schema 也会随之增长。
+或运行 `nodara-cli simulate <工作流>` 查看某个文档需要哪些节点类型 —— 发布的工作流 schema 也会随之增长。
 
 每个条目列出端口、策略行为与全部配置项。同样的信息可由 `GET /api/v1/node-types` 机器读取，
 描述符字段的含义见 [Schema 详解](schema.zh.md#5-节点描述符)。
@@ -199,7 +199,7 @@
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
-  "config": { "text": "Hello from RCR", "interval_ms": 10 } }
+  "config": { "text": "Hello from Nodara", "interval_ms": 10 } }
 ```
 
 ### `windows.Input.Mouse` — Mouse
@@ -327,7 +327,7 @@
 
 ### `vision.Ocr` — OCR
 
-通过已配置的 OCR 后端从图像中提取文本。OCR 需要注入后端（`RF_OCR_COMMAND`）；没有后端时节点会
+通过已配置的 OCR 后端从图像中提取文本。OCR 需要注入后端（`NODARA_OCR_COMMAND`）；没有后端时节点会
 以明确的"无后端"错误失败，而不是猜测结果。
 
 * 端口：in `in`（any）→ out `text`（string）
@@ -349,9 +349,9 @@
 安装插件后，其节点类型会在下列操作之后出现在这里 —— 也出现在节点面板、Agent 能力列表与发布的 schema 中：
 
 ```bash
-rf-cli schema --plugin-dir path/to/plugins --out schema
+nodara-cli schema --plugin-dir path/to/plugins --out schema
 ```
 
-实现方式见[编写节点（英文）](../RecognizerFramework/docs/node-authoring.md)，
+实现方式见[编写节点（英文）](../Nodara-Core/docs/node-authoring.md)，
 能产出良好提示的配置 schema 约定见
 [Schema 详解](schema.zh.md#10-编写对用户友好的配置-schema)。

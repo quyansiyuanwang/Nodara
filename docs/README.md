@@ -37,19 +37,19 @@ examples. When a document changes, change both.
 
 | Document | Contents |
 |---|---|
-| [../RecognizerFramework/docs/architecture.md](../RecognizerFramework/docs/architecture.md) | Crate detail, execution model, policy and audit |
-| [../RecognizerFramework/docs/node-authoring.md](../RecognizerFramework/docs/node-authoring.md) | Writing a capability, in process or as a plugin |
-| [../RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) | JSON-RPC over stdio, lifecycle, error codes |
-| [../RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) | HTTP and WebSocket API, schema endpoints, diagnostic codes |
-| [../RecognizerFramework/schema](../RecognizerFramework/schema) | Generated JSON Schema documents |
-| [../RecognizerFramework/plugins/README.md](../RecognizerFramework/plugins/README.md) | Plugin layout and executable resolution |
+| [../Nodara-Core/docs/architecture.md](../Nodara-Core/docs/architecture.md) | Crate detail, execution model, policy and audit |
+| [../Nodara-Core/docs/node-authoring.md](../Nodara-Core/docs/node-authoring.md) | Writing a capability, in process or as a plugin |
+| [../Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) | JSON-RPC over stdio, lifecycle, error codes |
+| [../Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) | HTTP and WebSocket API, schema endpoints, diagnostic codes |
+| [../Nodara-Core/schema](../Nodara-Core/schema) | Generated JSON Schema documents |
+| [../Nodara-Core/plugins/README.md](../Nodara-Core/plugins/README.md) | Plugin layout and executable resolution |
 
 ## Clients
 
 | Document | Contents |
 |---|---|
-| [../RecognizerFramework-Studio/README.md](../RecognizerFramework-Studio/README.md) | The visual editor |
-| [../RecognizerFramework-Agent/README.md](../RecognizerFramework-Agent/README.md) | The planner and operator |
+| [../Nodara-Studio/README.md](../Nodara-Studio/README.md) | The visual editor |
+| [../Nodara-Agent/README.md](../Nodara-Agent/README.md) | The planner and operator |
 
 ## Project
 
@@ -65,8 +65,8 @@ node descriptors. After changing a type or a descriptor, regenerate and commit
 them:
 
 ```bash
-cd RecognizerFramework
-cargo run -p rf-cli -- schema --out schema
+cd Nodara-Core
+cargo run -p nodara-cli -- schema --out schema
 ```
 
 `workflow.schema.json` is composed from the node catalogue; `--no-capabilities`
@@ -74,5 +74,5 @@ publishes the catalogue-free version and `--plugin-dir` includes plugins. CI
 fails if the checked-in schemas are stale, so they cannot drift unnoticed.
 
 The node reference is checked against the shipped catalogue by
-`cargo test -p rf-cli`, which keeps [nodes.md](nodes.md) and
+`cargo test -p nodara-cli`, which keeps [nodes.md](nodes.md) and
 [nodes.zh.md](nodes.zh.md) honest.

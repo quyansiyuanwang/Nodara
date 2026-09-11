@@ -1,0 +1,29 @@
+[package]
+name = "nodara-cli"
+description = "Command-line interface for Nodara-Core: validate, run, simulate, serve and migrate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "nodara-cli"
+path = "src/main.rs"
+
+[dependencies]
+nodara-schema = { path = "../nodara-schema" }
+nodara-core = { path = "../nodara-core" }
+nodara-plugin = { path = "../nodara-plugin" }
+nodara-runtime = { path = "../nodara-runtime" }
+nodara-platform = { path = "../nodara-platform" }
+nodara-vision = { path = "../nodara-vision" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

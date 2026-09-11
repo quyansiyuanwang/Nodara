@@ -2,7 +2,7 @@
 
 > 中文版：[project.zh.md](project.zh.md)
 
-RecognizerFramework (RCR) is a workflow-automation framework for Windows
+Nodara is a workflow-automation framework for Windows
 desktops and the ecosystem around it: a headless runtime, a visual editor, an
 autonomous agent, and a plugin model that lets third parties add capabilities
 without touching any of them.
@@ -14,7 +14,7 @@ the nodes in dependency order, and publishes every step as an event.
 
 ## 1. What the project is for
 
-| Problem | How RCR answers it |
+| Problem | How Nodara answers it |
 |---|---|
 | Automating a desktop task that is too irregular for a macro | Node graphs with conditions, variables and error branches |
 | Teaching the automation to a non-programmer | The Studio renders a palette and configuration forms from the node descriptors, so no node type is hardcoded in the UI |
@@ -26,9 +26,9 @@ the nodes in dependency order, and publishes every step as an event.
 
 | Path | Role |
 |---|---|
-| `RecognizerFramework/` | Core: `rf-schema` contracts, `rf-core` engine and SDK, `rf-plugin` host, `rf-runtime` server, the official `rf-platform`/`rf-vision` capability sets, `rf-cli`, `rf-testkit` |
-| `RecognizerFramework-Studio/` | Visual editor: Vite + TypeScript web app and a Tauri v2 desktop shell |
-| `RecognizerFramework-Agent/` | Planner and operator: natural language to workflow, run supervision, explanation, audit |
+| `Nodara-Core/` | Core: `nodara-schema` contracts, `nodara-core` engine and SDK, `nodara-plugin` host, `nodara-runtime` server, the official `nodara-platform`/`nodara-vision` capability sets, `nodara-cli`, `nodara-testkit` |
+| `Nodara-Studio/` | Visual editor: Vite + TypeScript web app and a Tauri v2 desktop shell |
+| `Nodara-Agent/` | Planner and operator: natural language to workflow, run supervision, explanation, audit |
 | `examples/` | Runnable workflow documents (`hello-world`, `branching`, `delayed-log`, `window-find`, plus a legacy fixture) |
 | `docs/` | This guide, the [schema guide](schema.md), the [node reference](nodes.md) and the index |
 
@@ -38,22 +38,22 @@ runtime binary plus a directory of plugins plus whatever client you point at it.
 ## 3. Architecture
 
 ```text
-        RecognizerFramework-Studio        RecognizerFramework-Agent
+        Nodara-Studio        Nodara-Agent
                     \                              /
                      \   HTTP + WebSocket + JSON  /
                       \                        /
                        v                      v
                   +--------------------------------+
-                  |   RecognizerFramework Runtime  |   rf-runtime
+                  |   Nodara-Core Runtime  |   nodara-runtime
                   +--------------------------------+
                               |
                   +-----------+-----------+
                   |                       |
-            rf-core (engine)        rf-plugin (host)
+            nodara-core (engine)        nodara-plugin (host)
                   |                       |
                   +----------+------------+
                              |
-                        rf-schema  (contracts)
+                        nodara-schema  (contracts)
 ```
 
 Three rules are enforced by the crate graph rather than by convention:
@@ -62,11 +62,11 @@ Three rules are enforced by the crate graph rather than by convention:
    ordinary API clients; they link no core internals.
 2. **The Studio and the agent do not know about each other.** If they need to
    cooperate they do it through runtime sessions, runs and events.
-3. **Capabilities are plugins, not core modules.** `rf-core` contains no
-   reference to `rf-platform` or `rf-vision`; the runtime discovers the official
+3. **Capabilities are plugins, not core modules.** `nodara-core` contains no
+   reference to `nodara-platform` or `nodara-vision`; the runtime discovers the official
    capability sets exactly as it discovers a third-party plugin.
 
-The agent's isolation is the sharpest case: it depends on `rf-schema` and
+The agent's isolation is the sharpest case: it depends on `nodara-schema` and
 nothing else from the core, so it physically cannot execute a capability without
 the runtime seeing the call. "Permission does not depend on the prompt" is a
 property of the dependency graph.
@@ -75,14 +75,14 @@ property of the dependency graph.
 
 | Crate | Responsibility | Depends on |
 |---|---|---|
-| `rf-schema` | Workflow, manifest, descriptor, event, session and tool-call contracts; validation; graph algorithms; migration; JSON Schema generation | `serde`, `schemars` |
-| `rf-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes, expression evaluator | `rf-schema` |
-| `rf-plugin` | JSON-RPC 2.0 over stdio, in-process transport, discovery, plugin host | `rf-schema`, `rf-core` |
-| `rf-runtime` | Composition root: engine + plugins + policy + audit, run manager, agent sessions, HTTP/WebSocket API | `rf-schema`, `rf-core`, `rf-plugin` |
-| `rf-platform` | Windows input, window management, screen capture, clipboard | `rf-core`, `rf-schema` |
-| `rf-vision` | Template matching, pluggable OCR | `rf-core`, `rf-schema` |
-| `rf-cli` | `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`, `schema`, `serve` | all of the above |
-| `rf-testkit` | Workflow builder, recording executors, in-process plugin harness | `rf-schema`, `rf-core`, `rf-plugin` |
+| `nodara-schema` | Workflow, manifest, descriptor, event, session and tool-call contracts; validation; graph algorithms; migration; JSON Schema generation | `serde`, `schemars` |
+| `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes, expression evaluator | `nodara-schema` |
+| `nodara-plugin` | JSON-RPC 2.0 over stdio, in-process transport, discovery, plugin host | `nodara-schema`, `nodara-core` |
+| `nodara-runtime` | Composition root: engine + plugins + policy + audit, run manager, agent sessions, HTTP/WebSocket API | `nodara-schema`, `nodara-core`, `nodara-plugin` |
+| `nodara-platform` | Windows input, window management, screen capture, clipboard | `nodara-core`, `nodara-schema` |
+| `nodara-vision` | Template matching, pluggable OCR | `nodara-core`, `nodara-schema` |
+| `nodara-cli` | `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`, `schema`, `serve` | all of the above |
+| `nodara-testkit` | Workflow builder, recording executors, in-process plugin harness | `nodara-schema`, `nodara-core`, `nodara-plugin` |
 
 ## 4. Execution model
 
@@ -131,7 +131,7 @@ permissions it needs and whether it is dangerous.
 The same implementation can run two ways:
 
 * **in process** — register it in the runtime's `CapabilityRegistry`;
-* **as a plugin** — serve it over stdio with `rf_plugin::serve_stdio` and drop a
+* **as a plugin** — serve it over stdio with `nodara_plugin::serve_stdio` and drop a
   `manifest.json` next to the binary.
 
 The runtime launches plugins lazily through JSON-RPC (`initialize`, `describe`,
@@ -141,8 +141,8 @@ does not take the runtime down. Descriptor-only registration never overwrites a
 node type that is already runnable, so a directory of half-installed plugins
 cannot shadow a working capability.
 
-Details: [plugin protocol](../RecognizerFramework/protocol/plugin-protocol.md),
-[authoring a node](../RecognizerFramework/docs/node-authoring.md).
+Details: [plugin protocol](../Nodara-Core/protocol/plugin-protocol.md),
+[authoring a node](../Nodara-Core/docs/node-authoring.md).
 
 ## 6. Runtime API
 
@@ -164,7 +164,7 @@ The runtime is the only process that executes anything. Both clients are thin:
 | `GET`/`POST` | `/api/v1/agent/sessions…` | Sessions, plans, messages, approvals |
 | `GET` | `/api/v1/audit` | What the runtime allowed, refused and recorded |
 
-Full reference: [runtime API](../RecognizerFramework/protocol/runtime-api.md).
+Full reference: [runtime API](../Nodara-Core/protocol/runtime-api.md).
 
 ## 7. Studio
 
@@ -219,7 +219,7 @@ Execution never depends on a client's good behaviour:
   mouse, text), `window.control` (focus), `screen.capture`, `clipboard`,
   `vision.analyze`.
 * The audit log records every decision, node outcome and log record; `GET
-  /api/v1/audit` and `rf-agent audit` read it.
+  /api/v1/audit` and `nodara-agent audit` read it.
 
 ## 10. Versioning and migration
 
@@ -231,7 +231,7 @@ Execution never depends on a client's good behaviour:
 
 Major bumps break, minor changes are forward compatible: unknown fields survive
 a round trip and unknown node types are reported by capability-aware validation
-rather than by the parser. `rf-cli migrate` upgrades legacy documents
+rather than by the parser. `nodara-cli migrate` upgrades legacy documents
 (namespaced node types, `from`/`to` to `source`/`target`, `seconds` to
 `duration_ms`, `text` to `message`), and keeps a document's `$schema` reference.
 
@@ -239,33 +239,33 @@ rather than by the parser. `rf-cli migrate` upgrades legacy documents
 
 ```bash
 # core: validate, run, serve
-cd RecognizerFramework
+cd Nodara-Core
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p rf-cli -- validate ../examples/hello-world.json
-cargo run -p rf-cli -- run ../examples/hello-world.json --in-process
-cargo run -p rf-cli -- serve --in-process --port 8710
+cargo run -p nodara-cli -- validate ../examples/hello-world.json
+cargo run -p nodara-cli -- run ../examples/hello-world.json --in-process
+cargo run -p nodara-cli -- serve --in-process --port 8710
 
 # editor
-cd ../RecognizerFramework-Studio
+cd ../Nodara-Studio
 npm ci && npm test && npm run build
 
 # agent
-cd ../RecognizerFramework-Agent
+cd ../Nodara-Agent
 cargo test --workspace
-RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "open Notepad and type hello"
+NODARA_LLM_API_KEY=sk-... cargo run -p nodara-agent -- plan "open Notepad and type hello"
 ```
 
 ## 12. Extension points
 
 | I want to… | Do this |
 |---|---|
-| Add a capability | Implement `NodeExecutor`, register it in process or ship it as a plugin; see [node authoring](../RecognizerFramework/docs/node-authoring.md) |
+| Add a capability | Implement `NodeExecutor`, register it in process or ship it as a plugin; see [node authoring](../Nodara-Core/docs/node-authoring.md) |
 | Make a capability's form and hints good | Describe every config property (title, description, default, enum, examples); see [schema guide](schema.md#10-writing-configuration-schemas-that-help-users) |
 | Change the safety rules | Implement `CapabilityPolicy`, or configure `AllowlistPolicy` from the CLI/API |
-| Replace the approval channel | Implement `rf_core::ApprovalHandler` |
+| Replace the approval channel | Implement `nodara_core::ApprovalHandler` |
 | Add a client | Speak `api_version v1`; nothing else in the core needs to change |
-| Add a transport for plugins | Implement the JSON-RPC transport in `rf-plugin`; the descriptor contract stays the same |
+| Add a transport for plugins | Implement the JSON-RPC transport in `nodara-plugin`; the descriptor contract stays the same |
 
 ## 13. Where to read next
 
@@ -275,7 +275,7 @@ RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "open Notepad and type hello
 | Node catalogue: ports, permissions, configuration | [nodes.md](nodes.md) |
 | Repository layout and dependency rules | [ARCHITECTURE.md](../ARCHITECTURE.md) |
 | Five-minute walkthrough | [QUICKSTART.md](../QUICKSTART.md) |
-| Crate detail, policy path, execution model | [RecognizerFramework/docs/architecture.md](../RecognizerFramework/docs/architecture.md) |
-| Plugin wire protocol | [RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) |
-| Runtime API | [RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) |
+| Crate detail, policy path, execution model | [Nodara-Core/docs/architecture.md](../Nodara-Core/docs/architecture.md) |
+| Plugin wire protocol | [Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) |
+| Runtime API | [Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) |
 | Version history | [CHANGELOG.md](../CHANGELOG.md) |

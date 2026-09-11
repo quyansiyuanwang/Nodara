@@ -2,7 +2,7 @@
 
 > 中文版：[schema.zh.md](schema.zh.md)
 
-Everything that crosses a process boundary in RecognizerFramework is a JSON
+Everything that crosses a process boundary in Nodara-Core is a JSON
 document with a published JSON Schema: workflows, plugin manifests, node
 descriptors, execution events, agent sessions and tool calls. The schemas are
 generated from the Rust types, so they cannot drift from the implementation, and
@@ -17,12 +17,12 @@ and their configuration.
 
 | Document | File | Served by the runtime | Generated from |
 |---|---|---|---|
-| Workflow | [`schema/workflow.schema.json`](../RecognizerFramework/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + installed node descriptors |
-| Plugin manifest | [`schema/plugin-manifest.schema.json`](../RecognizerFramework/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
-| Node descriptor | [`schema/node-descriptor.schema.json`](../RecognizerFramework/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
-| Execution event | [`schema/execution-event.schema.json`](../RecognizerFramework/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
-| Agent session | [`schema/agent-session.schema.json`](../RecognizerFramework/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
-| Agent tool call | [`schema/agent-tool-call.schema.json`](../RecognizerFramework/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |
+| Workflow | [`schema/workflow.schema.json`](../Nodara-Core/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + installed node descriptors |
+| Plugin manifest | [`schema/plugin-manifest.schema.json`](../Nodara-Core/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
+| Node descriptor | [`schema/node-descriptor.schema.json`](../Nodara-Core/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
+| Execution event | [`schema/execution-event.schema.json`](../Nodara-Core/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
+| Agent session | [`schema/agent-session.schema.json`](../Nodara-Core/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
+| Agent tool call | [`schema/agent-tool-call.schema.json`](../Nodara-Core/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |
 
 `GET /api/v1` lists these names, so a client never has to hardcode them. Every
 document is also served under its file name (`/schema/workflow.schema.json`).
@@ -31,7 +31,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
   "schema_version": "2.0",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World", "tags": ["getting-started"] },
@@ -53,8 +53,8 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `$schema` | string | no | — | JSON Schema this document follows. Editors use it for completion and documentation; every RCR tool preserves it on round-trip. |
-| `schema_version` | string | no | `"2.0"` | Workflow format version. A different major is reported as `WF100` and can be upgraded with `rf-cli migrate`. |
+| `$schema` | string | no | — | JSON Schema this document follows. Editors use it for completion and documentation; every Nodara tool preserves it on round-trip. |
+| `schema_version` | string | no | `"2.0"` | Workflow format version. A different major is reported as `WF100` and can be upgraded with `nodara-cli migrate`. |
 | `id` | string | **yes** | — | Stable workflow identifier, conventionally `workflow.<name>`. Must not be empty (`WF101`). |
 | `metadata` | object | no | `{}` | Human-facing metadata, see below. |
 | `nodes` | array | no | `[]` | The graph's nodes. |
@@ -111,7 +111,7 @@ A self-loop is a warning (`WF114`).
 
 ### Validation diagnostics
 
-`POST /api/v1/workflows/validate` (and `rf-cli validate`) returns every problem
+`POST /api/v1/workflows/validate` (and `nodara-cli validate`) returns every problem
 at once, each with a stable code, a severity, a JSON-pointer `path` and an
 optional `hint`:
 
@@ -151,7 +151,7 @@ deployment installed. Publishing the bare schema would leave `type` an
 unconstrained string and `config` an open object, so an editor following
 `$schema` would have nothing to suggest.
 
-`rf_schema::workflow_schema_for(&[NodeDescriptor])` fixes that by folding the
+`nodara_schema::workflow_schema_for(&[NodeDescriptor])` fixes that by folding the
 installed catalogue into the document schema:
 
 ```text
@@ -188,7 +188,7 @@ single-process implementation did:
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json"
+  "$schema": "../Nodara-Core/schema/workflow.schema.json"
 }
 ```
 
@@ -202,7 +202,7 @@ same document composed for *its* plugins:
 ```
 
 The Studio's *Workflow JSON* tab shows the active reference and can switch it to
-the runtime URL in one click, and `rf-agent plan --out` stamps the runtime URL
+the runtime URL in one click, and `nodara-agent plan --out` stamps the runtime URL
 on generated documents. If a file carries no `$schema`, map it once in the
 editor instead (VS Code example in
 [QUICKSTART.md](../QUICKSTART.md#editor-content-hints)).
@@ -220,10 +220,10 @@ What an editor then provides:
 ## 4. Regenerating the schemas
 
 ```bash
-cd RecognizerFramework
-cargo run -p rf-cli -- schema --out schema                        # built-ins + official capabilities
-cargo run -p rf-cli -- schema --plugin-dir target/release/plugins # include third-party node types
-cargo run -p rf-cli -- schema --stdout --no-capabilities          # the catalogue-free schema
+cd Nodara-Core
+cargo run -p nodara-cli -- schema --out schema                        # built-ins + official capabilities
+cargo run -p nodara-cli -- schema --plugin-dir target/release/plugins # include third-party node types
+cargo run -p nodara-cli -- schema --stdout --no-capabilities          # the catalogue-free schema
 ```
 
 CI regenerates the files and fails if the tree changes, so a type or descriptor
@@ -286,7 +286,7 @@ it is small and validated before any plugin code runs.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | string | **yes** | Reverse-DNS unique id, e.g. `rf.windows.input`. |
+| `id` | string | **yes** | Reverse-DNS unique id, e.g. `nodara.windows.input`. |
 | `name` | string | **yes** | Human-facing name. |
 | `version` | string | **yes** | Semantic version of the plugin. |
 | `protocol_version` | string | **yes** | Wire protocol version the plugin speaks (currently `1`). |
@@ -365,16 +365,16 @@ the runtime answers with a `ToolCallOutcome` of `completed`, `denied`,
 
 | Contract | Field | Current | Owner |
 |---|---|---|---|
-| Workflow document | `schema_version` | `2.0` | `rf-schema` |
-| Plugin / runtime wire | `protocol_version` | `1` | `rf-schema`, `rf-plugin` |
-| Public HTTP API | `api_version` | `v1` | `rf-runtime` |
+| Workflow document | `schema_version` | `2.0` | `nodara-schema` |
+| Plugin / runtime wire | `protocol_version` | `1` | `nodara-schema`, `nodara-plugin` |
+| Public HTTP API | `api_version` | `v1` | `nodara-runtime` |
 
 The three versions are independent and never inferred from one another. Minor
 changes are forward compatible: unknown fields survive a round trip, and unknown
 node types are reported by capability-aware validation rather than by the
 parser.
 
-`rf-cli migrate <file> [--out <file>] [--from 1] [--to 2]` upgrades legacy
+`nodara-cli migrate <file> [--out <file>] [--from 1] [--to 2]` upgrades legacy
 documents: node kinds become namespaced types, `from`/`to` become
 `source`/`target`, `seconds` becomes `duration_ms`, `text` becomes `message` —
 and a `$schema` reference is carried over.
@@ -419,7 +419,7 @@ Checklist:
 - [ ] `required` lists only what genuinely has no default
 - [ ] `additionalProperties: false` unless the node intentionally accepts open configuration
 - [ ] `allows_additional_config` agrees with `additionalProperties`
-- [ ] `rf-cli schema --out schema` was run, so the published schema and the hints include the new node
+- [ ] `nodara-cli schema --out schema` was run, so the published schema and the hints include the new node
 
 ## 11. Related documents
 
@@ -427,6 +427,6 @@ Checklist:
 |---|---|
 | Node catalogue with ports, permissions and configuration | [nodes.md](nodes.md) |
 | Project overview and architecture | [project.md](project.md) |
-| Runtime HTTP/WebSocket API | [RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) |
-| Plugin wire protocol and error codes | [RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) |
-| Writing a capability | [RecognizerFramework/docs/node-authoring.md](../RecognizerFramework/docs/node-authoring.md) |
+| Runtime HTTP/WebSocket API | [Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) |
+| Plugin wire protocol and error codes | [Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) |
+| Writing a capability | [Nodara-Core/docs/node-authoring.md](../Nodara-Core/docs/node-authoring.md) |

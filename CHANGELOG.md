@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- `rf_schema::workflow_schema_for` composes the workflow JSON Schema from the
+- `nodara_schema::workflow_schema_for` composes the workflow JSON Schema from the
   installed node descriptors: `node.type` becomes an enum of the node types the
   deployment has, and each type contributes an `if`/`then` branch that points
   `node.config` at its own schema. The published schema therefore completes node
@@ -17,7 +17,7 @@ All notable changes to this project are documented here. The format follows
   from every node model.
 - `GET /api/v1/schema/{document}` serves those documents from a running runtime,
   so `$schema` can point at the deployment's own catalog.
-- `rf-cli schema` grew `--plugin-dir` (include plugin descriptors) and
+- `nodara-cli schema` grew `--plugin-dir` (include plugin descriptors) and
   `--no-capabilities` (publish the catalog-free schema).
 - Studio: the workflow model keeps `$schema` across new, import, export and
   agent-plan documents, and the Workflow JSON tab shows the active reference and
@@ -37,7 +37,7 @@ All notable changes to this project are documented here. The format follows
   JSON Schema document, field by field, plus how content hints are composed)
   and `docs/nodes.md` (ports, permissions and configuration for every shipped
   node type), with a matching `docs/README.md` index in both languages.
-- `cargo test -p rf-cli` now checks the node reference against the shipped
+- `cargo test -p nodara-cli` now checks the node reference against the shipped
   catalogue: a node type, permission or configuration key that is not
   documented fails the build in both languages.
 
@@ -49,9 +49,9 @@ runtime API.
 
 ### Added
 
-**Core (`RecognizerFramework/`)**
+**Core (`Nodara-Core/`)**
 
-- `rf-schema` — workflow (`schema_version` 2.0), plugin manifest, node descriptor
+- `nodara-schema` — workflow (`schema_version` 2.0), plugin manifest, node descriptor
   and execution event contracts, all deriving `JsonSchema` so the published
   schemas are generated rather than hand-maintained.
 - Structured validation that never stops at the first problem: stable diagnostic
@@ -59,25 +59,25 @@ runtime API.
   capability-aware checks against the live registry.
 - Graph algorithms (topological order, cycle detection, reachability) shared by
   the editor, the CLI and the agent.
-- `rf-cli migrate`, which upgrades legacy documents: namespaced node types,
+- `nodara-cli migrate`, which upgrades legacy documents: namespaced node types,
   `from`/`to` to `source`/`target`, and configuration keys that changed meaning
   (`seconds` to `duration_ms`).
-- `rf-core` — the `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`,
+- `nodara-core` — the `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`,
   deterministic pause/resume/step/cancel, policy decisions and an audit log.
 - A dependency-free expression evaluator with a documented grammar.
-- `rf-plugin` — JSON-RPC 2.0 over stdio, manifest discovery, a plugin host, an
+- `nodara-plugin` — JSON-RPC 2.0 over stdio, manifest discovery, a plugin host, an
   in-process transport for tests, and `serve_stdio` for writing plugins.
-- `rf-runtime` — the headless runtime with the HTTP/WebSocket API, a run manager
+- `nodara-runtime` — the headless runtime with the HTTP/WebSocket API, a run manager
   and a policy layer.
-- `rf-platform` and `rf-vision` — real Windows capabilities (input, windows,
+- `nodara-platform` and `nodara-vision` — real Windows capabilities (input, windows,
   capture, clipboard) and vision (template matching, pluggable OCR), each built
   as both a library and a plugin binary.
-- `rf-cli` — `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`,
+- `nodara-cli` — `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`,
   `schema` and `serve`.
-- `rf-testkit` — a workflow builder, recording and failing executors, and an
+- `nodara-testkit` — a workflow builder, recording and failing executors, and an
   in-process plugin harness.
 
-**Studio (`RecognizerFramework-Studio/`)**
+**Studio (`Nodara-Studio/`)**
 
 - A typed web client with no hardcoded node types: the palette and every
   configuration form are built from the runtime's descriptors.
@@ -85,7 +85,7 @@ runtime API.
   properties and a live event viewer.
 - A Tauri v2 shell around the same bundle.
 
-**Agent (`RecognizerFramework-Agent/`)**
+**Agent (`Nodara-Agent/`)**
 
 - A provider-neutral planner with a draft to validate to repair loop that feeds
   the runtime's own diagnostics back to the model.
@@ -95,7 +95,7 @@ runtime API.
 
 - The workspace layout is now three sibling repositories instead of one crate
   tree with an embedded editor and an embedded agent.
-- `rf-platform` and `rf-vision` are no longer core modules; the core does not
+- `nodara-platform` and `nodara-vision` are no longer core modules; the core does not
   reference them.
 - Workflow documents use `schema_version` and namespaced node types
   (`core.Start`, `windows.Input.Keyboard`, `vision.Ocr`).
@@ -104,10 +104,10 @@ runtime API.
 
 ### Removed
 
-- The `rf-agent` crate from the core workspace (superseded by
-  `RecognizerFramework-Agent`).
+- The `nodara-agent` crate from the core workspace (superseded by
+  `Nodara-Agent`).
 - The old `studio/` prototype from the core repository (superseded by
-  `RecognizerFramework-Studio`).
+  `Nodara-Studio`).
 - The `meval` dependency: expression evaluation is now in-crate, which also
   removes an unmaintained transitive dependency.
 
@@ -120,5 +120,5 @@ runtime API.
 
 ## [1.0.0]
 
-Initial Rust rewrite of the Python RecognizerFramework: a workflow schema, a
+Initial Rust rewrite of the Python Nodara-Core: a workflow schema, a
 graph-based executor, Windows platform adapters, vision helpers and a CLI.

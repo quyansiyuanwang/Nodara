@@ -1,0 +1,35 @@
+{
+  "id": "nodara.windows.platform",
+  "name": "Nodara Windows Platform",
+  "version": "2.0.0",
+  "protocol_version": "1",
+  "executable": "nodara-platform-plugin.exe",
+  "description": "Official host automation: keyboard, mouse, windows, screen capture and clipboard.",
+  "author": "Nodara Contributors",
+  "capabilities": [
+    "Input.Keyboard",
+    "Input.Mouse",
+    "Window.Find",
+    "Window.Focus",
+    "Window.Capture",
+    "Desktop.Capture",
+    "Clipboard.Read",
+    "Clipboard.Write"
+  ],
+  "permissions": [
+    "input.control",
+    "window.control",
+    "screen.capture",
+    "clipboard"
+  ],
+  "node_types": [
+    "windows.Input.Keyboard",
+    "windows.Input.Mouse",
+    "windows.Input.Text",
+    "windows.Window.Find",
+    "windows.Window.Focus",
+    "windows.Window.Capture",
+    "windows.Desktop.Capture",
+    "system.Clipboard"
+  ]
+}

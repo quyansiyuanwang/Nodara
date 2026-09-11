@@ -60,7 +60,7 @@ Desktop.ini
 *.log
 *.tmp
 *.temp
-.rf/
+.nodara/
 audit/
 
 # --- Documentation builds ---------------------------------------------------

@@ -1,0 +1,29 @@
+[package]
+name = "nodara-plugin"
+description = "Plugin protocol, manifest discovery, capability registry and process host for Nodara-Core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "nodara_plugin"
+path = "src/lib.rs"
+
+[dependencies]
+nodara-schema = { path = "../nodara-schema" }
+nodara-core = { path = "../nodara-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[lints]
+workspace = true

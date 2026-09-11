@@ -1,4 +1,4 @@
-# RecognizerFramework
+# Nodara
 
 A plugin-based desktop automation platform. Workflows are JSON graphs; every
 capability — keyboard, windows, OCR, or a third party's plugin — is a separate
@@ -6,9 +6,9 @@ process described by a manifest. Editors and AI agents drive the same runtime
 over the same API.
 
 ```text
-RecognizerFramework/         core runtime, SDK, plugin protocol, CLI
-RecognizerFramework-Studio/  visual workflow editor (Tauri + web)
-RecognizerFramework-Agent/   natural-language planner and operator
+Nodara-Core/         core runtime, SDK, plugin protocol, CLI
+Nodara-Studio/  visual workflow editor (Tauri + web)
+Nodara-Agent/   natural-language planner and operator
 examples/                    ready-to-run workflow documents
 ```
 
@@ -17,7 +17,7 @@ examples/                    ready-to-run workflow documents
 **Editing and execution are separate.** The core has no UI. The Studio has no
 execution logic. They meet at a versioned HTTP/WebSocket API.
 
-**Capabilities are processes, not modules.** `rf-core` never references the
+**Capabilities are processes, not modules.** `nodara-core` never references the
 Windows or vision capabilities. The runtime discovers them from a directory of
 manifests, exactly like a third-party plugin would be discovered. A plugin crash
 cannot take the runtime down, and a plugin can be upgraded on its own.
@@ -36,12 +36,12 @@ seeing the call. Every capability decision is written to an audit log.
 Requires Rust 1.75+ (and Node 20+ for the Studio).
 
 ```bash
-cd RecognizerFramework
+cd Nodara-Core
 
 # Validate, plan and run a workflow
-cargo run -p rf-cli -- validate ../examples/hello-world.json
-cargo run -p rf-cli -- simulate ../examples/hello-world.json
-cargo run -p rf-cli -- run      ../examples/hello-world.json
+cargo run -p nodara-cli -- validate ../examples/hello-world.json
+cargo run -p nodara-cli -- simulate ../examples/hello-world.json
+cargo run -p nodara-cli -- run      ../examples/hello-world.json
 ```
 
 Expected output ends with:
@@ -53,7 +53,7 @@ run completed: 5 node(s) in 3ms
 ### Start the runtime
 
 ```bash
-cargo run -p rf-cli -- serve --in-process --plugin-dir plugins
+cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
 # runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
 ```
 
@@ -63,7 +63,7 @@ cargo run -p rf-cli -- serve --in-process --plugin-dir plugins
 ### Open the editor
 
 ```bash
-cd ../RecognizerFramework-Studio
+cd ../Nodara-Studio
 npm install
 npm run dev        # http://localhost:4173
 ```
@@ -71,8 +71,8 @@ npm run dev        # http://localhost:4173
 ### Plan with the agent
 
 ```bash
-cd ../RecognizerFramework-Agent
-RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "open Notepad and type a greeting"
+cd ../Nodara-Agent
+NODARA_LLM_API_KEY=sk-... cargo run -p nodara-agent -- plan "open Notepad and type a greeting"
 ```
 
 Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
@@ -85,11 +85,11 @@ Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 | Plugin / runtime wire | `protocol_version` | `1` |
 | Public HTTP API | `api_version` | `v1` |
 
-Workflow documents look like this ([full schema](RecognizerFramework/schema/workflow.schema.json)):
+Workflow documents look like this ([full schema](Nodara-Core/schema/workflow.schema.json)):
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
   "schema_version": "2.0",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World" },
@@ -112,7 +112,7 @@ Node types are namespaced: `core.*`, `system.*`, `windows.*`, `vision.*`,
 The published schema is composed from the installed node descriptors, so
 `"$schema"` gives an editor completion for node types and their configuration,
 with descriptions, defaults and enums — regenerate it with
-`rf-cli schema --out schema`, or ask a running runtime for
+`nodara-cli schema --out schema`, or ask a running runtime for
 `GET /api/v1/schema/workflow`.
 
 ## Capabilities
@@ -120,8 +120,8 @@ with descriptions, defaults and enums — regenerate it with
 | Plugin | Node types | Requires |
 |--------|-----------|----------|
 | built in | `core.Start`, `core.End`, `core.Log`, `core.Calculate`, `core.SetVariable`, `system.Delay` | — |
-| `rf.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard` | `input.control`, `window.control`, `screen.capture`, `clipboard` |
-| `rf.vision` | `vision.TemplateMatch`, `vision.Ocr` | `vision.analyze` |
+| `nodara.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard` | `input.control`, `window.control`, `screen.capture`, `clipboard` |
+| `nodara.vision` | `vision.TemplateMatch`, `vision.Ocr` | `vision.analyze` |
 
 Nodes that declare permissions are gated: policy is consulted before every
 execution, and the decision appears in the event stream and the audit log.
@@ -136,19 +136,19 @@ execution, and the decision appears in the event stream and the audit log.
 | [docs/nodes.md](docs/nodes.md) · [中文](docs/nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
 | [QUICKSTART.md](QUICKSTART.md) | End-to-end walkthrough in five minutes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Repository layout and dependency rules |
-| [RecognizerFramework/docs/architecture.md](RecognizerFramework/docs/architecture.md) | Crate detail, execution model, policy path |
-| [RecognizerFramework/protocol/](RecognizerFramework/protocol) | Plugin protocol and runtime API |
-| [RecognizerFramework/docs/node-authoring.md](RecognizerFramework/docs/node-authoring.md) | Writing a capability |
-| [RecognizerFramework/plugins/README.md](RecognizerFramework/plugins/README.md) | Plugin layout and installation |
+| [Nodara-Core/docs/architecture.md](Nodara-Core/docs/architecture.md) | Crate detail, execution model, policy path |
+| [Nodara-Core/protocol/](Nodara-Core/protocol) | Plugin protocol and runtime API |
+| [Nodara-Core/docs/node-authoring.md](Nodara-Core/docs/node-authoring.md) | Writing a capability |
+| [Nodara-Core/plugins/README.md](Nodara-Core/plugins/README.md) | Plugin layout and installation |
 | [examples/README.md](examples/README.md) | The example workflows |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ## Testing
 
 ```bash
-cd RecognizerFramework && cargo test --workspace
-cd ../RecognizerFramework-Agent && cargo test --workspace
-cd ../RecognizerFramework-Studio && npm run build
+cd Nodara-Core && cargo test --workspace
+cd ../Nodara-Agent && cargo test --workspace
+cd ../Nodara-Studio && npm run build
 ```
 
 ## License

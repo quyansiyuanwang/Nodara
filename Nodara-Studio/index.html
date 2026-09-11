@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nodara Studio</title>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="toolbar">
+        <div class="toolbar__group">
+          <strong class="brand">Nodara</strong>
+          <span id="connection" class="connection connection--unknown">connecting…</span>
+        </div>
+        <div class="toolbar__group">
+          <button id="btn-new" class="btn">New</button>
+          <button id="btn-import" class="btn">Import</button>
+          <button id="btn-export" class="btn">Export</button>
+          <button id="btn-validate" class="btn">Validate</button>
+        </div>
+        <div class="toolbar__group">
+          <button id="btn-run" class="btn btn--primary">Run</button>
+          <button id="btn-pause" class="btn" disabled>Pause</button>
+          <button id="btn-resume" class="btn" disabled>Resume</button>
+          <button id="btn-step" class="btn" disabled>Step</button>
+          <button id="btn-cancel" class="btn" disabled>Cancel</button>
+        </div>
+        <input id="file-input" type="file" accept="application/json" hidden />
+      </header>
+
+      <main class="workspace">
+        <aside class="panel panel--palette">
+          <h2 class="panel__title">Nodes</h2>
+          <input id="palette-filter" class="input" placeholder="Filter node types…" />
+          <div id="palette" class="palette"></div>
+        </aside>
+
+        <section class="canvas-wrap">
+          <svg id="canvas" class="canvas">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 z" fill="#8b93a7" />
+              </marker>
+            </defs>
+            <g id="edges" class="edges"></g>
+            <g id="nodes" class="nodes"></g>
+            <path id="pending-edge" class="edge edge--pending is-hidden" />
+          </svg>
+          <div id="canvas-hint" class="canvas-hint">
+            Drag a node from the palette. Drag from an output port to an input port to connect.
+          </div>
+        </section>
+
+        <aside class="panel panel--inspector">
+          <h2 class="panel__title">Properties</h2>
+          <div id="inspector" class="inspector">
+            <p class="muted">Select a node to edit its configuration.</p>
+          </div>
+        </aside>
+      </main>
+
+      <section class="drawer">
+        <nav class="drawer__tabs">
+          <button class="tab tab--active" data-tab="events">Events</button>
+          <button class="tab" data-tab="agent">Agent</button>
+          <button class="tab" data-tab="audit">Audit</button>
+          <button class="tab" data-tab="problems">Problems</button>
+          <button class="tab" data-tab="json">Workflow JSON</button>
+        </nav>
+        <div id="panel-events" class="drawer__panel">
+          <div id="events" class="events"></div>
+        </div>
+        <div id="panel-agent" class="drawer__panel" hidden>
+          <div id="agent" class="agent"></div>
+        </div>
+        <div id="panel-audit" class="drawer__panel" hidden>
+          <div class="audit-toolbar">
+            <label class="muted">
+              <input id="audit-current-run" type="checkbox" /> this run only
+            </label>
+            <button id="audit-refresh" class="btn btn--small">Refresh</button>
+          </div>
+          <div id="audit" class="audit"></div>
+        </div>
+        <div id="panel-problems" class="drawer__panel" hidden>
+          <div id="problems" class="problems"></div>
+        </div>
+        <div id="panel-json" class="drawer__panel" hidden>
+          <div class="json-toolbar">
+            <span id="json-schema" class="muted"></span>
+            <button id="btn-runtime-schema" class="btn btn--small">
+              Point $schema at the runtime
+            </button>
+            <button id="btn-apply-json" class="btn">Apply JSON</button>
+          </div>
+          <textarea id="json-view" class="json" spellcheck="false"></textarea>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

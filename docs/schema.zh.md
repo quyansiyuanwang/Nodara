@@ -2,7 +2,7 @@
 
 > English: [schema.md](schema.md)
 
-在 RecognizerFramework 中，所有跨越进程边界的数据都是带公开 JSON Schema 的 JSON 文档：
+在 Nodara-Core 中，所有跨越进程边界的数据都是带公开 JSON Schema 的 JSON 文档：
 工作流、插件 manifest、节点描述符、执行事件、Agent 会话与工具调用。这些 schema 由 Rust 类型生成，
 因此不会与实现脱节；也正是它们让 Studio、Agent、CLI 与第三方编辑器对同一份数据达成一致。
 
@@ -13,12 +13,12 @@
 
 | 文档 | 文件 | 运行时接口 | 生成来源 |
 |---|---|---|---|
-| 工作流 | [`schema/workflow.schema.json`](../RecognizerFramework/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + 已安装节点描述符 |
-| 插件 manifest | [`schema/plugin-manifest.schema.json`](../RecognizerFramework/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
-| 节点描述符 | [`schema/node-descriptor.schema.json`](../RecognizerFramework/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
-| 执行事件 | [`schema/execution-event.schema.json`](../RecognizerFramework/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
-| Agent 会话 | [`schema/agent-session.schema.json`](../RecognizerFramework/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
-| Agent 工具调用 | [`schema/agent-tool-call.schema.json`](../RecognizerFramework/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |
+| 工作流 | [`schema/workflow.schema.json`](../Nodara-Core/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + 已安装节点描述符 |
+| 插件 manifest | [`schema/plugin-manifest.schema.json`](../Nodara-Core/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
+| 节点描述符 | [`schema/node-descriptor.schema.json`](../Nodara-Core/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
+| 执行事件 | [`schema/execution-event.schema.json`](../Nodara-Core/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
+| Agent 会话 | [`schema/agent-session.schema.json`](../Nodara-Core/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
+| Agent 工具调用 | [`schema/agent-tool-call.schema.json`](../Nodara-Core/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |
 
 `GET /api/v1` 会列出这些名字，客户端无需硬编码。每个文档也可以用文件名访问
 （例如 `/schema/workflow.schema.json`）。
@@ -27,7 +27,7 @@
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
   "schema_version": "2.0",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World", "tags": ["getting-started"] },
@@ -49,8 +49,8 @@
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
-| `$schema` | string | 否 | — | 本文档遵循的 JSON Schema。编辑器据此提供补全与文档提示；RCR 的所有工具都会在往返中保留它。 |
-| `schema_version` | string | 否 | `"2.0"` | 工作流格式版本。主版本不匹配会报 `WF100`，可用 `rf-cli migrate` 升级。 |
+| `$schema` | string | 否 | — | 本文档遵循的 JSON Schema。编辑器据此提供补全与文档提示；Nodara 的所有工具都会在往返中保留它。 |
+| `schema_version` | string | 否 | `"2.0"` | 工作流格式版本。主版本不匹配会报 `WF100`，可用 `nodara-cli migrate` 升级。 |
 | `id` | string | **是** | — | 稳定的工作流标识，约定形如 `workflow.<name>`。不能为空（`WF101`）。 |
 | `metadata` | object | 否 | `{}` | 面向人的元数据，见下。 |
 | `nodes` | array | 否 | `[]` | 图上的节点。 |
@@ -106,7 +106,7 @@
 
 ### 校验诊断
 
-`POST /api/v1/workflows/validate`（以及 `rf-cli validate`）会一次性返回全部问题，每条包含稳定的
+`POST /api/v1/workflows/validate`（以及 `nodara-cli validate`）会一次性返回全部问题，每条包含稳定的
 错误码、严重级别、JSON 指针形式的 `path` 和可选的 `hint`：
 
 | 错误码 | 级别 | 含义 |
@@ -142,7 +142,7 @@
 部署装了哪些节点类型。若只发布裸 schema，`type` 就是无约束字符串，`config` 就是开放对象，编辑器
 即便读了 `$schema` 也无从提示。
 
-`rf_schema::workflow_schema_for(&[NodeDescriptor])` 通过把已安装的节点目录合入文档 schema 来解决：
+`nodara_schema::workflow_schema_for(&[NodeDescriptor])` 通过把已安装的节点目录合入文档 schema 来解决：
 
 ```text
 Workflow
@@ -173,7 +173,7 @@ Workflow
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json"
+  "$schema": "../Nodara-Core/schema/workflow.schema.json"
 }
 ```
 
@@ -186,7 +186,7 @@ Workflow
 }
 ```
 
-Studio 的 *Workflow JSON* 页签会显示当前引用，并可一键切换到运行时地址；`rf-agent plan --out`
+Studio 的 *Workflow JSON* 页签会显示当前引用，并可一键切换到运行时地址；`nodara-agent plan --out`
 也会把运行时地址写入生成的文档。如果某个文件没有 `$schema`，也可以在编辑器里做一次映射
 （VS Code 示例见 [QUICKSTART.md](../QUICKSTART.md#editor-content-hints)）。
 
@@ -203,10 +203,10 @@ Studio 的 *Workflow JSON* 页签会显示当前引用，并可一键切换到�
 ## 4. 重新生成 schema
 
 ```bash
-cd RecognizerFramework
-cargo run -p rf-cli -- schema --out schema                        # 内置 + 官方能力
-cargo run -p rf-cli -- schema --plugin-dir target/release/plugins # 加入第三方节点类型
-cargo run -p rf-cli -- schema --stdout --no-capabilities          # 不含节点目录的裸 schema
+cd Nodara-Core
+cargo run -p nodara-cli -- schema --out schema                        # 内置 + 官方能力
+cargo run -p nodara-cli -- schema --plugin-dir target/release/plugins # 加入第三方节点类型
+cargo run -p nodara-cli -- schema --stdout --no-capabilities          # 不含节点目录的裸 schema
 ```
 
 CI 会重新生成并与仓库比对，一旦不一致就失败，因此"改了类型或描述符却没发布 schema"会在评审前被拦住。
@@ -264,7 +264,7 @@ CI 会重新生成并与仓库比对，一旦不一致就失败，因此"改了�
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `id` | string | **是** | 反域名风格唯一标识，如 `rf.windows.input`。 |
+| `id` | string | **是** | 反域名风格唯一标识，如 `nodara.windows.input`。 |
 | `name` | string | **是** | 友好名称。 |
 | `version` | string | **是** | 插件语义化版本。 |
 | `protocol_version` | string | **是** | 插件使用的线协议版本（当前为 `1`）。 |
@@ -336,14 +336,14 @@ WebSocket 接口会先回放已缓冲事件再推送实时事件；运行时在�
 
 | 契约 | 字段 | 当前值 | 归属 |
 |---|---|---|---|
-| 工作流文档 | `schema_version` | `2.0` | `rf-schema` |
-| 插件/运行时线协议 | `protocol_version` | `1` | `rf-schema`、`rf-plugin` |
-| 公开 HTTP API | `api_version` | `v1` | `rf-runtime` |
+| 工作流文档 | `schema_version` | `2.0` | `nodara-schema` |
+| 插件/运行时线协议 | `protocol_version` | `1` | `nodara-schema`、`nodara-plugin` |
+| 公开 HTTP API | `api_version` | `v1` | `nodara-runtime` |
 
 三个版本互相独立，绝不互相推导。次版本变化向前兼容：未知字段会在往返中保留，未知节点类型由
 "感知能力的校验"报告，而不是解析器报错。
 
-`rf-cli migrate <file> [--out <file>] [--from 1] [--to 2]` 可升级旧文档：节点 kind 变为带命名空间的
+`nodara-cli migrate <file> [--out <file>] [--from 1] [--to 2]` 可升级旧文档：节点 kind 变为带命名空间的
 类型，`from`/`to` 变为 `source`/`target`，`seconds` 变为 `duration_ms`，`text` 变为 `message` ——
 并保留原有的 `$schema` 引用。
 
@@ -387,7 +387,7 @@ WebSocket 接口会先回放已缓冲事件再推送实时事件；运行时在�
 - [ ] `required` 只列真正没有默认值的项
 - [ ] 除非节点有意接受开放配置，否则写 `additionalProperties: false`
 - [ ] `allows_additional_config` 与 `additionalProperties` 保持一致
-- [ ] 已执行 `rf-cli schema --out schema`，让发布的 schema 与提示包含新节点
+- [ ] 已执行 `nodara-cli schema --out schema`，让发布的 schema 与提示包含新节点
 
 ## 11. 相关文档
 
@@ -395,6 +395,6 @@ WebSocket 接口会先回放已缓冲事件再推送实时事件；运行时在�
 |---|---|
 | 节点目录：端口、权限、配置 | [nodes.zh.md](nodes.zh.md) |
 | 项目介绍与架构 | [project.zh.md](project.zh.md) |
-| 运行时 HTTP/WebSocket API（英文） | [RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) |
-| 插件线协议与错误码（英文） | [RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) |
-| 编写能力（英文） | [RecognizerFramework/docs/node-authoring.md](../RecognizerFramework/docs/node-authoring.md) |
+| 运行时 HTTP/WebSocket API（英文） | [Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) |
+| 插件线协议与错误码（英文） | [Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) |
+| 编写能力（英文） | [Nodara-Core/docs/node-authoring.md](../Nodara-Core/docs/node-authoring.md) |

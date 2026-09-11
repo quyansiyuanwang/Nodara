@@ -1,0 +1,24 @@
+[package]
+name = "nodara-schema"
+description = "Stable workflow, manifest, descriptor and event contracts for Nodara-Core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "nodara_schema"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[lints]
+workspace = true

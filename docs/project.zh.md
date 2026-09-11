@@ -2,7 +2,7 @@
 
 > English: [project.md](project.md)
 
-RecognizerFramework（RCR）是一套面向 Windows 桌面的工作流自动化框架，以及围绕它的整套生态：
+Nodara 是一套面向 Windows 桌面的工作流自动化框架，以及围绕它的整套生态：
 一个无界面运行时（headless runtime）、一个可视化编辑器、一个自主 Agent，以及一套让第三方
 在不修改任何既有代码的前提下扩展能力的插件模型。
 
@@ -11,7 +11,7 @@ RecognizerFramework（RCR）是一套面向 Windows 桌面的工作流自动化�
 
 ## 1. 项目解决什么问题
 
-| 问题 | RCR 的答案 |
+| 问题 | Nodara 的答案 |
 |---|---|
 | 桌面任务太不规则，录屏式宏搞不定 | 带条件、变量和错误分支的节点图 |
 | 让非程序员也能使用自动化 | Studio 依据节点描述符动态渲染节点面板与配置表单，UI 里不硬编码任何节点类型 |
@@ -23,9 +23,9 @@ RecognizerFramework（RCR）是一套面向 Windows 桌面的工作流自动化�
 
 | 路径 | 作用 |
 |---|---|
-| `RecognizerFramework/` | 核心：`rf-schema` 契约、`rf-core` 引擎与 SDK、`rf-plugin` 宿主、`rf-runtime` 服务、官方能力集 `rf-platform`/`rf-vision`、`rf-cli`、`rf-testkit` |
-| `RecognizerFramework-Studio/` | 可视化编辑器：Vite + TypeScript Web 应用与 Tauri v2 桌面外壳 |
-| `RecognizerFramework-Agent/` | 规划与执行 Agent：自然语言生成工作流、监督运行、解释结果、读取审计 |
+| `Nodara-Core/` | 核心：`nodara-schema` 契约、`nodara-core` 引擎与 SDK、`nodara-plugin` 宿主、`nodara-runtime` 服务、官方能力集 `nodara-platform`/`nodara-vision`、`nodara-cli`、`nodara-testkit` |
+| `Nodara-Studio/` | 可视化编辑器：Vite + TypeScript Web 应用与 Tauri v2 桌面外壳 |
+| `Nodara-Agent/` | 规划与执行 Agent：自然语言生成工作流、监督运行、解释结果、读取审计 |
 | `examples/` | 可直接运行的工作流文档（`hello-world`、`branching`、`delayed-log`、`window-find`，以及一个旧版示例） |
 | `docs/` | 本指南、[Schema 详解](schema.zh.md)、[节点参考](nodes.zh.md) 与文档索引 |
 
@@ -34,46 +34,46 @@ RecognizerFramework（RCR）是一套面向 Windows 桌面的工作流自动化�
 ## 3. 架构
 
 ```text
-        RecognizerFramework-Studio        RecognizerFramework-Agent
+        Nodara-Studio        Nodara-Agent
                     \                              /
                      \   HTTP + WebSocket + JSON  /
                       \                        /
                        v                      v
                   +--------------------------------+
-                  |   RecognizerFramework Runtime  |   rf-runtime
+                  |   Nodara-Core Runtime  |   nodara-runtime
                   +--------------------------------+
                               |
                   +-----------+-----------+
                   |                       |
-            rf-core (engine)        rf-plugin (host)
+            nodara-core (engine)        nodara-plugin (host)
                   |                       |
                   +----------+------------+
                              |
-                        rf-schema  (contracts)
+                        nodara-schema  (contracts)
 ```
 
 三条规则由 crate 依赖图强制保证，而不是靠约定：
 
 1. **依赖方向只有指向核心这一种。** Studio 与 Agent 都是普通 API 客户端，不链接任何核心内部实现。
 2. **Studio 与 Agent 互不感知。** 若需协作，一律通过运行时的会话、运行与事件进行。
-3. **能力是插件，不是核心模块。** `rf-core` 里不出现 `rf-platform`/`rf-vision`；运行时发现官方能力集的
+3. **能力是插件，不是核心模块。** `nodara-core` 里不出现 `nodara-platform`/`nodara-vision`；运行时发现官方能力集的
    方式与发现第三方插件完全一致。
 
-Agent 的隔离是最极端的例子：它只依赖 `rf-schema`，不依赖核心的其它任何东西，因此它**在物理上**
+Agent 的隔离是最极端的例子：它只依赖 `nodara-schema`，不依赖核心的其它任何东西，因此它**在物理上**
 无法绕过运行时的策略层去执行能力。"权限不取决于提示词"是这个依赖图的直接性质。
 
 ### Crate 一览
 
 | Crate | 职责 | 依赖 |
 |---|---|---|
-| `rf-schema` | 工作流、插件 manifest、节点描述符、执行事件、会话、工具调用契约；校验；图算法；迁移；JSON Schema 生成 | `serde`、`schemars` |
-| `rf-core` | `NodeExecutor` SDK、`CapabilityRegistry`、`WorkflowEngine`、运行控制、策略、审计、事件、内置节点、表达式求值 | `rf-schema` |
-| `rf-plugin` | stdio 上的 JSON-RPC 2.0、进程内传输、插件发现、插件宿主 | `rf-schema`、`rf-core` |
-| `rf-runtime` | 组装根：引擎 + 插件 + 策略 + 审计、运行管理、Agent 会话、HTTP/WebSocket API | `rf-schema`、`rf-core`、`rf-plugin` |
-| `rf-platform` | Windows 键鼠输入、窗口管理、屏幕捕获、剪贴板 | `rf-core`、`rf-schema` |
-| `rf-vision` | 模板匹配、可插拔 OCR | `rf-core`、`rf-schema` |
-| `rf-cli` | `validate`、`run`、`simulate`、`inspect`、`migrate`、`plugins`、`schema`、`serve` | 以上全部 |
-| `rf-testkit` | 工作流构造器、记录型执行器、进程内插件测试夹具 | `rf-schema`、`rf-core`、`rf-plugin` |
+| `nodara-schema` | 工作流、插件 manifest、节点描述符、执行事件、会话、工具调用契约；校验；图算法；迁移；JSON Schema 生成 | `serde`、`schemars` |
+| `nodara-core` | `NodeExecutor` SDK、`CapabilityRegistry`、`WorkflowEngine`、运行控制、策略、审计、事件、内置节点、表达式求值 | `nodara-schema` |
+| `nodara-plugin` | stdio 上的 JSON-RPC 2.0、进程内传输、插件发现、插件宿主 | `nodara-schema`、`nodara-core` |
+| `nodara-runtime` | 组装根：引擎 + 插件 + 策略 + 审计、运行管理、Agent 会话、HTTP/WebSocket API | `nodara-schema`、`nodara-core`、`nodara-plugin` |
+| `nodara-platform` | Windows 键鼠输入、窗口管理、屏幕捕获、剪贴板 | `nodara-core`、`nodara-schema` |
+| `nodara-vision` | 模板匹配、可插拔 OCR | `nodara-core`、`nodara-schema` |
+| `nodara-cli` | `validate`、`run`、`simulate`、`inspect`、`migrate`、`plugins`、`schema`、`serve` | 以上全部 |
+| `nodara-testkit` | 工作流构造器、记录型执行器、进程内插件测试夹具 | `nodara-schema`、`nodara-core`、`nodara-plugin` |
 
 ## 4. 执行模型
 
@@ -113,14 +113,14 @@ RunManager.start
 同一份实现有两种运行方式：
 
 * **进程内** —— 注册进运行时的 `CapabilityRegistry`；
-* **插件** —— 用 `rf_plugin::serve_stdio` 通过 stdio 提供服务，并在二进制旁放置 `manifest.json`。
+* **插件** —— 用 `nodara_plugin::serve_stdio` 通过 stdio 提供服务，并在二进制旁放置 `manifest.json`。
 
 运行时通过 JSON-RPC 懒加载插件（`initialize`、`describe`、`execute`、`cancel`、`health`、`shutdown`），
 并把协议层故障降级为普通节点失败：崩溃、超时或断连只会让该节点失败，不会拖垮运行时。仅描述符注册
 永远不会覆盖已经可运行的节点类型，所以一个"装了一半"的插件目录不会遮蔽正常能力。
 
-细节见 [插件协议（英文）](../RecognizerFramework/protocol/plugin-protocol.md) 与
-[编写节点（英文）](../RecognizerFramework/docs/node-authoring.md)。
+细节见 [插件协议（英文）](../Nodara-Core/protocol/plugin-protocol.md) 与
+[编写节点（英文）](../Nodara-Core/docs/node-authoring.md)。
 
 ## 6. 运行时 API
 
@@ -142,7 +142,7 @@ RunManager.start
 | `GET`/`POST` | `/api/v1/agent/sessions…` | 会话、计划、消息、审批 |
 | `GET` | `/api/v1/audit` | 运行时放行、拒绝与记录了什么 |
 
-完整参考：[Runtime API（英文）](../RecognizerFramework/protocol/runtime-api.md)。
+完整参考：[Runtime API（英文）](../Nodara-Core/protocol/runtime-api.md)。
 
 ## 7. Studio
 
@@ -184,7 +184,7 @@ Agent 把目标变成工作流，然后操作它 —— 且始终通过运行时
   超时等于拒绝；未绑定会话的运行会被直接拒绝。
 * 当前官方能力集中的特权权限：`input.control`（键盘、鼠标、文本）、`window.control`（窗口置前）、
   `screen.capture`、`clipboard`、`vision.analyze`。
-* 审计日志记录每一次策略裁决、节点结果与日志；可用 `GET /api/v1/audit` 或 `rf-agent audit` 读取。
+* 审计日志记录每一次策略裁决、节点结果与日志；可用 `GET /api/v1/audit` 或 `nodara-agent audit` 读取。
 
 ## 10. 版本与迁移
 
@@ -195,40 +195,40 @@ Agent 把目标变成工作流，然后操作它 —— 且始终通过运行时
 | 公开 HTTP API | `api_version` | `v1` |
 
 主版本号变化表示破坏性变更；次版本变化向前兼容：未知字段会在往返中保留，未知节点类型由"感知能力的
-校验"而不是解析器报错。`rf-cli migrate` 可升级旧文档（节点类型命名空间化、`from`/`to` 改为
+校验"而不是解析器报错。`nodara-cli migrate` 可升级旧文档（节点类型命名空间化、`from`/`to` 改为
 `source`/`target`、`seconds` 改为 `duration_ms`、`text` 改为 `message`），并保留文档里的 `$schema` 引用。
 
 ## 11. 构建、运行、测试
 
 ```bash
 # 核心：校验、运行、启动服务
-cd RecognizerFramework
+cd Nodara-Core
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p rf-cli -- validate ../examples/hello-world.json
-cargo run -p rf-cli -- run ../examples/hello-world.json --in-process
-cargo run -p rf-cli -- serve --in-process --port 8710
+cargo run -p nodara-cli -- validate ../examples/hello-world.json
+cargo run -p nodara-cli -- run ../examples/hello-world.json --in-process
+cargo run -p nodara-cli -- serve --in-process --port 8710
 
 # 编辑器
-cd ../RecognizerFramework-Studio
+cd ../Nodara-Studio
 npm ci && npm test && npm run build
 
 # Agent
-cd ../RecognizerFramework-Agent
+cd ../Nodara-Agent
 cargo test --workspace
-RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "打开记事本并输入 hello"
+NODARA_LLM_API_KEY=sk-... cargo run -p nodara-agent -- plan "打开记事本并输入 hello"
 ```
 
 ## 12. 扩展点
 
 | 我想… | 做法 |
 |---|---|
-| 增加一个能力 | 实现 `NodeExecutor`，进程内注册或作为插件发布；见[编写节点（英文）](../RecognizerFramework/docs/node-authoring.md) |
+| 增加一个能力 | 实现 `NodeExecutor`，进程内注册或作为插件发布；见[编写节点（英文）](../Nodara-Core/docs/node-authoring.md) |
 | 让能力的表单与提示更好用 | 为每个配置项写清 title、description、default、enum、examples；见 [Schema 详解](schema.zh.md#10-编写对用户友好的配置-schema) |
 | 改变安全规则 | 实现 `CapabilityPolicy`，或通过 CLI/API 配置 `AllowlistPolicy` |
-| 替换审批通道 | 实现 `rf_core::ApprovalHandler` |
+| 替换审批通道 | 实现 `nodara_core::ApprovalHandler` |
 | 增加一个客户端 | 对接 `api_version v1`，核心无需任何改动 |
-| 增加插件传输方式 | 在 `rf-plugin` 中实现传输层；描述符契约保持不变 |
+| 增加插件传输方式 | 在 `nodara-plugin` 中实现传输层；描述符契约保持不变 |
 
 ## 13. 接下来读什么
 
@@ -238,7 +238,7 @@ RF_LLM_API_KEY=sk-... cargo run -p rf-agent -- plan "打开记事本并输入 he
 | 节点目录：端口、权限、配置 | [nodes.zh.md](nodes.zh.md) |
 | 仓库布局与依赖规则（英文） | [ARCHITECTURE.md](../ARCHITECTURE.md) |
 | 五分钟上手（英文） | [QUICKSTART.md](../QUICKSTART.md) |
-| Crate 细节、策略路径、执行模型（英文） | [RecognizerFramework/docs/architecture.md](../RecognizerFramework/docs/architecture.md) |
-| 插件线协议（英文） | [RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) |
-| 运行时 API（英文） | [RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) |
+| Crate 细节、策略路径、执行模型（英文） | [Nodara-Core/docs/architecture.md](../Nodara-Core/docs/architecture.md) |
+| 插件线协议（英文） | [Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) |
+| 运行时 API（英文） | [Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) |
 | 版本历史（英文） | [CHANGELOG.md](../CHANGELOG.md) |

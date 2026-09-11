@@ -5,7 +5,7 @@
 This is the catalogue of the node types the default build ships: five core
 nodes, two system nodes, three input nodes, three window nodes, desktop capture
 and two vision nodes. A deployment can add more by installing plugins — call
-`GET /api/v1/node-types`, or run `rf-cli simulate <workflow>` to see which node
+`GET /api/v1/node-types`, or run `nodara-cli simulate <workflow>` to see which node
 types a document needs — and the published workflow schema grows with them.
 
 Each entry lists the ports, the policy behaviour and every configuration key.
@@ -214,7 +214,7 @@ Types literal text into the focused window.
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
-  "config": { "text": "Hello from RCR", "interval_ms": 10 } }
+  "config": { "text": "Hello from Nodara", "interval_ms": 10 } }
 ```
 
 ### `windows.Input.Mouse` — Mouse
@@ -347,7 +347,7 @@ cross-correlation (ZNCC), and publishes the match.
 ### `vision.Ocr` — OCR
 
 Extracts text from an image through the configured OCR backend. OCR needs an
-injected backend (`RF_OCR_COMMAND`); without one the node fails with a clear
+injected backend (`NODARA_OCR_COMMAND`); without one the node fails with a clear
 "no backend" error rather than guessing.
 
 * Ports: in `in` (any) → out `text` (string)
@@ -370,9 +370,9 @@ Install a plugin and its node types appear here — in the palette, in the agent
 capability list and in the published schema — after:
 
 ```bash
-rf-cli schema --plugin-dir path/to/plugins --out schema
+nodara-cli schema --plugin-dir path/to/plugins --out schema
 ```
 
-See [node-authoring.md](../RecognizerFramework/docs/node-authoring.md) for the
+See [node-authoring.md](../Nodara-Core/docs/node-authoring.md) for the
 implementation and [schema.md](schema.md#10-writing-configuration-schemas-that-help-users)
 for the configuration-schema conventions that produce good hints.

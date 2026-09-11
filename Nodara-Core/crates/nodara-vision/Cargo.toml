@@ -1,0 +1,30 @@
+[package]
+name = "nodara-vision"
+description = "Official vision plugin: template matching and pluggable OCR"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "nodara_vision"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nodara-vision-plugin"
+path = "src/bin/nodara-vision-plugin.rs"
+
+[dependencies]
+nodara-schema = { path = "../nodara-schema" }
+nodara-core = { path = "../nodara-core" }
+nodara-plugin = { path = "../nodara-plugin" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+image.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true

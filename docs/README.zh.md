@@ -36,19 +36,19 @@
 
 | 文档 | 内容 |
 |---|---|
-| [../RecognizerFramework/docs/architecture.md](../RecognizerFramework/docs/architecture.md) | 各 crate 细节、执行模型、策略与审计 |
-| [../RecognizerFramework/docs/node-authoring.md](../RecognizerFramework/docs/node-authoring.md) | 编写能力：进程内或作为插件 |
-| [../RecognizerFramework/protocol/plugin-protocol.md](../RecognizerFramework/protocol/plugin-protocol.md) | stdio 上的 JSON-RPC、生命周期、错误码 |
-| [../RecognizerFramework/protocol/runtime-api.md](../RecognizerFramework/protocol/runtime-api.md) | HTTP 与 WebSocket API、schema 接口、诊断码 |
-| [../RecognizerFramework/schema](../RecognizerFramework/schema) | 生成的 JSON Schema 文档 |
-| [../RecognizerFramework/plugins/README.md](../RecognizerFramework/plugins/README.md) | 插件目录结构与可执行文件解析 |
+| [../Nodara-Core/docs/architecture.md](../Nodara-Core/docs/architecture.md) | 各 crate 细节、执行模型、策略与审计 |
+| [../Nodara-Core/docs/node-authoring.md](../Nodara-Core/docs/node-authoring.md) | 编写能力：进程内或作为插件 |
+| [../Nodara-Core/protocol/plugin-protocol.md](../Nodara-Core/protocol/plugin-protocol.md) | stdio 上的 JSON-RPC、生命周期、错误码 |
+| [../Nodara-Core/protocol/runtime-api.md](../Nodara-Core/protocol/runtime-api.md) | HTTP 与 WebSocket API、schema 接口、诊断码 |
+| [../Nodara-Core/schema](../Nodara-Core/schema) | 生成的 JSON Schema 文档 |
+| [../Nodara-Core/plugins/README.md](../Nodara-Core/plugins/README.md) | 插件目录结构与可执行文件解析 |
 
 ## 客户端（英文）
 
 | 文档 | 内容 |
 |---|---|
-| [../RecognizerFramework-Studio/README.md](../RecognizerFramework-Studio/README.md) | 可视化编辑器 |
-| [../RecognizerFramework-Agent/README.md](../RecognizerFramework-Agent/README.md) | 规划与执行 Agent |
+| [../Nodara-Studio/README.md](../Nodara-Studio/README.md) | 可视化编辑器 |
+| [../Nodara-Agent/README.md](../Nodara-Agent/README.md) | 规划与执行 Agent |
 
 ## 项目（英文）
 
@@ -62,12 +62,12 @@
 JSON Schema 文档由 Rust 类型与已安装节点描述符生成。修改类型或描述符后，请重新生成并提交：
 
 ```bash
-cd RecognizerFramework
-cargo run -p rf-cli -- schema --out schema
+cd Nodara-Core
+cargo run -p nodara-cli -- schema --out schema
 ```
 
 `workflow.schema.json` 由节点目录合成；`--no-capabilities` 生成不含节点目录的版本，
 `--plugin-dir` 可纳入插件。CI 会在仓库内 schema 过期时失败，因此不会出现无人察觉的漂移。
 
-节点参考由 `cargo test -p rf-cli` 对照随附节点目录校验，因此
+节点参考由 `cargo test -p nodara-cli` 对照随附节点目录校验，因此
 [nodes.zh.md](nodes.zh.md) 与 [nodes.md](nodes.md) 不会与代码脱节。

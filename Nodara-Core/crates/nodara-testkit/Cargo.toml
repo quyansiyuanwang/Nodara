@@ -1,0 +1,23 @@
+[package]
+name = "nodara-testkit"
+description = "Test doubles and builders for plugins and workflows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "nodara_testkit"
+path = "src/lib.rs"
+
+[dependencies]
+nodara-schema = { path = "../nodara-schema" }
+nodara-core = { path = "../nodara-core" }
+nodara-plugin = { path = "../nodara-plugin" }
+serde.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+
+[lints]
+workspace = true

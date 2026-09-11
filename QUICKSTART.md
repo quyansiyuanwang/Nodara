@@ -6,9 +6,9 @@ planning agent.
 ## 1. Build and run a workflow
 
 ```bash
-cd RecognizerFramework
+cd Nodara-Core
 cargo build
-cargo run -p rf-cli -- run ../examples/hello-world.json
+cargo run -p nodara-cli -- run ../examples/hello-world.json
 ```
 
 ```text
@@ -30,11 +30,11 @@ Try the other commands:
 
 ```bash
 # Structure and plan, without executing anything
-cargo run -p rf-cli -- inspect  ../examples/hello-world.json
-cargo run -p rf-cli -- simulate ../examples/branching.json
+cargo run -p nodara-cli -- inspect  ../examples/hello-world.json
+cargo run -p nodara-cli -- simulate ../examples/branching.json
 
 # Override a variable
-cargo run -p rf-cli -- run ../examples/hello-world.json --var name=Codex
+cargo run -p nodara-cli -- run ../examples/hello-world.json --var name=Codex
 ```
 
 `simulate` tells you which nodes run, in what order, and which permissions they
@@ -45,7 +45,7 @@ will need — useful before running something that touches your desktop.
 The runtime is the process the editor and the agent talk to.
 
 ```bash
-cargo run -p rf-cli -- serve --in-process --plugin-dir plugins
+cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
 # runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
 ```
 
@@ -61,7 +61,7 @@ Two ways to load the official capabilities:
 | Mode | Command | What happens |
 |------|---------|--------------|
 | in process | `--in-process` | the runtime registers them directly |
-| plugin processes | `--plugin-dir plugins` | the runtime launches `rf-platform-plugin.exe` and `rf-vision-plugin.exe` and talks JSON-RPC to them |
+| plugin processes | `--plugin-dir plugins` | the runtime launches `nodara-platform-plugin.exe` and `nodara-vision-plugin.exe` and talks JSON-RPC to them |
 
 The second is the architecture the project is built for; the first is convenient
 for development. Both expose exactly the same node types.
@@ -69,7 +69,7 @@ for development. Both expose exactly the same node types.
 ## 3. Open the editor
 
 ```bash
-cd ../RecognizerFramework-Studio
+cd ../Nodara-Studio
 npm install
 npm run dev
 ```
@@ -95,7 +95,7 @@ The repository's `examples/*.json` already point at the published schema:
 
 ```json
 {
-  "$schema": "../RecognizerFramework/schema/workflow.schema.json"
+  "$schema": "../Nodara-Core/schema/workflow.schema.json"
 }
 ```
 
@@ -107,7 +107,7 @@ for example VS Code's `settings.json`:
   "json.schemas": [
     {
       "fileMatch": ["/examples/*.json"],
-      "url": "./RecognizerFramework/schema/workflow.schema.json"
+      "url": "./Nodara-Core/schema/workflow.schema.json"
     }
   ]
 }
@@ -117,9 +117,9 @@ The schema is generated from the same descriptors the runtime uses, so the hints
 can never describe a node type the runtime does not have:
 
 ```bash
-cd RecognizerFramework
-cargo run -p rf-cli -- schema --out schema    # regenerate what editors read
-cargo run -p rf-cli -- schema --stdout --no-capabilities   # catalog-free view
+cd Nodara-Core
+cargo run -p nodara-cli -- schema --out schema    # regenerate what editors read
+cargo run -p nodara-cli -- schema --stdout --no-capabilities   # catalog-free view
 ```
 
 A running runtime serves the same document, composed for *its* installed
@@ -129,10 +129,10 @@ use *Point $schema at the runtime* in the Studio's Workflow JSON tab.
 ## 4. Plan with the agent
 
 ```bash
-cd ../RecognizerFramework-Agent
-export RF_LLM_API_KEY=sk-...          # any OpenAI-compatible endpoint
-cargo run -p rf-agent -- plan "read the clipboard and log its contents" --trace trace.jsonl
-cargo run -p rf-agent -- replay trace.jsonl
+cd ../Nodara-Agent
+export NODARA_LLM_API_KEY=sk-...          # any OpenAI-compatible endpoint
+cargo run -p nodara-agent -- plan "read the clipboard and log its contents" --trace trace.jsonl
+cargo run -p nodara-agent -- replay trace.jsonl
 ```
 
 `--safe` refuses every node that performs a side effect, and `--allow <TYPE>`
@@ -145,8 +145,8 @@ guardrail result and the run outcome.
 Implement one trait and serve it:
 
 ```rust
-use rf_core::{ExecutionContext, NodeExecutor, NodeInput, NodeOutput, NodeResult};
-use rf_schema::NodeDescriptor;
+use nodara_core::{ExecutionContext, NodeExecutor, NodeInput, NodeOutput, NodeResult};
+use nodara_schema::NodeDescriptor;
 
 pub struct Slugify;
 
@@ -162,16 +162,16 @@ impl NodeExecutor for Slugify {
 }
 ```
 
-See [RecognizerFramework/docs/node-authoring.md](RecognizerFramework/docs/node-authoring.md)
+See [Nodara-Core/docs/node-authoring.md](Nodara-Core/docs/node-authoring.md)
 for the full walkthrough, including the manifest and the tests.
 
 ## Where things are
 
 | I want to… | Look at |
 |-----------|---------|
-| run or debug a workflow | `rf-cli validate / simulate / run / inspect` |
-| drive the runtime from code | [protocol/runtime-api.md](RecognizerFramework/protocol/runtime-api.md) |
-| understand the plugin wire format | [protocol/plugin-protocol.md](RecognizerFramework/protocol/plugin-protocol.md) |
-| see the JSON contracts | [RecognizerFramework/schema/](RecognizerFramework/schema) |
-| understand the crate layout | [RecognizerFramework/docs/architecture.md](RecognizerFramework/docs/architecture.md) |
-| upgrade an old workflow | `rf-cli migrate old.json --out new.json` |
+| run or debug a workflow | `nodara-cli validate / simulate / run / inspect` |
+| drive the runtime from code | [protocol/runtime-api.md](Nodara-Core/protocol/runtime-api.md) |
+| understand the plugin wire format | [protocol/plugin-protocol.md](Nodara-Core/protocol/plugin-protocol.md) |
+| see the JSON contracts | [Nodara-Core/schema/](Nodara-Core/schema) |
+| understand the crate layout | [Nodara-Core/docs/architecture.md](Nodara-Core/docs/architecture.md) |
+| upgrade an old workflow | `nodara-cli migrate old.json --out new.json` |

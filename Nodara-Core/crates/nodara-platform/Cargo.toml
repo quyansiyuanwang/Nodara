@@ -1,0 +1,39 @@
+[package]
+name = "nodara-platform"
+description = "Official Windows capability plugin: input, windows, screen capture and clipboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "nodara_platform"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nodara-platform-plugin"
+path = "src/bin/nodara-platform-plugin.rs"
+
+[dependencies]
+nodara-schema = { path = "../nodara-schema" }
+nodara-core = { path = "../nodara-core" }
+nodara-plugin = { path = "../nodara-plugin" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+image.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+] }
+
+[lints]
+workspace = true
