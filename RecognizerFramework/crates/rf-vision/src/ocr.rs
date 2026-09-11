@@ -28,9 +28,24 @@ impl NodeExecutor for OcrExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "image": { "type": "string", "description": "Artefact id or image path to read" },
-                    "language": { "type": "string", "description": "BCP-47 language tag, when supported" },
-                    "output_var": { "type": "string" }
+                    "image": {
+                        "type": "string",
+                        "title": "Image",
+                        "description": "Artefact id produced by a capture node, or a path to an \
+                                        image file to read."
+                    },
+                    "language": {
+                        "type": "string",
+                        "title": "Language",
+                        "description": "BCP-47 language tag passed to the OCR backend, when it \
+                                        supports one.",
+                        "examples": ["en-US", "zh-CN"]
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "title": "Output variable",
+                        "description": "Variable receiving the recognized text."
+                    }
                 },
                 "required": ["image", "output_var"],
                 "additionalProperties": false

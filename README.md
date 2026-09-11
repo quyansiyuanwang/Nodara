@@ -89,6 +89,7 @@ Workflow documents look like this ([full schema](RecognizerFramework/schema/work
 
 ```json
 {
+  "$schema": "../RecognizerFramework/schema/workflow.schema.json",
   "schema_version": "2.0",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World" },
@@ -107,6 +108,12 @@ Workflow documents look like this ([full schema](RecognizerFramework/schema/work
 
 Node types are namespaced: `core.*`, `system.*`, `windows.*`, `vision.*`,
 `agent.*`, plus whatever a third-party plugin introduces.
+
+The published schema is composed from the installed node descriptors, so
+`"$schema"` gives an editor completion for node types and their configuration,
+with descriptions, defaults and enums — regenerate it with
+`rf-cli schema --out schema`, or ask a running runtime for
+`GET /api/v1/schema/workflow`.
 
 ## Capabilities
 

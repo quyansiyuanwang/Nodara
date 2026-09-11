@@ -87,6 +87,45 @@ Then:
 If you install a plugin and restart the runtime, reload the page: the new node
 types are simply there. Nothing in the editor needed to change.
 
+### Editor content hints
+
+A workflow file that declares `$schema` is completed by any JSON-Schema-aware
+editor: node types, configuration keys, defaults, enums and hover documentation.
+The repository's `examples/*.json` already point at the published schema:
+
+```json
+{
+  "$schema": "../RecognizerFramework/schema/workflow.schema.json"
+}
+```
+
+For workflow files that do not carry the field, map them once in your editor,
+for example VS Code's `settings.json`:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["/examples/*.json"],
+      "url": "./RecognizerFramework/schema/workflow.schema.json"
+    }
+  ]
+}
+```
+
+The schema is generated from the same descriptors the runtime uses, so the hints
+can never describe a node type the runtime does not have:
+
+```bash
+cd RecognizerFramework
+cargo run -p rf-cli -- schema --out schema    # regenerate what editors read
+cargo run -p rf-cli -- schema --stdout --no-capabilities   # catalog-free view
+```
+
+A running runtime serves the same document, composed for *its* installed
+plugins — point `$schema` at `http://127.0.0.1:8710/api/v1/schema/workflow`, or
+use *Point $schema at the runtime* in the Studio's Workflow JSON tab.
+
 ## 4. Plan with the agent
 
 ```bash

@@ -11,6 +11,7 @@ API; neither links against runtime internals.
 | `GET` | `/api/v1/health` | Liveness plus capability counts |
 | `GET` | `/api/v1/plugins` | Installed plugins and load failures |
 | `GET` | `/api/v1/node-types` | Descriptors for every known node type |
+| `GET` | `/api/v1/schema/{document}` | Published JSON Schema, composed for this deployment |
 | `POST` | `/api/v1/workflows/validate` | Validate a workflow document |
 | `POST` | `/api/v1/runs` | Start a run |
 | `GET` | `/api/v1/runs` | List runs, newest first |
@@ -30,6 +31,45 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/agent/sessions/{id}/approvals/{approval_id}` | Decide an approval |
 | `GET` | `/api/v1/agent/approvals` | Every approval waiting on an operator |
 | `GET` | `/api/v1/audit` | Audit records, filterable by run |
+
+## Schemas and editor content hints
+
+`GET /api/v1/schema/{document}` serves the same documents `rf-cli schema`
+publishes: `workflow`, `plugin-manifest`, `node-descriptor`, `execution-event`,
+`agent-session` and `agent-tool-call`. The bare name and the published file name
+both resolve, so `/schema/workflow` and `/schema/workflow.schema.json` are the
+same document.
+
+The workflow schema is **composed for the deployment**: every installed node
+type contributes its `config_schema`, so the `type` field is an enum of the node
+types this runtime can actually run and `config` is described per type.
+
+```jsonc
+{
+  "$schema": "http://127.0.0.1:8710/api/v1/schema/workflow",
+  "schema_version": "2.0",
+  "id": "workflow.example",
+  "nodes": [
+    // `type` completes from the catalog, and the description of each value
+    // comes from the node descriptor.
+    { "id": "log", "type": "core.Log", "config": { "message": "hello", "level": "info" } }
+    // `config` completes only the keys `core.Log` declares, with their
+    // descriptions, defaults, enums and bounds.
+  ]
+}
+```
+
+Any editor that understands JSON Schema (VS Code, JetBrains IDEs, Neovim with
+`jsonls`) turns that into completion, hover documentation and inline
+diagnostics. A static equivalent ships in
+[`schema/workflow.schema.json`](../schema/workflow.schema.json) and is what
+`examples/*.json` reference; regenerate it with:
+
+```bash
+rf-cli schema --out schema                          # built-ins + official capabilities
+rf-cli schema --plugin-dir path/to/plugins --out schema
+rf-cli schema --stdout --no-capabilities            # the plain, catalog-free schema
+```
 
 ## Discover, then render
 

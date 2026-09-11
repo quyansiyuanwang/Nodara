@@ -111,6 +111,86 @@ async fn node_types_include_builtins_with_schemas() {
 }
 
 #[tokio::test]
+async fn workflow_schema_endpoint_publishes_the_installed_catalog() {
+    let state = state().await;
+    let (status, body) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/schema/workflow")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // The node types this runtime installed are the ones an editor completes.
+    let enum_values = body["definitions"]["NodeType"]["enum"].as_array().unwrap();
+    assert!(enum_values.contains(&json!("core.Log")));
+    assert!(enum_values.contains(&json!("core.Calculate")));
+
+    // Each type carries its own config schema, keyed on `type`.
+    let log = &body["definitions"]["NodeConfig.core.Log"];
+    assert_eq!(
+        log["properties"]["message"]["description"],
+        json!("Message template; supports `{{variable}}` interpolation.")
+    );
+    assert_eq!(
+        log["properties"]["level"]["enum"],
+        json!(["debug", "info", "warn", "error"])
+    );
+    assert_eq!(log["additionalProperties"], false);
+
+    let branch = body["definitions"]["Node"]["allOf"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|branch| branch["if"]["properties"]["type"]["const"] == "core.Log")
+        .expect("a core.Log branch");
+    assert_eq!(
+        branch["then"]["properties"]["config"]["$ref"],
+        "#/definitions/NodeConfig.core.Log"
+    );
+
+    // The published file name resolves to the same document.
+    let (status, aliased) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/schema/workflow.schema.json")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(aliased, body);
+}
+
+#[tokio::test]
+async fn schema_endpoint_serves_typed_documents_and_rejects_unknown_ones() {
+    let state = state().await;
+    let (status, body) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/schema/node-descriptor")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["properties"]["node_type"].is_object());
+
+    let (status, body) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/schema/nope")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["code"], "E_SCHEMA_NOT_FOUND");
+}
+
+#[tokio::test]
 async fn validation_endpoint_reports_diagnostics() {
     let state = state().await;
     let (status, body) = call(

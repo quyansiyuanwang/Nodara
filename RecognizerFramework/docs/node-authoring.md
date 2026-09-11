@@ -19,7 +19,11 @@ impl NodeExecutor for SlugifyExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "text": { "type": "string", "description": "Text to slugify" }
+                    "text": {
+                        "type": "string",
+                        "title": "Text",
+                        "description": "Text to slugify."
+                    }
                 },
                 "required": ["text"],
                 "additionalProperties": false
@@ -50,7 +54,34 @@ impl NodeExecutor for SlugifyExecutor {
 Rules worth internalising:
 
 * **Declare the config schema.** The Studio builds its form from it, validation
-  checks required keys against it, and the agent reads it to fill in values.
+  checks required keys against it, the agent reads it to fill in values, and the
+  published workflow schema folds it into `config` for the node's `type`, which
+  is what gives editors completion and documentation.
+* **Describe every property.** A config schema is the node's user-facing
+  documentation: `title` labels the form field, `description` becomes the hover
+  text and the editor hint, `default` seeds a new node and is inserted by
+  completion, `enum` offers the accepted values, and `minimum`/`maximum`/
+  `examples` document the rest. The built-ins are the reference:
+
+  ```json
+  {
+    "type": "object",
+    "properties": {
+      "level": {
+        "type": "string",
+        "title": "Level",
+        "description": "Log severity. Defaults to `info`.",
+        "enum": ["debug", "info", "warn", "error"],
+        "default": "info"
+      }
+    },
+    "required": ["message"],
+    "additionalProperties": false
+  }
+  ```
+
+  `rf-cli schema` publishes the composed workflow schema; `GET
+  /api/v1/schema/workflow` serves the same document from a running runtime.
 * **Use `resolved_config`.** `input.config` is the raw document; the placeholder
   form is already resolved for you.
 * **Check cancellation in loops.** `context.check_cancelled()?` makes `cancel`
@@ -140,6 +171,8 @@ assert!(outcome.is_success());
 
 - [ ] `descriptor()` has a stable, namespaced `node_type`
 - [ ] `config_schema` declares every key and its required ones
+- [ ] every config property has a `title`, a `description` and a `default`
+      (or an `enum`) so form fields and editor hints are self-explanatory
 - [ ] `permissions` and `dangerous` reflect the real side effects
 - [ ] long operations call `context.check_cancelled()?`
 - [ ] results are returned through ports and variables, not printed

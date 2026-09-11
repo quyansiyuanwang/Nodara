@@ -66,11 +66,37 @@ impl NodeExecutor for DesktopCaptureExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "x": { "type": "integer", "default": 0 },
-                    "y": { "type": "integer", "default": 0 },
-                    "width": { "type": "integer", "minimum": 1 },
-                    "height": { "type": "integer", "minimum": 1 },
-                    "output_var": { "type": "string" }
+                    "x": {
+                        "type": "integer",
+                        "title": "X",
+                        "description": "Left edge of the region, in screen pixels.",
+                        "default": 0
+                    },
+                    "y": {
+                        "type": "integer",
+                        "title": "Y",
+                        "description": "Top edge of the region, in screen pixels.",
+                        "default": 0
+                    },
+                    "width": {
+                        "type": "integer",
+                        "title": "Width",
+                        "description": "Width of the region in pixels. Defaults to the whole \
+                                        primary display.",
+                        "minimum": 1
+                    },
+                    "height": {
+                        "type": "integer",
+                        "title": "Height",
+                        "description": "Height of the region in pixels. Defaults to the whole \
+                                        primary display.",
+                        "minimum": 1
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "title": "Output variable",
+                        "description": "Variable receiving the captured artefact metadata."
+                    }
                 },
                 "required": ["output_var"],
                 "additionalProperties": false

@@ -27,9 +27,25 @@ impl NodeExecutor for ClipboardExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "action": { "type": "string", "enum": ["read", "write"], "default": "read" },
-                    "text": { "type": "string", "description": "Text to place on the clipboard" },
-                    "output_var": { "type": "string", "description": "Variable receiving the read value" }
+                    "action": {
+                        "type": "string",
+                        "title": "Action",
+                        "description": "Read the clipboard into the run, or replace its text.",
+                        "enum": ["read", "write"],
+                        "default": "read"
+                    },
+                    "text": {
+                        "type": "string",
+                        "title": "Text",
+                        "description": "Text to place on the clipboard. Required when \
+                                        `action` is `write`; supports `{{variable}}` \
+                                        interpolation."
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "title": "Output variable",
+                        "description": "Variable receiving the clipboard text when reading."
+                    }
                 },
                 "required": ["action"],
                 "additionalProperties": false

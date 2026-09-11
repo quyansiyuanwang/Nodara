@@ -11,6 +11,7 @@
 //! GET  /api/v1/health
 //! GET  /api/v1/plugins
 //! GET  /api/v1/node-types
+//! GET  /api/v1/schema/{document}
 //! POST /api/v1/workflows/validate
 //! POST /api/v1/runs
 //! GET  /api/v1/runs

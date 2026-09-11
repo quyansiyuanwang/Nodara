@@ -204,10 +204,32 @@ impl NodeExecutor for TemplateMatchExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "frame": { "type": "string", "description": "Artefact id or image path to search" },
-                    "template": { "type": "string", "description": "Artefact id or image path to find" },
-                    "threshold": { "type": "number", "minimum": -1, "maximum": 1, "default": 0.8 },
-                    "output_var": { "type": "string" }
+                    "frame": {
+                        "type": "string",
+                        "title": "Frame",
+                        "description": "Artefact id produced by a capture node, or a path to an \
+                                        image file to search."
+                    },
+                    "template": {
+                        "type": "string",
+                        "title": "Template",
+                        "description": "Artefact id or image path of the template to find."
+                    },
+                    "threshold": {
+                        "type": "number",
+                        "title": "Threshold",
+                        "description": "Minimum normalized cross-correlation score (ZNCC) for a \
+                                        match.",
+                        "minimum": -1,
+                        "maximum": 1,
+                        "default": 0.8
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "title": "Output variable",
+                        "description": "Variable receiving the match (`found`, `score`, `x`, \
+                                        `y`, `width`, `height`)."
+                    }
                 },
                 "required": ["frame", "template", "output_var"],
                 "additionalProperties": false

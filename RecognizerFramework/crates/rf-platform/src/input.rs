@@ -54,7 +54,10 @@ impl NodeExecutor for KeyboardExecutor {
                     serde_json::json!({
                         "keys": {
                             "type": "string",
-                            "description": "Chord such as `ctrl+shift+s`, or a single key name"
+                            "title": "Key chord",
+                            "description": "Key or chord to send to the focused window. \
+                                            Modifiers and keys are joined with `+`.",
+                            "examples": ["ctrl+shift+s", "win+i", "enter"]
                         }
                     }),
                     &["keys"],
@@ -96,12 +99,18 @@ impl NodeExecutor for TextExecutor {
                 outputs: vec![port("out", "Out", PortKind::Output, ValueType::String)],
                 config_schema: config_schema(
                     serde_json::json!({
-                        "text": { "type": "string", "description": "Literal text to type" },
+                        "text": {
+                            "type": "string",
+                            "title": "Text",
+                            "description": "Literal text to type into the focused window."
+                        },
                         "interval_ms": {
                             "type": "integer",
+                            "title": "Key interval (ms)",
                             "minimum": 0,
                             "default": 10,
-                            "description": "Delay between keystrokes"
+                            "description": "Delay between keystrokes. `0` types as fast as \
+                                            the window accepts input."
                         }
                     }),
                     &["text"],
@@ -146,11 +155,23 @@ impl NodeExecutor for MouseExecutor {
                     serde_json::json!({
                         "action": {
                             "type": "string",
+                            "title": "Action",
+                            "description": "Mouse action to perform.",
                             "enum": ["move", "click", "double_click", "right_click", "middle_click", "down", "up"],
                             "default": "click"
                         },
-                        "x": { "type": "integer", "description": "Absolute screen X" },
-                        "y": { "type": "integer", "description": "Absolute screen Y" }
+                        "x": {
+                            "type": "integer",
+                            "title": "X",
+                            "description": "Absolute screen X in pixels. Omitted for `click` \
+                                            and `move` keeps the current position."
+                        },
+                        "y": {
+                            "type": "integer",
+                            "title": "Y",
+                            "description": "Absolute screen Y in pixels. Omitted for `click` \
+                                            and `move` keeps the current position."
+                        }
                     }),
                     &["action"],
                 ),

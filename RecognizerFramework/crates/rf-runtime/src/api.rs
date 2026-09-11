@@ -30,6 +30,7 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
         .route("/health", get(health))
         .route("/plugins", get(list_plugins))
         .route("/node-types", get(list_node_types))
+        .route("/schema/{document}", get(get_schema))
         .route("/workflows/validate", post(validate_workflow))
         .route("/runs", get(list_runs).post(create_run))
         .route("/runs/{id}", get(get_run))
@@ -73,6 +74,8 @@ struct ApiRoot {
     api_version: &'static str,
     schema_version: &'static str,
     protocol_version: &'static str,
+    /// JSON Schema documents this runtime publishes.
+    schemas: &'static [&'static str],
 }
 
 async fn root() -> Json<ApiRoot> {
@@ -81,7 +84,55 @@ async fn root() -> Json<ApiRoot> {
         api_version: rf_schema::API_VERSION,
         schema_version: rf_schema::SCHEMA_VERSION,
         protocol_version: rf_schema::PROTOCOL_VERSION,
+        schemas: SCHEMA_DOCUMENTS,
     })
+}
+
+/// JSON Schema documents the runtime can serve.
+///
+/// `workflow` is composed from the descriptors of the nodes this runtime
+/// installed, so a workflow file that points its `$schema` at this endpoint
+/// completes exactly the node types and configuration keys the deployment can
+/// run. The others are derived from the Rust types and are deployment
+/// independent.
+pub const SCHEMA_DOCUMENTS: &[&str] = &[
+    "workflow",
+    "plugin-manifest",
+    "node-descriptor",
+    "execution-event",
+    "agent-session",
+    "agent-tool-call",
+];
+
+/// `GET /schema/{document}` — a published JSON Schema.
+///
+/// The path accepts the bare name or the published file name, so both
+/// `/schema/workflow` and `/schema/workflow.schema.json` resolve.
+async fn get_schema(
+    State(state): State<Arc<RuntimeState>>,
+    Path(document): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let name = document
+        .trim_end_matches(".json")
+        .trim_end_matches(".schema");
+    let schema = match name {
+        "workflow" => rf_schema::workflow_schema_for(&state.registry.descriptors()),
+        "plugin-manifest" => rf_schema::manifest_schema(),
+        "node-descriptor" => rf_schema::descriptor_schema(),
+        "execution-event" => rf_schema::event_schema(),
+        "agent-session" => rf_schema::session_schema(),
+        "agent-tool-call" => rf_schema::tool_call_schema(),
+        other => {
+            return Err(ApiError::not_found(
+                "E_SCHEMA_NOT_FOUND",
+                format!(
+                    "no schema named `{other}`; available: {}",
+                    SCHEMA_DOCUMENTS.join(", ")
+                ),
+            ))
+        }
+    };
+    Ok(Json(schema))
 }
 
 #[derive(Debug, Serialize)]

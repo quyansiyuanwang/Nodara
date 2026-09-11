@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — schema-driven content hints
+
+### Added
+
+- `rf_schema::workflow_schema_for` composes the workflow JSON Schema from the
+  installed node descriptors: `node.type` becomes an enum of the node types the
+  deployment has, and each type contributes an `if`/`then` branch that points
+  `node.config` at its own schema. The published schema therefore completes node
+  types, configuration keys, defaults, enums and hover documentation, which is
+  what the original single-process implementation got from generating one schema
+  from every node model.
+- `GET /api/v1/schema/{document}` serves those documents from a running runtime,
+  so `$schema` can point at the deployment's own catalog.
+- `rf-cli schema` grew `--plugin-dir` (include plugin descriptors) and
+  `--no-capabilities` (publish the catalog-free schema).
+- Studio: the workflow model keeps `$schema` across new, import, export and
+  agent-plan documents, and the Workflow JSON tab shows the active reference and
+  can point it at the runtime.
+- Every shipped node descriptor now documents its configuration: `title`,
+  `description`, `default`, `enum`, bounds and examples per property.
+
+### Changed
+
+- The Rust `Workflow` model round-trips `$schema` (`Workflow::schema_url`), so
+  migration, load and save preserve an editor's content hints.
+
 ## [2.0.0] — plugin-ecosystem rearchitecture
 
 The repository was rebuilt around the contracts described in `.tmp/PLAN.md`:

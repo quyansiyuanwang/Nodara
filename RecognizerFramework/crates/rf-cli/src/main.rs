@@ -120,6 +120,13 @@ enum Command {
         /// Print the schemas instead of writing files.
         #[arg(long)]
         stdout: bool,
+        /// Directory scanned for plugins whose node types join the workflow
+        /// schema. Repeatable.
+        #[arg(long = "plugin-dir", value_name = "DIR")]
+        plugin_dirs: Vec<PathBuf>,
+        /// Publish the plain schema without the installed node catalog.
+        #[arg(long)]
+        no_capabilities: bool,
     },
 
     /// Start the headless runtime server.
@@ -201,7 +208,17 @@ fn run() -> CliResult<()> {
             to,
         } => commands::migrate::execute(&file, out.as_deref(), from, to),
         Command::Plugins { plugin_dirs, json } => commands::plugins::execute(&plugin_dirs, json),
-        Command::Schema { out, stdout } => commands::schema::execute(&out, stdout),
+        Command::Schema {
+            out,
+            stdout,
+            plugin_dirs,
+            no_capabilities,
+        } => commands::schema::execute(commands::schema::SchemaArgs {
+            out,
+            stdout,
+            plugin_dirs,
+            capabilities: !no_capabilities,
+        }),
         Command::Serve {
             host,
             port,

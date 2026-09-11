@@ -65,7 +65,14 @@ runtime. That is also why the engine needs no `async` colouring to coordinate
 external processes.
 
 **2. JSON Schema** — generated from the Rust types by `rf-cli schema`, so the
-published documents and the code cannot drift.
+published documents and the code cannot drift. The workflow schema is *composed*
+with the installed node catalog: `rf_schema::workflow_schema_for` folds each
+descriptor's `config_schema` in under an `if`/`then` branch keyed on `type`, and
+the runtime serves the result at `GET /api/v1/schema/workflow`. A workflow file
+that declares that URL as its `$schema` therefore completes node types,
+configuration keys, defaults and enums in any JSON-Schema-aware editor, which is
+the experience the original single-process implementation got from generating
+one schema from every node model.
 
 **3. Runtime protocol** — JSON-RPC over stdio between runtime and plugin, and
 HTTP/WebSocket between clients and runtime.

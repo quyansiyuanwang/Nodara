@@ -14,6 +14,13 @@
 //! documents under `schema/` are generated from the same definitions the runtime
 //! uses. That keeps protocol, SDK and documentation from drifting apart.
 //!
+//! The workflow document is the one schema that is *composed* rather than merely
+//! derived: [`workflow_schema_for`] folds the installed node descriptors into it,
+//! so `node.type` and `node.config` carry the same titles, descriptions, defaults
+//! and enums the original single-process implementation published. An editor
+//! picks them up from the document's `$schema` field; see
+//! [`workflow_schema`] for the composition itself.
+//!
 //! ## Versioning axes
 //!
 //! The project versions three things independently (see [`version`]):
@@ -35,6 +42,7 @@ pub mod tool;
 pub mod validation;
 pub mod version;
 pub mod workflow;
+pub mod workflow_schema;
 
 pub use descriptor::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
 pub use error::{SchemaError, SchemaResult};
@@ -53,15 +61,14 @@ pub use validation::{
 };
 pub use version::{API_VERSION, PROTOCOL_VERSION, SCHEMA_VERSION};
 pub use workflow::{Edge, Metadata, Node, Position, Variable, Workflow};
+pub use workflow_schema::{
+    config_definition_name, workflow_schema, workflow_schema_for, NODE_CONFIG_PREFIX,
+    NODE_TYPE_DEFINITION,
+};
 
 /// Serialize the JSON Schema for `T`.
 pub fn json_schema<T: schemars::JsonSchema>() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(T)).unwrap_or(serde_json::Value::Null)
-}
-
-/// JSON Schema for a workflow document.
-pub fn workflow_schema() -> serde_json::Value {
-    json_schema::<Workflow>()
 }
 
 /// JSON Schema for a plugin manifest.

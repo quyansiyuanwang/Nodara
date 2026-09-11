@@ -19,6 +19,61 @@ fn config_schema(properties: serde_json::Value, required: &[&str]) -> serde_json
     })
 }
 
+/// Configuration properties shared by every node that selects a window.
+///
+/// Keeping them in one place means the published schema documents `title`,
+/// `class`, `exact` and `foreground` identically for find, focus and capture.
+fn selector_properties() -> serde_json::Value {
+    serde_json::json!({
+        "title": {
+            "type": "string",
+            "title": "Window title",
+            "description": "Window title to match. Substring match unless `exact` is set.",
+            "examples": ["Notepad", "Settings"]
+        },
+        "class": {
+            "type": "string",
+            "title": "Window class",
+            "description": "Win32 window class name to match, e.g. `Notepad`.",
+            "examples": ["Notepad"]
+        },
+        "exact": {
+            "type": "boolean",
+            "title": "Exact match",
+            "description": "Require the title and class to match exactly instead of as \
+                            substrings.",
+            "default": false
+        },
+        "foreground": {
+            "type": "boolean",
+            "title": "Foreground window",
+            "description": "Use the foreground window instead of searching. Overrides \
+                            `title` and `class`.",
+            "default": false
+        }
+    })
+}
+
+/// A window selector schema plus any node-specific properties.
+fn selector_schema(extra: serde_json::Value, required: &[&str]) -> serde_json::Value {
+    let mut properties = selector_properties();
+    if let (Some(base), Some(extra)) = (properties.as_object_mut(), extra.as_object()) {
+        for (key, value) in extra {
+            base.insert(key.clone(), value.clone());
+        }
+    }
+    config_schema(properties, required)
+}
+
+/// The `output_var` property shared by nodes that publish their result.
+fn output_var_property(description: &str) -> serde_json::Value {
+    serde_json::json!({
+        "type": "string",
+        "title": "Output variable",
+        "description": description
+    })
+}
+
 /// How a window selector resolves to a single window.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct WindowSelector {
@@ -109,13 +164,12 @@ impl NodeExecutor for FindExecutor {
                 PortKind::Output,
                 ValueType::Window,
             )],
-            config_schema: config_schema(
+            config_schema: selector_schema(
                 serde_json::json!({
-                    "title": { "type": "string" },
-                    "class": { "type": "string" },
-                    "exact": { "type": "boolean", "default": false },
-                    "foreground": { "type": "boolean", "default": false },
-                    "output_var": { "type": "string" }
+                    "output_var": output_var_property(
+                        "Variable receiving the window record (`handle`, `title`, `class`, \
+                         `rect`)."
+                    )
                 }),
                 &["output_var"],
             ),
@@ -158,15 +212,7 @@ impl NodeExecutor for FocusExecutor {
         NodeDescriptor {
             inputs: vec![port("in", "In", PortKind::Input, ValueType::Any)],
             outputs: vec![port("out", "Out", PortKind::Output, ValueType::Window)],
-            config_schema: config_schema(
-                serde_json::json!({
-                    "title": { "type": "string" },
-                    "class": { "type": "string" },
-                    "exact": { "type": "boolean", "default": false },
-                    "foreground": { "type": "boolean", "default": false }
-                }),
-                &[],
-            ),
+            config_schema: selector_schema(serde_json::json!({}), &[]),
             dangerous: true,
             permissions: vec!["window.control".to_string()],
             allows_additional_config: false,
@@ -200,13 +246,11 @@ impl NodeExecutor for CaptureExecutor {
                 PortKind::Output,
                 ValueType::Image,
             )],
-            config_schema: config_schema(
+            config_schema: selector_schema(
                 serde_json::json!({
-                    "title": { "type": "string" },
-                    "class": { "type": "string" },
-                    "exact": { "type": "boolean", "default": false },
-                    "foreground": { "type": "boolean", "default": false },
-                    "output_var": { "type": "string" }
+                    "output_var": output_var_property(
+                        "Variable receiving the captured artefact metadata."
+                    )
                 }),
                 &["output_var"],
             ),

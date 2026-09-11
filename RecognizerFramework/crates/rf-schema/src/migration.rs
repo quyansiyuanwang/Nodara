@@ -136,6 +136,11 @@ pub fn migrate(value: serde_json::Value) -> SchemaResult<(Workflow, MigrationRep
         .map(str::to_string);
 
     let mut workflow = Workflow {
+        // A migrated document keeps pointing an editor at the same schema.
+        schema_url: object
+            .get("$schema")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
         schema_version: SCHEMA_VERSION.to_string(),
         id,
         metadata: Metadata {
@@ -366,5 +371,22 @@ mod tests {
         let (migrated, report) = migrate(value).expect("migrates");
         assert!(!report.changed);
         assert_eq!(migrated, wf);
+    }
+
+    #[test]
+    fn a_legacy_schema_reference_survives_migration() {
+        let legacy = serde_json::json!({
+            "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+            "version": 1,
+            "id": "legacy.hinted",
+            "nodes": [{"id": "start", "kind": "Start", "config": {}}],
+            "edges": []
+        });
+        let (workflow, report) = migrate(legacy).expect("migrates");
+        assert!(report.changed);
+        assert_eq!(
+            workflow.schema_url.as_deref(),
+            Some("../RecognizerFramework/schema/workflow.schema.json")
+        );
     }
 }

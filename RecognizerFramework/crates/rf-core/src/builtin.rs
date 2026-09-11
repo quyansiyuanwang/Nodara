@@ -70,7 +70,9 @@ impl NodeExecutor for EndExecutor {
                 serde_json::json!({
                     "code": {
                         "type": "integer",
-                        "description": "Process exit code reported by the runtime",
+                        "title": "Exit code",
+                        "description": "Process exit code reported by the runtime when the \
+                                        workflow finishes.",
                         "default": 0
                     }
                 }),
@@ -110,10 +112,14 @@ impl NodeExecutor for LogExecutor {
                 serde_json::json!({
                     "message": {
                         "type": "string",
-                        "description": "Message template; supports {{variable}} interpolation"
+                        "title": "Message",
+                        "description": "Message template; supports `{{variable}}` interpolation.",
+                        "examples": ["Hello, {{name}}!"]
                     },
                     "level": {
                         "type": "string",
+                        "title": "Level",
+                        "description": "Log severity. Defaults to `info`.",
                         "enum": ["debug", "info", "warn", "error"],
                         "default": "info"
                     }
@@ -158,11 +164,16 @@ impl NodeExecutor for CalculateExecutor {
                 serde_json::json!({
                     "expression": {
                         "type": "string",
-                        "description": "Arithmetic expression, e.g. `2 + 2 * 3`"
+                        "title": "Expression",
+                        "description": "Arithmetic expression evaluated against the run scope. \
+                                        Supports `+`, `-`, `*`, `/`, `%`, `**` and `sqrt`.",
+                        "examples": ["2 + 2 * 3", "{{price}} * {{quantity}}"]
                     },
                     "output_var": {
                         "type": "string",
-                        "description": "Variable name the result is published under"
+                        "title": "Output variable",
+                        "description": "Variable the result is published under.",
+                        "examples": ["answer"]
                     }
                 }),
                 &["expression", "output_var"],
@@ -212,8 +223,11 @@ impl NodeExecutor for DelayExecutor {
                 serde_json::json!({
                     "duration_ms": {
                         "type": "integer",
+                        "title": "Duration (ms)",
                         "minimum": 0,
-                        "description": "Delay in milliseconds"
+                        "default": 0,
+                        "description": "How long to wait, in milliseconds. Cancellation is \
+                                        observed while waiting."
                     }
                 }),
                 &["duration_ms"],
@@ -249,8 +263,16 @@ impl NodeExecutor for SetVariableExecutor {
             config_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "name": { "type": "string", "description": "Variable name" },
-                    "value": { "description": "Value to store; supports interpolation" }
+                    "name": {
+                        "type": "string",
+                        "title": "Variable name",
+                        "description": "Name to publish the value under in the run scope."
+                    },
+                    "value": {
+                        "title": "Value",
+                        "description": "Value to store. Strings support `{{variable}}` \
+                                        interpolation; any JSON value is accepted."
+                    }
                 },
                 "required": ["name"],
                 "additionalProperties": false

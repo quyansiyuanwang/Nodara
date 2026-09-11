@@ -118,11 +118,381 @@
       "type": "object"
     },
     "Node": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "core.Calculate"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.Calculate"
+              },
+              "type": {
+                "const": "core.Calculate",
+                "description": "Evaluates a numeric expression"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "core.End"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.End"
+              },
+              "type": {
+                "const": "core.End",
+                "description": "Terminates the workflow"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "core.Log"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.Log"
+              },
+              "type": {
+                "const": "core.Log",
+                "description": "Writes a message to the run log"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "core.SetVariable"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.SetVariable"
+              },
+              "type": {
+                "const": "core.SetVariable",
+                "description": "Publishes a value into the run scope"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "core.Start"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.Start"
+              },
+              "type": {
+                "const": "core.Start",
+                "description": "Entry point of the workflow"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system.Clipboard"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.system.Clipboard"
+              },
+              "type": {
+                "const": "system.Clipboard",
+                "description": "Reads or replaces the clipboard text"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system.Delay"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.system.Delay"
+              },
+              "type": {
+                "const": "system.Delay",
+                "description": "Waits for a fixed duration"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "vision.Ocr"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.vision.Ocr"
+              },
+              "type": {
+                "const": "vision.Ocr",
+                "description": "Extracts text from an image using the configured backend"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "vision.TemplateMatch"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.vision.TemplateMatch"
+              },
+              "type": {
+                "const": "vision.TemplateMatch",
+                "description": "Locates a template image inside a captured frame"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Desktop.Capture"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Desktop.Capture"
+              },
+              "type": {
+                "const": "windows.Desktop.Capture",
+                "description": "Captures the whole primary display or a region of it"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Input.Keyboard"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Input.Keyboard"
+              },
+              "type": {
+                "const": "windows.Input.Keyboard",
+                "description": "Sends a key or key chord to the focused window"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Input.Mouse"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Input.Mouse"
+              },
+              "type": {
+                "const": "windows.Input.Mouse",
+                "description": "Moves the cursor and synthesises mouse buttons"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Input.Text"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Input.Text"
+              },
+              "type": {
+                "const": "windows.Input.Text",
+                "description": "Types literal text into the focused window"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Window.Capture"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Window.Capture"
+              },
+              "type": {
+                "const": "windows.Window.Capture",
+                "description": "Captures a window's client area"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Window.Find"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Window.Find"
+              },
+              "type": {
+                "const": "windows.Window.Find",
+                "description": "Locates a window by title or class"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Window.Focus"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Window.Focus"
+              },
+              "type": {
+                "const": "windows.Window.Focus",
+                "description": "Brings a window to the foreground"
+              }
+            }
+          }
+        }
+      ],
       "description": "A node in the workflow graph.",
       "properties": {
         "config": {
           "default": {},
-          "description": "Node-type specific configuration. Shape is described by the node descriptor."
+          "description": "Node-type specific configuration. The shape depends on `type`; the published schema carries one branch per installed node type."
         },
         "id": {
           "description": "Unique, stable identifier within the workflow.",
@@ -152,8 +522,8 @@
           "description": "Editor position (ignored by the runtime)."
         },
         "type": {
-          "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.",
-          "type": "string"
+          "$ref": "#/definitions/NodeType",
+          "description": "Installed node type. The editor completes this from the descriptors the runtime published."
         }
       },
       "required": [
@@ -161,6 +531,511 @@
         "type"
       ],
       "type": "object"
+    },
+    "NodeConfig.core.Calculate": {
+      "additionalProperties": false,
+      "description": "Evaluates a numeric expression",
+      "properties": {
+        "expression": {
+          "description": "Arithmetic expression evaluated against the run scope. Supports `+`, `-`, `*`, `/`, `%`, `**` and `sqrt`.",
+          "examples": [
+            "2 + 2 * 3",
+            "{{price}} * {{quantity}}"
+          ],
+          "title": "Expression",
+          "type": "string"
+        },
+        "output_var": {
+          "description": "Variable the result is published under.",
+          "examples": [
+            "answer"
+          ],
+          "title": "Output variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "output_var"
+      ],
+      "title": "Calculate configuration",
+      "type": "object",
+      "x-rf-node-type": "core.Calculate"
+    },
+    "NodeConfig.core.End": {
+      "additionalProperties": false,
+      "description": "Terminates the workflow",
+      "properties": {
+        "code": {
+          "default": 0,
+          "description": "Process exit code reported by the runtime when the workflow finishes.",
+          "title": "Exit code",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "End configuration",
+      "type": "object",
+      "x-rf-node-type": "core.End"
+    },
+    "NodeConfig.core.Log": {
+      "additionalProperties": false,
+      "description": "Writes a message to the run log",
+      "properties": {
+        "level": {
+          "default": "info",
+          "description": "Log severity. Defaults to `info`.",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "message": {
+          "description": "Message template; supports `{{variable}}` interpolation.",
+          "examples": [
+            "Hello, {{name}}!"
+          ],
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Log configuration",
+      "type": "object",
+      "x-rf-node-type": "core.Log"
+    },
+    "NodeConfig.core.SetVariable": {
+      "additionalProperties": false,
+      "description": "Publishes a value into the run scope",
+      "properties": {
+        "name": {
+          "description": "Name to publish the value under in the run scope.",
+          "title": "Variable name",
+          "type": "string"
+        },
+        "value": {
+          "description": "Value to store. Strings support `{{variable}}` interpolation; any JSON value is accepted.",
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Set Variable configuration",
+      "type": "object",
+      "x-rf-node-type": "core.SetVariable"
+    },
+    "NodeConfig.core.Start": {
+      "additionalProperties": false,
+      "description": "Entry point of the workflow",
+      "properties": {},
+      "required": [],
+      "title": "Start configuration",
+      "type": "object",
+      "x-rf-node-type": "core.Start"
+    },
+    "NodeConfig.system.Clipboard": {
+      "additionalProperties": false,
+      "description": "Reads or replaces the clipboard text",
+      "properties": {
+        "action": {
+          "default": "read",
+          "description": "Read the clipboard into the run, or replace its text.",
+          "enum": [
+            "read",
+            "write"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "output_var": {
+          "description": "Variable receiving the clipboard text when reading.",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "text": {
+          "description": "Text to place on the clipboard. Required when `action` is `write`; supports `{{variable}}` interpolation.",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "Clipboard configuration",
+      "type": "object",
+      "x-rf-node-type": "system.Clipboard"
+    },
+    "NodeConfig.system.Delay": {
+      "additionalProperties": false,
+      "description": "Waits for a fixed duration",
+      "properties": {
+        "duration_ms": {
+          "default": 0,
+          "description": "How long to wait, in milliseconds. Cancellation is observed while waiting.",
+          "minimum": 0,
+          "title": "Duration (ms)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "duration_ms"
+      ],
+      "title": "Delay configuration",
+      "type": "object",
+      "x-rf-node-type": "system.Delay"
+    },
+    "NodeConfig.vision.Ocr": {
+      "additionalProperties": false,
+      "description": "Extracts text from an image using the configured backend",
+      "properties": {
+        "image": {
+          "description": "Artefact id produced by a capture node, or a path to an image file to read.",
+          "title": "Image",
+          "type": "string"
+        },
+        "language": {
+          "description": "BCP-47 language tag passed to the OCR backend, when it supports one.",
+          "examples": [
+            "en-US",
+            "zh-CN"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "output_var": {
+          "description": "Variable receiving the recognized text.",
+          "title": "Output variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "image",
+        "output_var"
+      ],
+      "title": "OCR configuration",
+      "type": "object",
+      "x-rf-node-type": "vision.Ocr"
+    },
+    "NodeConfig.vision.TemplateMatch": {
+      "additionalProperties": false,
+      "description": "Locates a template image inside a captured frame",
+      "properties": {
+        "frame": {
+          "description": "Artefact id produced by a capture node, or a path to an image file to search.",
+          "title": "Frame",
+          "type": "string"
+        },
+        "output_var": {
+          "description": "Variable receiving the match (`found`, `score`, `x`, `y`, `width`, `height`).",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "template": {
+          "description": "Artefact id or image path of the template to find.",
+          "title": "Template",
+          "type": "string"
+        },
+        "threshold": {
+          "default": 0.8,
+          "description": "Minimum normalized cross-correlation score (ZNCC) for a match.",
+          "maximum": 1,
+          "minimum": -1,
+          "title": "Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "frame",
+        "template",
+        "output_var"
+      ],
+      "title": "Template Match configuration",
+      "type": "object",
+      "x-rf-node-type": "vision.TemplateMatch"
+    },
+    "NodeConfig.windows.Desktop.Capture": {
+      "additionalProperties": false,
+      "description": "Captures the whole primary display or a region of it",
+      "properties": {
+        "height": {
+          "description": "Height of the region in pixels. Defaults to the whole primary display.",
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "output_var": {
+          "description": "Variable receiving the captured artefact metadata.",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "width": {
+          "description": "Width of the region in pixels. Defaults to the whole primary display.",
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "x": {
+          "default": 0,
+          "description": "Left edge of the region, in screen pixels.",
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "default": 0,
+          "description": "Top edge of the region, in screen pixels.",
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "output_var"
+      ],
+      "title": "Capture Desktop configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Desktop.Capture"
+    },
+    "NodeConfig.windows.Input.Keyboard": {
+      "additionalProperties": false,
+      "description": "Sends a key or key chord to the focused window",
+      "properties": {
+        "keys": {
+          "description": "Key or chord to send to the focused window. Modifiers and keys are joined with `+`.",
+          "examples": [
+            "ctrl+shift+s",
+            "win+i",
+            "enter"
+          ],
+          "title": "Key chord",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keys"
+      ],
+      "title": "Keyboard configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Input.Keyboard"
+    },
+    "NodeConfig.windows.Input.Mouse": {
+      "additionalProperties": false,
+      "description": "Moves the cursor and synthesises mouse buttons",
+      "properties": {
+        "action": {
+          "default": "click",
+          "description": "Mouse action to perform.",
+          "enum": [
+            "move",
+            "click",
+            "double_click",
+            "right_click",
+            "middle_click",
+            "down",
+            "up"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "x": {
+          "description": "Absolute screen X in pixels. Omitted for `click` and `move` keeps the current position.",
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Absolute screen Y in pixels. Omitted for `click` and `move` keeps the current position.",
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "Mouse configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Input.Mouse"
+    },
+    "NodeConfig.windows.Input.Text": {
+      "additionalProperties": false,
+      "description": "Types literal text into the focused window",
+      "properties": {
+        "interval_ms": {
+          "default": 10,
+          "description": "Delay between keystrokes. `0` types as fast as the window accepts input.",
+          "minimum": 0,
+          "title": "Key interval (ms)",
+          "type": "integer"
+        },
+        "text": {
+          "description": "Literal text to type into the focused window.",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Text configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Input.Text"
+    },
+    "NodeConfig.windows.Window.Capture": {
+      "additionalProperties": false,
+      "description": "Captures a window's client area",
+      "properties": {
+        "class": {
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the title and class to match exactly instead of as substrings.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "foreground": {
+          "default": false,
+          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "title": "Foreground window",
+          "type": "boolean"
+        },
+        "output_var": {
+          "description": "Variable receiving the captured artefact metadata.",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "title": {
+          "description": "Window title to match. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_var"
+      ],
+      "title": "Capture Window configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Window.Capture"
+    },
+    "NodeConfig.windows.Window.Find": {
+      "additionalProperties": false,
+      "description": "Locates a window by title or class",
+      "properties": {
+        "class": {
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the title and class to match exactly instead of as substrings.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "foreground": {
+          "default": false,
+          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "title": "Foreground window",
+          "type": "boolean"
+        },
+        "output_var": {
+          "description": "Variable receiving the window record (`handle`, `title`, `class`, `rect`).",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "title": {
+          "description": "Window title to match. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_var"
+      ],
+      "title": "Find Window configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Window.Find"
+    },
+    "NodeConfig.windows.Window.Focus": {
+      "additionalProperties": false,
+      "description": "Brings a window to the foreground",
+      "properties": {
+        "class": {
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the title and class to match exactly instead of as substrings.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "foreground": {
+          "default": false,
+          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "title": "Foreground window",
+          "type": "boolean"
+        },
+        "title": {
+          "description": "Window title to match. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "Focus Window configuration",
+      "type": "object",
+      "x-rf-node-type": "windows.Window.Focus"
+    },
+    "NodeType": {
+      "description": "Namespaced node type, e.g. `windows.Input.Keyboard`. One of the node types the runtime has installed.",
+      "enum": [
+        "core.Calculate",
+        "core.End",
+        "core.Log",
+        "core.SetVariable",
+        "core.Start",
+        "system.Clipboard",
+        "system.Delay",
+        "vision.Ocr",
+        "vision.TemplateMatch",
+        "windows.Desktop.Capture",
+        "windows.Input.Keyboard",
+        "windows.Input.Mouse",
+        "windows.Input.Text",
+        "windows.Window.Capture",
+        "windows.Window.Find",
+        "windows.Window.Focus"
+      ],
+      "type": "string"
     },
     "Position": {
       "description": "Canvas position for editor round-tripping. Ignored by the runtime.",
@@ -208,6 +1083,13 @@
   },
   "description": "A complete workflow document.",
   "properties": {
+    "$schema": {
+      "description": "Optional `$schema` reference to the JSON Schema this document follows.\n\nEditors resolve it to complete node types, configuration keys, defaults and enums — see [`crate::workflow_schema_for`]. The field is part of the document and survives every round-trip (migration, load, save), so a workflow keeps its content hints wherever it is opened.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "edges": {
       "default": [],
       "description": "All edges in the graph.",
@@ -248,7 +1130,7 @@
     },
     "schema_version": {
       "default": "2.0",
-      "description": "Workflow format version. See [`crate::version::SCHEMA_VERSION`].",
+      "description": "Workflow format version; this build writes `2.0` and migrates `1.x`.",
       "type": "string"
     },
     "variables": {

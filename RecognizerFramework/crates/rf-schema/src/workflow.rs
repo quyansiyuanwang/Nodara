@@ -71,12 +71,16 @@ pub struct Node {
     /// Unique, stable identifier within the workflow.
     pub id: String,
     /// Namespaced node type, e.g. `windows.Input.Keyboard`.
+    ///
+    /// `workflow_schema_for` publishes the enum of types the runtime installed,
+    /// so an editor can complete this field.
     #[serde(rename = "type")]
     pub node_type: String,
     /// Optional display label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// Node-type specific configuration. Shape is described by the node descriptor.
+    /// Node-type specific configuration, validated against the node descriptor's
+    /// config schema (published per node type in the workflow JSON Schema).
     #[serde(default = "default_object")]
     pub config: serde_json::Value,
     /// Editor position (ignored by the runtime).
@@ -164,7 +168,15 @@ impl Edge {
 /// A complete workflow document.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct Workflow {
-    /// Workflow format version. See [`crate::version::SCHEMA_VERSION`].
+    /// Optional `$schema` reference to the JSON Schema this document follows.
+    ///
+    /// Editors resolve it to complete node types, configuration keys, defaults
+    /// and enums — see [`crate::workflow_schema_for`]. The field is part of the
+    /// document and survives every round-trip (migration, load, save), so a
+    /// workflow keeps its content hints wherever it is opened.
+    #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
+    pub schema_url: Option<String>,
+    /// Workflow format version; this build writes `2.0` and migrates `1.x`.
     #[serde(default = "default_schema_version")]
     pub schema_version: String,
     /// Stable workflow identifier, e.g. `workflow.example`.
@@ -188,6 +200,7 @@ impl Workflow {
     pub fn new(id: impl Into<String>) -> Self {
         let id = id.into();
         Self {
+            schema_url: None,
             schema_version: default_schema_version(),
             metadata: Metadata {
                 name: id.clone(),
@@ -267,5 +280,30 @@ mod tests {
         let json = serde_json::to_value(&node).unwrap();
         assert_eq!(json["type"], "windows.Input.Keyboard");
         assert!(json.get("node_type").is_none());
+    }
+
+    #[test]
+    fn schema_reference_round_trips() {
+        let document = serde_json::json!({
+            "$schema": "../RecognizerFramework/schema/workflow.schema.json",
+            "schema_version": "2.0",
+            "id": "wf.hinted"
+        });
+        let workflow: Workflow = serde_json::from_value(document).unwrap();
+        assert_eq!(
+            workflow.schema_url.as_deref(),
+            Some("../RecognizerFramework/schema/workflow.schema.json")
+        );
+        let back = serde_json::to_value(&workflow).unwrap();
+        assert_eq!(
+            back["$schema"],
+            "../RecognizerFramework/schema/workflow.schema.json"
+        );
+    }
+
+    #[test]
+    fn documents_without_a_schema_reference_stay_clean() {
+        let json = serde_json::to_value(Workflow::new("wf.plain")).unwrap();
+        assert!(json.get("$schema").is_none());
     }
 }
