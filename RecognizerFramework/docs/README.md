@@ -2,6 +2,18 @@
 
 Start here to understand the core repository.
 
+## The detailed guides
+
+The cross-repository guides live in the integration workspace; each exists in
+English and Chinese (`name.md` / `name.zh.md`):
+
+* [`../../docs/project.md`](../../docs/project.md) — the whole project:
+  architecture, execution model, plugins, runtime, Studio, agent, security.
+* [`../../docs/schema.md`](../../docs/schema.md) — every JSON Schema document,
+  field by field, including how the workflow schema produces content hints.
+* [`../../docs/nodes.md`](../../docs/nodes.md) — the node catalogue: ports,
+  permissions and every configuration key.
+
 ## Orientation
 
 * [`architecture.md`](architecture.md) — how the crates fit together and why the

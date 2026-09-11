@@ -30,6 +30,17 @@ All notable changes to this project are documented here. The format follows
 - The Rust `Workflow` model round-trips `$schema` (`Workflow::schema_url`), so
   migration, load and save preserve an editor's content hints.
 
+### Documentation
+
+- Bilingual guides, following the `name.md` (English) / `name.zh.md` (Chinese)
+  convention: `docs/project.md` (the whole project), `docs/schema.md` (every
+  JSON Schema document, field by field, plus how content hints are composed)
+  and `docs/nodes.md` (ports, permissions and configuration for every shipped
+  node type), with a matching `docs/README.md` index in both languages.
+- `cargo test -p rf-cli` now checks the node reference against the shipped
+  catalogue: a node type, permission or configuration key that is not
+  documented fails the build in both languages.
+
 ## [2.0.0] — plugin-ecosystem rearchitecture
 
 The repository was rebuilt around the contracts described in `.tmp/PLAN.md`:

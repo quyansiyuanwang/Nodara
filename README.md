@@ -130,6 +130,10 @@ execution, and the decision appears in the event stream and the audit log.
 
 | Document | Contents |
 |----------|----------|
+| [docs/README.md](docs/README.md) · [中文](docs/README.zh.md) | Documentation index and the `name.md` / `name.zh.md` language convention |
+| [docs/project.md](docs/project.md) · [中文](docs/project.zh.md) | Detailed project guide: architecture, execution model, plugins, security, extension points |
+| [docs/schema.md](docs/schema.md) · [中文](docs/schema.zh.md) | Every JSON Schema document field by field, and how `$schema` produces editor content hints |
+| [docs/nodes.md](docs/nodes.md) · [中文](docs/nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
 | [QUICKSTART.md](QUICKSTART.md) | End-to-end walkthrough in five minutes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Repository layout and dependency rules |
 | [RecognizerFramework/docs/architecture.md](RecognizerFramework/docs/architecture.md) | Crate detail, execution model, policy path |
