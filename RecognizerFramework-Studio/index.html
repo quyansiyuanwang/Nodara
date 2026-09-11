@@ -86,8 +86,14 @@
           <div id="problems" class="problems"></div>
         </div>
         <div id="panel-json" class="drawer__panel" hidden>
+          <div class="json-toolbar">
+            <span id="json-schema" class="muted"></span>
+            <button id="btn-runtime-schema" class="btn btn--small">
+              Point $schema at the runtime
+            </button>
+            <button id="btn-apply-json" class="btn">Apply JSON</button>
+          </div>
           <textarea id="json-view" class="json" spellcheck="false"></textarea>
-          <button id="btn-apply-json" class="btn">Apply JSON</button>
         </div>
       </section>
     </div>

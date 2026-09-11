@@ -13,8 +13,20 @@ import {
   WorkflowNode,
 } from "../runtime/types";
 
+/**
+ * Location of the published workflow schema, relative to a document that lives
+ * in this repository (`examples/`, `workflow/`).
+ *
+ * A document that declares `$schema` gets node-type completion, configuration
+ * completion, inline documentation, defaults and enums from any editor that
+ * understands JSON Schema. The Studio therefore treats it as part of the
+ * document rather than as disposable metadata.
+ */
+export const WORKFLOW_SCHEMA_PATH = "../RecognizerFramework/schema/workflow.schema.json";
+
 export function emptyWorkflow(): Workflow {
   return {
+    $schema: WORKFLOW_SCHEMA_PATH,
     schema_version: SCHEMA_VERSION,
     id: `workflow.${Date.now().toString(36)}`,
     metadata: { name: "Untitled workflow", tags: [] },
@@ -25,6 +37,27 @@ export function emptyWorkflow(): Workflow {
     edges: [],
     variables: {},
   };
+}
+
+/**
+ * Copy a document into the editor's live instance.
+ *
+ * The Studio mutates one workflow object in place because the canvas, the
+ * inspector and the event log all hold a reference to it. This is the single
+ * place that decides what an imported, exported or agent-proposed document
+ * means, and it deliberately keeps `$schema`: dropping it would silently turn
+ * off the content hints every other editor derives from the reference.
+ */
+export function applyWorkflow(target: Workflow, incoming: Partial<Workflow> | null): Workflow {
+  const next = incoming ?? {};
+  target.$schema = next.$schema || WORKFLOW_SCHEMA_PATH;
+  target.schema_version = next.schema_version ?? SCHEMA_VERSION;
+  target.id = next.id ?? "workflow.untitled";
+  target.metadata = next.metadata ?? { name: "Untitled workflow", tags: [] };
+  target.nodes = next.nodes ?? [];
+  target.edges = next.edges ?? [];
+  target.variables = next.variables ?? {};
+  return target;
 }
 
 let nodeCounter = 0;

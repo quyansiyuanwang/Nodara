@@ -466,6 +466,18 @@ body {
   color: var(--text-dim);
 }
 
+.json-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.json-toolbar .muted {
+  flex: 1;
+  margin: 0;
+}
+
 .json {
   width: 100%;
   min-height: 120px;

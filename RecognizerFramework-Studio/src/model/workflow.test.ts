@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyWorkflow,
   defaultConfig,
   edgeExists,
   emptyWorkflow,
   localProblems,
   nextEdgeId,
   nextNodeId,
+  WORKFLOW_SCHEMA_PATH,
 } from "./workflow";
 import { NodeDescriptor, Workflow } from "../runtime/types";
 
@@ -31,8 +33,32 @@ describe("workflow model", () => {
   it("starts from a usable scaffold", () => {
     const workflow = emptyWorkflow();
     expect(workflow.schema_version).toBe("2.0");
+    expect(workflow.$schema).toBe(WORKFLOW_SCHEMA_PATH);
     expect(workflow.nodes.map((node) => node.type)).toEqual(["core.Start", "core.End"]);
     expect(localProblems(workflow)).toEqual([]);
+  });
+
+  it("keeps the schema reference of an imported document", () => {
+    const workflow = emptyWorkflow();
+    const imported: Partial<Workflow> = {
+      $schema: "http://127.0.0.1:8710/api/v1/schema/workflow",
+      id: "wf.imported",
+      nodes: [{ id: "n", type: "core.Log", config: {} }],
+    };
+    const same = applyWorkflow(workflow, imported);
+
+    // The editor mutates one instance, so the canvas keeps its reference.
+    expect(same).toBe(workflow);
+    expect(workflow.$schema).toBe("http://127.0.0.1:8710/api/v1/schema/workflow");
+    expect(workflow.id).toBe("wf.imported");
+    expect(workflow.nodes).toHaveLength(1);
+  });
+
+  it("falls back to the published schema when a document omits one", () => {
+    const workflow = emptyWorkflow();
+    applyWorkflow(workflow, { id: "wf.plain" });
+    expect(workflow.$schema).toBe(WORKFLOW_SCHEMA_PATH);
+    expect(workflow.schema_version).toBe("2.0");
   });
 
   it("generates unique ids", () => {

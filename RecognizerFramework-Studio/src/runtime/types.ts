@@ -75,6 +75,14 @@ export interface WorkflowVariable {
 }
 
 export interface Workflow {
+  /**
+   * JSON Schema the document is written against.
+   *
+   * Editors resolve it to complete node types, configuration keys, defaults and
+   * enums. It is part of the document: the Studio keeps it on round-trip so an
+   * exported workflow still completes wherever it is opened.
+   */
+  $schema?: string;
   schema_version: string;
   id: string;
   metadata: {

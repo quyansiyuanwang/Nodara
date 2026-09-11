@@ -7,7 +7,12 @@
 
 import "./styles.css";
 
-import { emptyWorkflow, localProblems } from "./model/workflow";
+import {
+  applyWorkflow,
+  emptyWorkflow,
+  localProblems,
+  WORKFLOW_SCHEMA_PATH,
+} from "./model/workflow";
 import { RuntimeClient, RuntimeError } from "./runtime/client";
 import {
   Diagnostic,
@@ -175,21 +180,33 @@ class Studio {
 
     element("btn-apply-json").addEventListener("click", () => {
       try {
-        this.replaceWorkflow(JSON.parse(element<HTMLTextAreaElement>("json-view").value) as Workflow);
+        this.replaceWorkflow(
+          JSON.parse(element<HTMLTextAreaElement>("json-view").value) as Partial<Workflow>,
+        );
         this.pushLocal("workflow replaced from JSON");
       } catch (error) {
         this.pushLocal(`invalid workflow JSON: ${(error as Error).message}`);
       }
     });
+
+    element("btn-runtime-schema").addEventListener("click", () => {
+      this.workflow.$schema = this.runtimeSchemaUrl();
+      this.refresh();
+      this.showTab("json");
+      this.pushLocal(`$schema now points at ${this.workflow.$schema}`);
+    });
   }
 
-  private replaceWorkflow(next: Workflow): void {
-    this.workflow.schema_version = next.schema_version ?? "2.0";
-    this.workflow.id = next.id ?? "workflow.untitled";
-    this.workflow.metadata = next.metadata ?? { name: "Untitled workflow", tags: [] };
-    this.workflow.nodes = next.nodes ?? [];
-    this.workflow.edges = next.edges ?? [];
-    this.workflow.variables = next.variables ?? {};
+  /**
+   * The schema URL this deployment serves, which completes exactly the node
+   * types the connected runtime installed rather than a static file.
+   */
+  private runtimeSchemaUrl(): string {
+    return `${window.location.origin}/api/v1/schema/workflow`;
+  }
+
+  private replaceWorkflow(next: Partial<Workflow> | null): void {
+    applyWorkflow(this.workflow, next);
     this.diagnostics = [];
     this.canvas.select(null);
     this.refresh();
@@ -213,6 +230,10 @@ class Studio {
 
   private renderJson(): void {
     element<HTMLTextAreaElement>("json-view").value = JSON.stringify(this.workflow, null, 2);
+    const hint = element("json-schema");
+    const declared = this.workflow.$schema || WORKFLOW_SCHEMA_PATH;
+    const origin = declared === WORKFLOW_SCHEMA_PATH ? "the published schema" : declared;
+    hint.textContent = `$schema: ${origin} — ${this.descriptors.size || "no"} node type(s) available to complete`;
   }
 
   private renderProblems(): void {
