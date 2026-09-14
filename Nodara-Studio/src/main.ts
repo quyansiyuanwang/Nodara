@@ -26,6 +26,7 @@ import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
+import { installResizer } from "./ui/resizer";
 
 function element<T extends Element = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -70,12 +71,7 @@ class Studio {
     // The canvas must exist before the palette can call back into it, so the
     // palette is constructed with a lazy reference rather than a captured value.
     this.palette = new Palette(element("palette"), {
-      onAdd: (descriptor) =>
-        this.canvas.addNode(
-          descriptor,
-          120 + this.workflow.nodes.length * 24,
-          120 + this.workflow.nodes.length * 24,
-        ),
+      onAdd: (descriptor) => this.canvas.addNodeAtViewportCenter(descriptor),
     });
     this.inspector = new Inspector(
       element("inspector"),
@@ -93,6 +89,7 @@ class Studio {
     this.audit = new AuditPanel(element("audit"));
 
     this.bindToolbar();
+    this.bindResizers();
     this.refresh();
     this.setStatus("pending");
   }
@@ -204,6 +201,48 @@ class Studio {
    * The schema URL this deployment serves, which completes exactly the node
    * types the connected runtime installed rather than a static file.
    */
+  private bindResizers(): void {
+    const app = element("app");
+    const left = element("resize-left");
+    const right = element("resize-right");
+    const drawer = element("resize-drawer");
+    let leftWidth = 240;
+    let rightWidth = 300;
+    let drawerHeight = 220;
+
+    installResizer(left, {
+      axis: "x",
+      value: leftWidth,
+      min: 170,
+      max: () => Math.max(260, Math.min(460, window.innerWidth - rightWidth - 360)),
+      onChange: (value) => {
+        leftWidth = value;
+        app.style.setProperty("--left-panel", `${value}px`);
+      },
+    });
+    installResizer(right, {
+      axis: "x",
+      value: rightWidth,
+      min: 220,
+      max: () => Math.max(220, Math.min(560, window.innerWidth - leftWidth - 360)),
+      invert: true,
+      onChange: (value) => {
+        rightWidth = value;
+        app.style.setProperty("--right-panel", `${value}px`);
+      },
+    });
+    installResizer(drawer, {
+      axis: "y",
+      value: drawerHeight,
+      min: 140,
+      max: () => Math.max(140, Math.min(560, window.innerHeight - 260)),
+      invert: true,
+      onChange: (value) => {
+        drawerHeight = value;
+        app.style.setProperty("--drawer-height", `${value}px`);
+      },
+    });
+  }
   private runtimeSchemaUrl(): string {
     return `${window.location.origin}/api/v1/schema/workflow`;
   }

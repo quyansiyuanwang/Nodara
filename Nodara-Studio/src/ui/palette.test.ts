@@ -69,7 +69,7 @@ describe("dynamic node discovery in the palette", () => {
     palette.setDescriptors([descriptor("core.Log", "Log", "Core")]);
 
     const item = host.querySelector<HTMLButtonElement>(".palette__item")!;
-    item.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(added).toEqual(["core.Log"]);
   });
 

@@ -36,9 +36,13 @@ body {
 
 /* Layout ----------------------------------------------------------------- */
 .app {
+  --left-panel: 240px;
+  --right-panel: 300px;
+  --drawer-height: 220px;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) 6px var(--drawer-height);
   height: 100vh;
+  min-height: 0;
 }
 
 .toolbar {
@@ -86,7 +90,7 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 240px 1fr 300px;
+  grid-template-columns: var(--left-panel) 6px minmax(0, 1fr) 6px var(--right-panel);
   min-height: 0;
 }
 
@@ -209,6 +213,7 @@ body {
 
 /* Canvas ----------------------------------------------------------------- */
 .canvas-wrap {
+  grid-column: 3;
   position: relative;
   min-height: 0;
   background:
@@ -290,12 +295,20 @@ body {
   stroke: var(--accent);
 }
 
+.edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
 .edge {
   fill: none;
-  stroke: #6b7490;
-  stroke-width: 2;
+  stroke: #7f89a8;
+  stroke-width: 3;
   marker-end: url(#arrow);
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .edge--guarded {
@@ -304,9 +317,9 @@ body {
 }
 
 .edge--selected,
-.edge:hover {
+.edge-group:hover .edge {
   stroke: var(--accent);
-  stroke-width: 3;
+  stroke-width: 4;
 }
 
 .edge--pending {
@@ -320,6 +333,118 @@ body {
   display: none;
 }
 
+/* Resizable panes -------------------------------------------------------- */
+.resizer {
+  position: relative;
+  z-index: 5;
+  background: transparent;
+  touch-action: none;
+}
+
+.resizer::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 120ms ease;
+}
+
+.resizer--vertical {
+  grid-row: 1;
+  cursor: col-resize;
+}
+
+.resizer--vertical::after {
+  inset: 0 2px;
+}
+
+.resizer--left {
+  grid-column: 2;
+}
+
+.resizer--right {
+  grid-column: 4;
+}
+
+.resizer--horizontal {
+  grid-row: 3;
+  cursor: row-resize;
+}
+
+.resizer--horizontal::after {
+  inset: 2px 0;
+}
+
+.resizer:hover::after,
+.resizer--active::after {
+  background: var(--accent);
+}
+
+body.is-resizing-x,
+body.is-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing-y,
+body.is-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+/* Canvas context menu ---------------------------------------------------- */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 168px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+.context-menu[hidden] {
+  display: none;
+}
+
+.context-menu__title {
+  padding: 5px 8px 7px;
+  color: var(--text-dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.context-menu__item:hover {
+  background: #2b3144;
+}
+
+.context-menu__item--danger {
+  color: #ff8b8b;
+}
+
+.context-menu__shortcut {
+  color: var(--text-dim);
+  font-size: 11px;
+}
 /* Inspector -------------------------------------------------------------- */
 .inspector__title {
   margin: 0 0 2px;
@@ -368,11 +493,13 @@ body {
 
 /* Drawer ----------------------------------------------------------------- */
 .drawer {
+  height: 100%;
+  min-height: 0;
   background: var(--surface);
   border-top: 1px solid var(--line);
-  max-height: 220px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .drawer__tabs {

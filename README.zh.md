@@ -24,10 +24,11 @@ Set-Location .\test-release\Nodara-2.0.0-windows-x86_64
 
 .\nodara-cli.exe validate .\examples\hello-world.json
 .\nodara-cli.exe run .\examples\hello-world.json
-.\nodara-runtime.exe
+.\nodara-studio.exe
 ```
 
-保持 runtime 运行，再从另一个终端启动 `.\nodara-studio.exe`。
+`nodara-studio.exe` 会自动启动或复用同目录的 `nodara-runtime.exe`，自动启动的
+runtime 会随 Studio 一起退出。需要手工控制服务时再单独运行 `.\nodara-runtime.exe`。
 
 从源码运行时需要 Rust 1.75+；Studio 还需要 Node.js 20+：
 

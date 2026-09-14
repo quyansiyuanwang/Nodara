@@ -68,7 +68,7 @@ export class Palette {
         item.type = "button";
         item.draggable = true;
         item.dataset.nodeType = descriptor.node_type;
-        item.title = `${descriptor.node_type}\n${descriptor.description}`;
+        item.title = `${descriptor.node_type}\n${descriptor.description}\n\nClick to add, or drag onto the canvas.`;
 
         const name = document.createElement("span");
         name.className = "palette__name";
@@ -83,7 +83,7 @@ export class Palette {
           item.appendChild(badge);
         }
 
-        item.addEventListener("dblclick", () => this.handlers.onAdd(descriptor));
+        item.addEventListener("click", () => this.handlers.onAdd(descriptor));
         item.addEventListener("dragstart", (event) => {
           event.dataTransfer?.setData("application/x-nodara-node-type", descriptor.node_type);
           event.dataTransfer?.setData("text/plain", descriptor.node_type);

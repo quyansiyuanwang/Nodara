@@ -21,6 +21,11 @@ executable, web build, two plugins, examples, schemas, documentation, and
 `build-info.json`. Debug also contains a `symbols\` directory. Release also
 contains NSIS and MSI installers. `SHA256SUMS.txt` covers every staged file.
 
+`nodara-studio.exe` automatically starts or reuses the sibling
+`nodara-runtime.exe`, so the portable package needs no two-terminal setup. The
+release installers also bundle the runtime and both official plugins beside the
+application.
+
 The script accepts `-Configuration Debug|Release|All`, `-SkipTests`, and
 `-SkipBuild`. Core, Agent, and Studio tests run before a normal build. Artifact
 creation is local and `artifacts/` is intentionally ignored by Git.

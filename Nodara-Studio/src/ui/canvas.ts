@@ -33,6 +33,10 @@ interface PendingConnection {
   y: number;
 }
 
+type ContextTarget =
+  | { kind: "node"; id: string }
+  | { kind: "edge"; id: string };
+
 export class Canvas {
   private readonly nodesLayer: SVGGElement;
   private readonly edgesLayer: SVGGElement;
@@ -42,6 +46,7 @@ export class Canvas {
   private pending: PendingConnection | null = null;
   private drag: { nodeId: string; offsetX: number; offsetY: number } | null = null;
   private status: RunStatus | null = null;
+  private readonly contextMenu: HTMLDivElement;
 
   constructor(
     private readonly svg: SVGSVGElement,
@@ -51,6 +56,19 @@ export class Canvas {
     this.nodesLayer = svg.querySelector("#nodes")!;
     this.edgesLayer = svg.querySelector("#edges")!;
     this.pendingEdge = svg.querySelector("#pending-edge")!;
+
+    this.contextMenu = document.createElement("div");
+    this.contextMenu.className = "context-menu";
+    this.contextMenu.hidden = true;
+    document.body.appendChild(this.contextMenu);
+    document.addEventListener("pointerdown", (event) => {
+      if (!this.contextMenu.hidden && !this.contextMenu.contains(event.target as Node)) {
+        this.contextMenu.hidden = true;
+      }
+    });
+    window.addEventListener("blur", () => {
+      this.contextMenu.hidden = true;
+    });
 
     svg.addEventListener("dragover", (event) => event.preventDefault());
     svg.addEventListener("drop", (event) => this.onDrop(event));
@@ -129,7 +147,18 @@ export class Canvas {
     this.addNode(descriptor, point.x - NODE_WIDTH / 2, point.y - NODE_HEIGHT / 2);
   }
 
-  /** Add a node programmatically (used by double-click in the palette). */
+  /** Add a node near the centre of the visible canvas (used by palette clicks). */
+  addNodeAtViewportCenter(descriptor: NodeDescriptor): void {
+    const rect = this.svg.getBoundingClientRect();
+    const index = this.workflow.nodes.length;
+    const jitter = ((index % 5) - 2) * 18;
+    const stagger = Math.min(index, 6) * 12;
+    const x = Math.max(24, rect.width / 2 - NODE_WIDTH / 2 + jitter - stagger);
+    const y = Math.max(24, rect.height / 2 - NODE_HEIGHT / 2 + jitter - stagger);
+    this.addNode(descriptor, x, y);
+  }
+
+  /** Add a node programmatically (used by click or double-click in the palette). */
   addNode(descriptor: NodeDescriptor, x: number, y: number): void {
     const id = nextNodeId(descriptor, this.workflow.nodes);
     const node: WorkflowNode = {
@@ -185,10 +214,14 @@ export class Canvas {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (event.key !== "Delete" && event.key !== "Backspace") return;
+    this.deleteSelection();
+  }
 
+  private deleteSelection(): void {
+    this.contextMenu.hidden = true;
     if (this.selectedEdge) {
       this.workflow.edges = this.workflow.edges.filter((edge) => edge.id !== this.selectedEdge);
-      this.selectedEdge = null;
+      this.select(null);
       this.handlers.onChange();
       return;
     }
@@ -201,6 +234,43 @@ export class Canvas {
       this.select(null);
       this.handlers.onChange();
     }
+  }
+
+  private showContextMenu(event: MouseEvent, target: ContextTarget): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (target.kind === "node") {
+      this.select(target.id);
+    } else {
+      this.select(null, target.id);
+    }
+
+    this.contextMenu.replaceChildren();
+    const title = document.createElement("div");
+    title.className = "context-menu__title";
+    title.textContent = target.kind === "node"
+      ? `Node: ${target.id}`
+      : `Connection: ${target.id}`;
+    this.contextMenu.appendChild(title);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "context-menu__item context-menu__item--danger";
+    const label = document.createElement("span");
+    label.textContent = target.kind === "node" ? "Delete node" : "Delete connection";
+    const shortcut = document.createElement("span");
+    shortcut.className = "context-menu__shortcut";
+    shortcut.textContent = "Del";
+    remove.append(label, shortcut);
+    remove.addEventListener("click", () => this.deleteSelection());
+    this.contextMenu.appendChild(remove);
+
+    this.contextMenu.hidden = false;
+    const bounds = this.contextMenu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(event.clientX, window.innerWidth - bounds.width - 8));
+    const top = Math.max(8, Math.min(event.clientY, window.innerHeight - bounds.height - 8));
+    this.contextMenu.style.left = `${left}px`;
+    this.contextMenu.style.top = `${top}px`;
   }
 
   private renderNodes(): void {
@@ -263,6 +333,9 @@ export class Canvas {
         };
         (event.target as Element).setPointerCapture?.(event.pointerId);
         this.select(node.id);
+      });
+      group.addEventListener("contextmenu", (event) => {
+        this.showContextMenu(event, { kind: "node", id: node.id });
       });
 
       this.nodesLayer.appendChild(group);
@@ -329,21 +402,35 @@ export class Canvas {
   private renderEdges(): void {
     this.edgesLayer.replaceChildren();
     for (const edge of this.workflow.edges) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.classList.add("edge-group");
+      group.dataset.edgeId = edge.id;
+
+      const pathData = this.edgePath(edge.source, edge.target);
+      const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      hit.classList.add("edge-hit");
+      hit.setAttribute("d", pathData);
+      hit.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+        this.select(null, edge.id);
+      });
+      hit.addEventListener("contextmenu", (event) => {
+        this.showContextMenu(event, { kind: "edge", id: edge.id });
+      });
+
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.classList.add("edge");
       path.dataset.edgeId = edge.id;
       if (edge.condition) path.classList.add("edge--guarded");
       if (this.selectedEdge === edge.id) path.classList.add("edge--selected");
-      path.setAttribute("d", this.edgePath(edge.source, edge.target));
-      path.addEventListener("pointerdown", (event) => {
-        event.stopPropagation();
-        this.select(null, edge.id);
-      });
+      path.setAttribute("d", pathData);
       path.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "title"));
       path.lastChild!.textContent = edge.condition
         ? `${edge.source} → ${edge.target} when ${edge.condition}`
         : `${edge.source} → ${edge.target}`;
-      this.edgesLayer.appendChild(path);
+
+      group.append(hit, path);
+      this.edgesLayer.appendChild(group);
     }
   }
 

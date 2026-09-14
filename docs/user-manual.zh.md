@@ -96,16 +96,39 @@ $env:RUST_LOG = "info"
 cargo run -p nodara-cli -- serve --plugin-dir plugins --require-approval --audit audit.jsonl
 ```
 
-### 2.3 启动 Studio
+### 2.3 启动 Studio（推荐）
 
-保持 runtime 运行，然后执行：
+直接执行：
 
 ```powershell
 .\nodara-studio.exe
 ```
 
-桌面版固定连接 `http://127.0.0.1:8710`。如果 runtime 尚未启动，Studio 会显示
-`runtime unreachable` 并每五秒重试。
+桌面版固定连接 `http://127.0.0.1:8710`。启动时它会：
+
+1. 探测 8710 端口；已有 runtime 时直接复用；
+2. 没有 runtime 时，启动与 `nodara-studio.exe` 同目录的
+   `nodara-runtime.exe`，等待最多 8 秒；
+3. runtime 启动后自动发现节点类型和插件；
+4. 退出 Studio 时关闭由它启动的 runtime；手工启动的 runtime 不受影响。
+
+debug 版 Studio 会故意保留控制台窗口，用于显示 runtime 日志和启动错误；自动启动
+的 runtime 不会额外创建第二个控制台窗口。
+
+如果连接标记显示 `runtime unreachable`，优先检查
+`nodara-runtime.exe` 是否与 Studio 位于同一目录、8710 是否被其他程序占用。
+Studio 每五秒自动重连。若不希望自动启动，可设置 `NODARA_RUNTIME_BIN` 指向其他
+runtime 可执行文件，或先手工运行 runtime。
+
+#### Studio 画布操作
+
+| 操作 | 方法 |
+|---|---|
+| 添加节点 | 在左侧列表中**单击**节点，或拖到画布指定位置 |
+| 移动节点 | 按住节点拖动 |
+| 创建连线 | 从输出端口拖动到输入端口 |
+| 删除节点或连线 | 选中后按 `Delete`，或右键目标并选择删除 |
+| 调整布局 | 拖动左右面板之间或底部面板上方的分隔条；双击恢复默认尺寸 |
 
 发布包中的 Web 版不能在 `file://` 下直接打开。开发时在源码仓库执行：
 
@@ -311,7 +334,7 @@ Invoke-RestMethod "http://127.0.0.1:8710/api/v1/runs/$($run.id)/event-log"
 | 现象 | 检查与处理 |
 |---|---|
 | `runtime listening` 后立即退出 | 端口被占用；改用 `NODARA_RUNTIME_PORT=8720` 做 API 测试，或在 Studio 联调时释放 8710 |
-| Studio 显示 `runtime unreachable` | 先访问 `/api/v1/health`；检查 Windows 防火墙、端口和 runtime 进程 |
+| Studio 显示 `runtime unreachable` | 确认同目录存在 `nodara-runtime.exe`；检查 8710 端口、防火墙和 debug 控制台中的启动错误 |
 | 只显示 14 个节点 | `plugins\` 中的两个插件没有加载；检查插件 exe 是否与 manifest 同目录、是否被杀毒软件隔离 |
 | `unknown node type` | 启动 runtime 时加载对应插件，或对 CLI 传入正确的 `--plugin-dir` |
 | `no API key` | 设置 `NODARA_LLM_API_KEY` 或 `OPENAI_API_KEY`；离线自动化改用 `--mock` |

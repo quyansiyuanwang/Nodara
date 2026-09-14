@@ -61,10 +61,15 @@ audit: 20 record(s) in 4ms wall clock
 
 ## 3. 启动 runtime
 
-`nodara-runtime.exe` 是 Studio 和 Agent 共用的 HTTP/WebSocket 服务。它会从
-自身旁边的 `plugins\` 目录加载官方插件。
+`nodara-runtime.exe` 是 Studio 和 Agent 共用的 HTTP/WebSocket 服务。发布包中的
+`nodara-studio.exe` 会先探测 `127.0.0.1:8710`：
 
-在第一个 PowerShell 窗口运行：
+- 如果端口已有 runtime，直接复用，不会重复启动；
+- 如果没有 runtime，自动启动同目录的 `nodara-runtime.exe` 并等待最多 8 秒；
+- 当并且仅当 runtime 由 Studio 自动启动时，退出 Studio 会同时关闭 runtime。
+
+因此测试图形界面时不需要手工开两个窗口。需要单独调用 API 或 Agent 时，也可以
+在 PowerShell 中手工启动：
 
 ```powershell
 .\nodara-runtime.exe
@@ -96,7 +101,7 @@ $env:NODARA_RUNTIME_PORT = "8720"
 
 ## 4. 打开 Studio 桌面版
 
-保持 runtime 运行，在第二个窗口执行：
+直接双击 `nodara-studio.exe`，或在 PowerShell 执行：
 
 ```powershell
 .\nodara-studio.exe
@@ -110,8 +115,20 @@ $env:NODARA_RUNTIME_PORT = "8720"
 4. 点击 **Run**，在 **Events** 页观察事件；
 5. 打开 **Audit** 页，确认策略决策和节点结果已记录。
 
-如果连接标记显示 `runtime unreachable`，先回到上一节确认健康检查成功，再等待
-Studio 的五秒自动重连。
+常用编辑操作：
+
+| 操作 | 方法 |
+|---|---|
+| 添加节点 | 在左侧节点列表**单击**即可放到画布中央；也可以拖到指定位置 |
+| 移动节点 | 直接拖动节点 |
+| 连接节点 | 从输出端口拖到输入端口 |
+| 删除节点或连线 | 选中后按 `Delete`，或右键目标并选择删除 |
+| 调整布局 | 拖动左右面板之间和底部面板上方的细条；双击细条恢复默认宽度/高度 |
+
+如果连接标记仍显示 `runtime unreachable`，确认 `nodara-runtime.exe` 与
+`nodara-studio.exe` 位于同一目录且 8710 端口没有被其他程序占用。Studio 会每
+5 秒自动重连。debug 版 Studio 会保留一个控制台窗口用于显示启动和运行日志；
+自动启动的 runtime 不会额外打开第二个黑窗。
 
 ### 浏览器版 Studio
 

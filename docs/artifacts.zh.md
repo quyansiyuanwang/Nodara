@@ -88,7 +88,9 @@ symbols/
 ```
 
 `nodara-runtime.exe` 从自身同级 `plugins\` 自动加载插件。直接解压后在该目录运行即可，
-无需设置 `NODARA_PLUGIN_DIRS`。
+无需设置 `NODARA_PLUGIN_DIRS`。`nodara-studio.exe` 会自动启动或复用这个 runtime；
+release 的 NSIS/MSI 也会把 runtime 和两个官方插件一并安装，因此安装后可以直接从
+Studio 开始测试。
 
 ## 3. Debug 与 Release
 

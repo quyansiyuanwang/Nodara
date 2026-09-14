@@ -51,8 +51,29 @@ Start the desktop editor:
 .\nodara-studio.exe
 ```
 
-The desktop build connects directly to `http://127.0.0.1:8710` and reconnects
-every five seconds if the runtime is unavailable.
+The desktop build connects directly to `http://127.0.0.1:8710`. It first probes
+the port: an existing runtime is reused, while a missing runtime is started from
+the sibling `nodara-runtime.exe` (up to an eight-second readiness wait). Only a
+runtime started by Studio is stopped when Studio exits. The editor reconnects
+every five seconds if the service is unavailable.
+
+Debug builds intentionally keep the Studio console window open for startup and
+runtime logs. The automatically started runtime does not create a second
+console window.
+
+If the badge still says `runtime unreachable`, verify that
+`nodara-runtime.exe` is beside Studio and that another program is not using port
+8710. Set `NODARA_RUNTIME_BIN` to select a different runtime executable.
+
+### Canvas controls
+
+| Action | Method |
+|---|---|
+| Add a node | **Click** it in the palette, or drag it to an exact canvas position |
+| Move a node | Drag the node body |
+| Create a connection | Drag from an output port to an input port |
+| Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
+| Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 
 ## CLI
 
@@ -144,7 +165,7 @@ testing with a source-built runtime. Audit records are durable only when
 | Symptom | Action |
 |---|---|
 | Runtime exits at startup | Check for a port conflict, especially 8710 |
-| Studio says `runtime unreachable` | Check `/health`, process state, firewall, and port |
+| Studio says `runtime unreachable` | Verify `nodara-runtime.exe` is beside Studio, then check port 8710, firewall, and the debug console |
 | Only 14 nodes | Verify both plugin executables are present next to their manifests |
 | Unknown node type | Start the runtime with the plugin directory that defines it |
 | Missing webview or application startup failure | Install WebView2 and VC++ 2015-2022 x64 Runtime |

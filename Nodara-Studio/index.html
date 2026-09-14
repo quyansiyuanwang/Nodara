@@ -35,6 +35,8 @@
           <div id="palette" class="palette"></div>
         </aside>
 
+        <div id="resize-left" class="resizer resizer--vertical resizer--left" role="separator" aria-orientation="vertical" aria-label="Resize node palette" tabindex="0" title="Drag to resize. Double-click to reset."></div>
+
         <section class="canvas-wrap">
           <svg id="canvas" class="canvas">
             <defs>
@@ -47,9 +49,11 @@
             <path id="pending-edge" class="edge edge--pending is-hidden" />
           </svg>
           <div id="canvas-hint" class="canvas-hint">
-            Drag a node from the palette. Drag from an output port to an input port to connect.
+            Click a node to add it, or drag it onto the canvas. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
           </div>
         </section>
+
+        <div id="resize-right" class="resizer resizer--vertical resizer--right" role="separator" aria-orientation="vertical" aria-label="Resize properties panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
 
         <aside class="panel panel--inspector">
           <h2 class="panel__title">Properties</h2>
@@ -58,6 +62,8 @@
           </div>
         </aside>
       </main>
+
+      <div id="resize-drawer" class="resizer resizer--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize bottom panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
 
       <section class="drawer">
         <nav class="drawer__tabs">

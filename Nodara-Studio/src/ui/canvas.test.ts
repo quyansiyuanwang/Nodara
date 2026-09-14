@@ -143,7 +143,7 @@ describe("graph editing on the canvas", () => {
     expect(document.querySelectorAll(".node")).toHaveLength(2);
   });
 
-  it("deletes the selected edge", () => {
+  it("deletes the selected edge through its wide hit target", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);
     canvas.render();
@@ -152,10 +152,42 @@ describe("graph editing on the canvas", () => {
     pointerDown(outputs[0]);
     pointerUp(inputs[inputs.length - 1]);
 
-    const edge = document.querySelector<SVGPathElement>(".edge")!;
+    const edge = document.querySelector<SVGPathElement>(".edge-hit")!;
     edge.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete" }));
 
     expect(workflow.edges).toHaveLength(0);
+  });
+
+  it("deletes a connection from its context menu", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+    const outputs = document.querySelectorAll(".port--output");
+    const inputs = document.querySelectorAll(".port--input");
+    pointerDown(outputs[0]);
+    pointerUp(inputs[inputs.length - 1]);
+
+    const hit = document.querySelector<SVGPathElement>(".edge-hit")!;
+    hit.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    expect(remove.textContent).toContain("Delete connection");
+    remove.click();
+
+    expect(workflow.edges).toHaveLength(0);
+  });
+
+  it("deletes a node from its context menu", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    expect(remove.textContent).toContain("Delete node");
+    remove.click();
+
+    expect(workflow.nodes.some((candidate) => candidate.id === "log")).toBe(false);
   });
 });

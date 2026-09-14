@@ -231,7 +231,7 @@ if (-not $SkipBuild) {
     if ($Configuration -in @("Release", "All")) {
         Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace", "--release")
-        Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--bundles", "nsis", "msi", "--ci")
+        Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--bundles", "nsis", "msi", "--ci", "--config", "src-tauri/tauri.release.conf.json")
     }
 }
 

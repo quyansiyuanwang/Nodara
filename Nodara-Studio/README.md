@@ -65,11 +65,25 @@ npx tauri icon src-tauri/app-icon.svg
 .\node_modules\.bin\tauri.cmd build --bundles nsis msi
 ```
 
-The desktop build connects directly to `http://127.0.0.1:8710`. The browser
-build uses relative `/api` URLs so Vite or a reverse proxy can route them.
+The desktop build connects directly to `http://127.0.0.1:8710`. At startup it
+reuses an existing runtime or starts a sibling `nodara-runtime.exe` automatically;
+a runtime started by Studio is stopped when Studio exits. This makes the packaged
+desktop app a one-click entry point while keeping the browser build unchanged.
+The browser build still uses relative `/api` URLs so Vite or a reverse proxy can
+route them.
 
-The shell adds nothing to the editor logic — it exists so the Studio can be
-shipped as a desktop application instead of a browser tab.
+Debug builds intentionally retain the console window for startup and runtime
+logs. The child runtime is launched without an additional console window.
+
+## Canvas controls
+
+* **Click** a node in the palette to add it near the canvas centre, or drag it to
+  an exact position.
+* Drag a node to move it. Drag from an output port to an input port to connect.
+* Select a node or connection and press `Delete`, or right-click it and choose
+  the delete command. Connections have a wide invisible hit target.
+* Drag the dividers between the left/right panels or above the bottom drawer to
+  resize them; double-click a divider to restore its default size.
 
 ## Layout
 

@@ -36,6 +36,12 @@ All notable changes to this project are documented here. The format follows
   migration, load and save preserve an editor's content hints.
 - The Tauri desktop build now connects directly to `http://127.0.0.1:8710`;
   browser builds continue to use relative `/api` URLs for proxying.
+- Desktop Studio now starts a sibling runtime automatically when port 8710 is
+  idle, reuses an existing runtime, and stops only the child it owns. Release
+  installers bundle the runtime and official plugin manifests/binaries.
+- Studio usability: palette items can be added with one click, connections are
+  thicker with a wide hit target, node/connection context menus can delete them,
+  and the left, right and bottom panes have draggable dividers.
 
 ### Documentation
 
