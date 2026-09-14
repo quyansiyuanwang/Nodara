@@ -7,7 +7,13 @@
 
 import { localizeDiagnostic, t } from "../i18n";
 import { renderConfigForm } from "../schema/form";
-import { Diagnostic, NodeDescriptor, Workflow, WorkflowNode } from "../runtime/types";
+import {
+  Diagnostic,
+  NodeDescriptor,
+  Workflow,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../runtime/types";
 
 export interface InspectorHandlers {
   onChange: () => void;
@@ -21,9 +27,18 @@ export class Inspector {
     private readonly handlers: InspectorHandlers,
   ) {}
 
-  /** Render the selected node, plus any diagnostics that mention it. */
-  render(nodeId: string | null, diagnostics: Diagnostic[] = []): void {
+  /** Render the selected node or connection, plus relevant diagnostics. */
+  render(nodeId: string | null, diagnostics: Diagnostic[] = [], edgeId: string | null = null): void {
     this.root.replaceChildren();
+    if (edgeId) {
+      const edge = this.workflow.edges.find((candidate) => candidate.id === edgeId);
+      if (!edge) {
+        this.root.appendChild(muted(t("inspector.nodeMissing")));
+        return;
+      }
+      this.renderEdge(edge);
+      return;
+    }
     if (!nodeId) {
       this.root.appendChild(muted(t("inspector.selectNode")));
       this.renderVariables(diagnostics);
@@ -41,6 +56,71 @@ export class Inspector {
     this.renderExecution(node);
     this.renderConfig(node, descriptor);
     this.renderDiagnostics(diagnostics.filter((item) => item.node_id === node.id));
+  }
+
+  private renderEdge(edge: WorkflowEdge): void {
+    const title = document.createElement("h3");
+    title.className = "inspector__title";
+    title.textContent = t("inspector.connectionTitle");
+    this.root.appendChild(title);
+
+    const path = document.createElement("p");
+    path.className = "muted";
+    path.textContent = t("inspector.edgePath", { source: edge.source, target: edge.target });
+    this.root.appendChild(path);
+
+    const ports = document.createElement("p");
+    ports.className = "muted";
+    ports.textContent = `${t("inspector.edgePorts")}: ${t("inspector.edgePortsValue", {
+      source: edge.source,
+      sourcePort: edge.source_port ?? "out",
+      target: edge.target,
+      targetPort: edge.target_port ?? "in",
+    })}`;
+    this.root.appendChild(ports);
+
+    const labelField = document.createElement("div");
+    labelField.className = "field";
+    const label = document.createElement("label");
+    label.className = "field__label";
+    label.textContent = t("inspector.edgeLabel");
+    label.title = t("inspector.edgeLabelDetail");
+    const labelInput = document.createElement("input");
+    labelInput.className = "input";
+    labelInput.value = edge.label ?? "";
+    labelInput.placeholder = t("inspector.edgeLabelDetail");
+    labelInput.addEventListener("input", () => {
+      const value = labelInput.value.trim();
+      if (value) edge.label = value;
+      else delete edge.label;
+      this.handlers.onChange();
+    });
+    labelField.append(label, labelInput);
+    this.root.appendChild(labelField);
+
+    const conditionField = document.createElement("div");
+    conditionField.className = "field";
+    const conditionLabel = document.createElement("label");
+    conditionLabel.className = "field__label";
+    conditionLabel.textContent = t("inspector.edgeCondition");
+    conditionLabel.title = t("inspector.edgeConditionDetail");
+    const condition = document.createElement("textarea");
+    condition.className = "input input--code";
+    condition.rows = 3;
+    condition.spellcheck = false;
+    condition.placeholder = t("inspector.edgeConditionPlaceholder");
+    condition.value = edge.condition ?? "";
+    condition.addEventListener("input", () => {
+      const value = condition.value.trim();
+      if (value) edge.condition = value;
+      else delete edge.condition;
+      this.handlers.onChange();
+    });
+    const conditionHint = document.createElement("p");
+    conditionHint.className = "field__hint";
+    conditionHint.textContent = t("inspector.edgeConditionDetail");
+    conditionField.append(conditionLabel, condition, conditionHint);
+    this.root.appendChild(conditionField);
   }
 
   private renderHeader(node: WorkflowNode, descriptor: NodeDescriptor | undefined): void {

@@ -140,6 +140,10 @@ export class Canvas {
     return this.selected;
   }
 
+  selectedEdgeId(): string | null {
+    return this.selectedEdge;
+  }
+
   /** Re-render everything. Called after any document mutation. */
   render(): void {
     this.renderEdges();

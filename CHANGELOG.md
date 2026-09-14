@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- Studio now shows connection properties when an edge is selected, allowing
+  edge labels and guard expressions to be edited directly and validated
+  automatically.
 - Workflow nodes now support common execution controls: `enabled`,
   `delay_before_ms`, `delay_after_ms`, `retry` and `retry_delay_ms`. The engine
   skips disabled nodes as pass-throughs, applies cancellation-aware delays and

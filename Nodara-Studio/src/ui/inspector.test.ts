@@ -29,6 +29,30 @@ describe("node execution settings", () => {
     document.body.innerHTML = "";
   });
 
+  it("edits connection labels and conditions directly", () => {
+    const workflow = emptyWorkflow();
+    workflow.edges.push({ id: "e1", source: "start", target: "end" });
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inspector = new Inspector(
+      root,
+      workflow,
+      () => undefined,
+      { onChange: () => undefined },
+    );
+
+    inspector.render(null, [], "e1");
+    const label = root.querySelector<HTMLInputElement>("input.input")!;
+    label.value = "success";
+    label.dispatchEvent(new Event("input"));
+    const condition = root.querySelector<HTMLTextAreaElement>("textarea.input")!;
+    condition.value = "score > 0.8";
+    condition.dispatchEvent(new Event("input"));
+
+    expect(workflow.edges[0].label).toBe("success");
+    expect(workflow.edges[0].condition).toBe("score > 0.8");
+  });
+
   it("edits common execution options directly in the inspector", () => {
     const workflow = emptyWorkflow();
     workflow.nodes.push({ id: "log", type: "core.Log", config: {} });

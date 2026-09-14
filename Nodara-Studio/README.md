@@ -91,6 +91,8 @@ known validation code has a Studio translation.
 * Drag a node to move it. Drag from an output port to an input port to connect.
 * Select a node or connection and press `Delete`, or right-click it and choose
   the delete command. Connections have a wide invisible hit target.
+* Selecting a connection opens its Properties: edit the edge label or guard
+  expression directly, and the workflow revalidates automatically.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
 * The Properties panel exposes common execution settings for every node:

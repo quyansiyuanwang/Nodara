@@ -82,7 +82,7 @@ class Studio {
 
     this.canvas = new Canvas(canvasElement, this.workflow, {
       onChange: () => this.workflowChanged(),
-      onSelect: (nodeId) => this.inspector.render(nodeId, this.diagnostics),
+      onSelect: () => this.renderInspector(),
       onStatus: (message) => this.pushLocal(message),
       descriptorFor: (nodeType) => this.descriptors.get(nodeType),
     });
@@ -110,7 +110,7 @@ class Studio {
 
     this.bindToolbar();
     this.bindResizers();
-    this.inspector.render(null);
+    this.renderInspector();
     this.renderWorkspace();
     this.setStatus(null);
   }
@@ -307,6 +307,14 @@ class Studio {
     if (name === "json") this.renderJson();
   }
 
+  private renderInspector(): void {
+    this.inspector.render(
+      this.canvas.selectedNodeId(),
+      this.diagnostics,
+      this.canvas.selectedEdgeId(),
+    );
+  }
+
   /** Render without treating a health poll as a document mutation. */
   private renderWorkspace(): void {
     this.canvas.render();
@@ -322,7 +330,7 @@ class Studio {
     this.palette.refreshAvailability();
     // Preserve the caret while a property field is being edited.
     if (!element("inspector").contains(document.activeElement)) {
-      this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
+      this.renderInspector();
     }
     this.setValidationState("checking", t("validation.waiting"));
     this.renderWorkspace();
@@ -439,7 +447,7 @@ class Studio {
       // Re-rendering the inspector while a field is focused would discard the
       // caret after the debounce; Problems still receives every diagnostic.
       if (!element("inspector").contains(document.activeElement)) {
-        this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
+        this.renderInspector();
       }
       this.renderProblems();
       if (showProblems) this.showTab("problems");
