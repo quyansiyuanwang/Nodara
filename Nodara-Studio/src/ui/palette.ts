@@ -10,12 +10,16 @@ import { NodeDescriptor } from "../runtime/types";
 
 export interface PaletteHandlers {
   onAdd: (descriptor: NodeDescriptor) => void;
+  /** Begin a pointer drag; the canvas owns the drop interaction. */
+  onDragStart?: (descriptor: NodeDescriptor, event: PointerEvent) => void;
 }
 
 export class Palette {
   private readonly categories = new Map<string, NodeDescriptor[]>();
   /** The active filter; kept so a background refresh does not reset it. */
   private query = "";
+  /** Suppresses the click generated after a pointer drag. */
+  private suppressClick = false;
 
   constructor(
     private readonly root: HTMLElement,
@@ -66,7 +70,7 @@ export class Palette {
         const item = document.createElement("button");
         item.className = "palette__item";
         item.type = "button";
-        item.draggable = true;
+        item.draggable = false;
         item.dataset.nodeType = descriptor.node_type;
         item.title = `${descriptor.node_type}\n${descriptor.description}\n\nClick to add, or drag onto the canvas.`;
 
@@ -83,11 +87,33 @@ export class Palette {
           item.appendChild(badge);
         }
 
-        item.addEventListener("click", () => this.handlers.onAdd(descriptor));
-        item.addEventListener("dragstart", (event) => {
-          event.dataTransfer?.setData("application/x-nodara-node-type", descriptor.node_type);
-          event.dataTransfer?.setData("text/plain", descriptor.node_type);
-          if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+        item.addEventListener("click", (event) => {
+          if (this.suppressClick) {
+            this.suppressClick = false;
+            event.preventDefault();
+            return;
+          }
+          this.handlers.onAdd(descriptor);
+        });
+        item.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || !this.handlers.onDragStart) return;
+          this.suppressClick = false;
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const onMove = (moveEvent: PointerEvent) => {
+            if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) >= 5) {
+              this.suppressClick = true;
+            }
+          };
+          const onEnd = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onEnd);
+            window.removeEventListener("pointercancel", onEnd);
+          };
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onEnd);
+          window.addEventListener("pointercancel", onEnd);
+          this.handlers.onDragStart(descriptor, event);
         });
         this.root.appendChild(item);
       }

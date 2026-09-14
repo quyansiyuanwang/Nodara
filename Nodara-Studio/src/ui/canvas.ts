@@ -17,6 +17,9 @@ import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/ty
 
 const NODE_WIDTH = 168;
 const NODE_HEIGHT = 56;
+const EDGE_MIN_HANDLE = 52;
+const EDGE_MAX_HANDLE = 180;
+const EDGE_PALETTE_DRAG_THRESHOLD = 5;
 
 export interface CanvasHandlers {
   onChange: () => void;
@@ -33,6 +36,14 @@ interface PendingConnection {
   y: number;
 }
 
+interface NodeDrag {
+  nodeId: string;
+  offsetX: number;
+  offsetY: number;
+  element: SVGGElement;
+  moved: boolean;
+}
+
 type ContextTarget =
   | { kind: "node"; id: string }
   | { kind: "edge"; id: string };
@@ -44,7 +55,8 @@ export class Canvas {
   private selected: string | null = null;
   private selectedEdge: string | null = null;
   private pending: PendingConnection | null = null;
-  private drag: { nodeId: string; offsetX: number; offsetY: number } | null = null;
+  private drag: NodeDrag | null = null;
+  private paletteDragCleanup: (() => void) | null = null;
   private status: RunStatus | null = null;
   private readonly contextMenu: HTMLDivElement;
 
@@ -70,10 +82,11 @@ export class Canvas {
       this.contextMenu.hidden = true;
     });
 
-    svg.addEventListener("dragover", (event) => event.preventDefault());
-    svg.addEventListener("drop", (event) => this.onDrop(event));
-    svg.addEventListener("pointermove", (event) => this.onPointerMove(event));
-    svg.addEventListener("pointerup", () => this.endInteraction());
+    // Listen on the window so node and port drags keep working even when the
+    // pointer briefly leaves the SVG (a common cause of stuck interactions).
+    window.addEventListener("pointermove", (event) => this.onPointerMove(event));
+    window.addEventListener("pointerup", () => this.endInteraction());
+    window.addEventListener("pointercancel", () => this.endInteraction());
     svg.addEventListener("pointerdown", (event) => {
       if (event.target === svg) this.select(null);
     });
@@ -131,20 +144,85 @@ export class Canvas {
     this.renderNodes();
   }
 
-  /** Place a node, offsetting so two drops never land exactly on top. */
-  private onDrop(event: DragEvent): void {
-    event.preventDefault();
-    const nodeType =
-      event.dataTransfer?.getData("application/x-nodara-node-type") ||
-      event.dataTransfer?.getData("text/plain");
-    if (!nodeType) return;
-    const descriptor = this.handlers.descriptorFor(nodeType);
-    if (!descriptor) {
-      this.handlers.onStatus(`unknown node type \`${nodeType}\``);
-      return;
-    }
-    const point = this.toCanvas(event.clientX, event.clientY);
-    this.addNode(descriptor, point.x - NODE_WIDTH / 2, point.y - NODE_HEIGHT / 2);
+  /**
+   * Begin a palette drag. Pointer events avoid WebView-specific failures with
+   * native HTML5 drag-and-drop and give us a real drop position on the SVG.
+   */
+  beginPaletteDrag(descriptor: NodeDescriptor, event: PointerEvent): void {
+    if (event.button !== 0) return;
+    this.paletteDragCleanup?.();
+
+    const source = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    const canvasWrap = this.svg.closest<HTMLElement>(".canvas-wrap") ?? this.svg.parentElement;
+    const ghost = document.createElement("div");
+    ghost.className = "palette-drag-ghost";
+    ghost.textContent = descriptor.display_name;
+    ghost.hidden = true;
+    document.body.appendChild(ghost);
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let active = false;
+    let overCanvas = false;
+
+    const isOverCanvas = (pointerEvent: PointerEvent): boolean => {
+      const rect = this.svg.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        pointerEvent.clientX >= rect.left &&
+        pointerEvent.clientX <= rect.right &&
+        pointerEvent.clientY >= rect.top &&
+        pointerEvent.clientY <= rect.bottom
+      );
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      ghost.remove();
+      source?.classList.remove("palette__item--dragging");
+      document.body.classList.remove("is-palette-dragging");
+      canvasWrap?.classList.remove("canvas-wrap--drop-target");
+      this.paletteDragCleanup = null;
+    };
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (
+        !active &&
+        Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) <
+          EDGE_PALETTE_DRAG_THRESHOLD
+      ) {
+        return;
+      }
+      if (!active) {
+        active = true;
+        ghost.hidden = false;
+        source?.classList.add("palette__item--dragging");
+        document.body.classList.add("is-palette-dragging");
+      }
+      moveEvent.preventDefault();
+      ghost.style.left = `${moveEvent.clientX + 14}px`;
+      ghost.style.top = `${moveEvent.clientY + 14}px`;
+      overCanvas = isOverCanvas(moveEvent);
+      canvasWrap?.classList.toggle("canvas-wrap--drop-target", overCanvas);
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      const dropped = active && isOverCanvas(upEvent);
+      cleanup();
+      if (!dropped) return;
+      const point = this.toCanvas(upEvent.clientX, upEvent.clientY);
+      this.addNode(descriptor, point.x - NODE_WIDTH / 2, point.y - NODE_HEIGHT / 2, false);
+    };
+
+    const onCancel = () => cleanup();
+
+    this.paletteDragCleanup = cleanup;
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
   }
 
   /** Add a node near the centre of the visible canvas (used by palette clicks). */
@@ -158,9 +236,10 @@ export class Canvas {
     this.addNode(descriptor, x, y);
   }
 
-  /** Add a node programmatically (used by click or double-click in the palette). */
-  addNode(descriptor: NodeDescriptor, x: number, y: number): void {
+  /** Add a node programmatically (used by palette clicks and exact drops). */
+  addNode(descriptor: NodeDescriptor, x: number, y: number, stagger = true): void {
     const id = nextNodeId(descriptor, this.workflow.nodes);
+    const stackOffset = stagger ? this.workflow.nodes.length * 12 : 0;
     const node: WorkflowNode = {
       id,
       type: descriptor.node_type,
@@ -169,8 +248,8 @@ export class Canvas {
       // document is completed in a text editor.
       config: defaultConfig(descriptor),
       position: {
-        x: Math.round(x + this.workflow.nodes.length * 12) % 1400,
-        y: Math.round(y + this.workflow.nodes.length * 12) % 800,
+        x: Math.round(x + stackOffset) % 1400,
+        y: Math.round(y + stackOffset) % 800,
       },
     };
     this.workflow.nodes.push(node);
@@ -183,11 +262,15 @@ export class Canvas {
       const point = this.toCanvas(event.clientX, event.clientY);
       const node = this.workflow.nodes.find((candidate) => candidate.id === this.drag!.nodeId);
       if (!node) return;
-      node.position = {
-        x: Math.max(0, Math.round(point.x - this.drag.offsetX)),
-        y: Math.max(0, Math.round(point.y - this.drag.offsetY)),
-      };
-      this.render();
+      const x = Math.max(0, Math.round(point.x - this.drag.offsetX));
+      const y = Math.max(0, Math.round(point.y - this.drag.offsetY));
+      if (node.position?.x === x && node.position?.y === y) return;
+      node.position = { x, y };
+      this.drag.moved = true;
+      // Moving the existing group keeps pointer capture stable; re-rendering
+      // the whole node list on every frame also made text selection flicker.
+      this.drag.element.setAttribute("transform", `translate(${x}, ${y})`);
+      this.renderEdges();
       return;
     }
     if (this.pending) {
@@ -205,8 +288,10 @@ export class Canvas {
       this.pendingEdge.removeAttribute("d");
     }
     if (this.drag) {
+      const changed = this.drag.moved;
       this.drag = null;
-      this.handlers.onChange();
+      document.body.classList.remove("is-canvas-dragging");
+      if (changed) this.handlers.onChange();
     }
   }
 
@@ -324,14 +409,17 @@ export class Canvas {
 
       group.addEventListener("pointerdown", (event) => {
         if ((event.target as Element).classList.contains("port")) return;
+        event.preventDefault();
         event.stopPropagation();
         const point = this.toCanvas(event.clientX, event.clientY);
         this.drag = {
           nodeId: node.id,
           offsetX: point.x - x,
           offsetY: point.y - y,
+          element: group,
+          moved: false,
         };
-        (event.target as Element).setPointerCapture?.(event.pointerId);
+        document.body.classList.add("is-canvas-dragging");
         this.select(node.id);
       });
       group.addEventListener("contextmenu", (event) => {
@@ -437,8 +525,16 @@ export class Canvas {
   private edgePath(sourceId: string, targetId: string): string {
     const source = this.nodeCenter(sourceId, "output");
     const target = this.nodeCenter(targetId, "input");
-    const dx = Math.max(40, Math.abs(target.x - source.x) * 0.5);
-    return `M ${source.x} ${source.y} C ${source.x + dx} ${source.y}, ${target.x - dx} ${target.y}, ${target.x} ${target.y}`;
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const handle = Math.max(
+      EDGE_MIN_HANDLE,
+      Math.min(EDGE_MAX_HANDLE, Math.abs(dx) * 0.45 + Math.abs(dy) * 0.16 + 20),
+    );
+    // Bend the final tangent towards the vertical gap. The arrowhead then
+    // follows the visual approach instead of staying horizontal on tall links.
+    const vertical = Math.sign(dy) * Math.min(Math.abs(dy) * 0.35, handle * 0.65);
+    return `M ${source.x} ${source.y} C ${source.x + handle} ${source.y + vertical * 0.38}, ${target.x - handle} ${target.y - vertical}, ${target.x} ${target.y}`;
   }
 
   private nodeCenter(nodeId: string, side: "input" | "output"): { x: number; y: number } {

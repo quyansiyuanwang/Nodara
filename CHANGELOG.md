@@ -96,6 +96,12 @@ All notable changes to this project are documented here. The format follows
 - Non-JSON HTTP responses surface a structured error instead of a raw
   `SyntaxError`.
 - Newly added nodes start from their schema defaults.
+- Palette drag-and-drop now uses pointer events, so nodes can be dropped at the
+  pointer position even in WebView builds. Dragging also suppresses text
+  selection and no longer re-renders the node being moved on every frame.
+- Connection arrowheads use a small fixed user-space size. Tall links bend
+  their final tangent so the arrow follows the visible approach instead of
+  remaining horizontal.
 
 ### Fixed (continued)
 

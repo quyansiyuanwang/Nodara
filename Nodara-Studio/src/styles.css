@@ -192,6 +192,15 @@ body {
   cursor: grab;
   font: inherit;
   text-align: left;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.palette__item:active,
+.palette__item--dragging {
+  cursor: grabbing;
+  border-color: var(--accent);
 }
 
 .palette__item:hover {
@@ -216,6 +225,8 @@ body {
   grid-column: 3;
   position: relative;
   min-height: 0;
+  user-select: none;
+  -webkit-user-select: none;
   background:
     radial-gradient(circle at 1px 1px, #232838 1px, transparent 0) 0 0 / 24px 24px,
     var(--bg);
@@ -226,6 +237,38 @@ body {
   height: 100%;
   display: block;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.canvas-wrap--drop-target::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: 20;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow: inset 0 0 24px rgb(91 141 239 / 18%);
+}
+
+.palette-drag-ghost {
+  position: fixed;
+  z-index: 2000;
+  max-width: 220px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 40%);
+  font: 13px var(--font);
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+.palette-drag-ghost[hidden] {
+  display: none;
 }
 
 .canvas-hint {
@@ -378,6 +421,20 @@ body {
 .resizer:hover::after,
 .resizer--active::after {
   background: var(--accent);
+}
+
+body.is-canvas-dragging,
+body.is-canvas-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.is-palette-dragging,
+body.is-palette-dragging * {
+  cursor: copy !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 body.is-resizing-x,

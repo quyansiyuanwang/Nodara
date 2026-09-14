@@ -73,6 +73,19 @@ describe("dynamic node discovery in the palette", () => {
     expect(added).toEqual(["core.Log"]);
   });
 
+  it("starts a pointer drag when the item is pulled toward the canvas", () => {
+    const dragged: string[] = [];
+    const palette = new Palette(host, {
+      onAdd: () => undefined,
+      onDragStart: (descriptor) => dragged.push(descriptor.node_type),
+    });
+    palette.setDescriptors([descriptor("core.Log", "Log", "Core")]);
+
+    const item = host.querySelector<HTMLButtonElement>(".palette__item")!;
+    item.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    expect(dragged).toEqual(["core.Log"]);
+  });
+
   it("filters across name, type and description", () => {
     const palette = new Palette(host, { onAdd: () => undefined });
     palette.setDescriptors([

@@ -72,6 +72,7 @@ class Studio {
     // palette is constructed with a lazy reference rather than a captured value.
     this.palette = new Palette(element("palette"), {
       onAdd: (descriptor) => this.canvas.addNodeAtViewportCenter(descriptor),
+      onDragStart: (descriptor, event) => this.canvas.beginPaletteDrag(descriptor, event),
     });
     this.inspector = new Inspector(
       element("inspector"),

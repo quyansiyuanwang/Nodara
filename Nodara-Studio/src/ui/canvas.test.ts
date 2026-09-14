@@ -66,6 +66,14 @@ function pointerDown(target: Element, x = 0, y = 0) {
 function pointerUp(target: Element, x = 0, y = 0) {
   target.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, clientX: x, clientY: y }));
 }
+function pointerEvent(type: string, x = 0, y = 0): PointerEvent {
+  return new MouseEvent(type, {
+    bubbles: true,
+    button: 0,
+    clientX: x,
+    clientY: y,
+  }) as unknown as PointerEvent;
+}
 
 describe("graph editing on the canvas", () => {
   beforeEach(() => {
@@ -84,6 +92,67 @@ describe("graph editing on the canvas", () => {
     // of each other.
     expect(added.position).toEqual({ x: 300 + before * 12, y: 200 + before * 12 });
     expect(document.querySelectorAll(".node")).toHaveLength(before + 1);
+  });
+
+  it("drops a palette item at the pointer position", () => {
+    const { canvas, workflow } = harness();
+    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
+    svg.getBoundingClientRect = () => ({
+      left: 100,
+      top: 50,
+      right: 700,
+      bottom: 550,
+      width: 600,
+      height: 500,
+      x: 100,
+      y: 50,
+      toJSON: () => ({}),
+    });
+
+    const source = document.createElement("button");
+    source.addEventListener("pointerdown", (event) =>
+      canvas.beginPaletteDrag(descriptor("core.Log"), event as PointerEvent),
+    );
+    document.body.appendChild(source);
+    source.dispatchEvent(pointerEvent("pointerdown", 120, 70));
+    window.dispatchEvent(pointerEvent("pointermove", 300, 250));
+    expect(document.body.classList.contains("is-palette-dragging")).toBe(true);
+
+    window.dispatchEvent(pointerEvent("pointerup", 300, 250));
+    const added = workflow.nodes[workflow.nodes.length - 1];
+    expect(added.type).toBe("core.Log");
+    expect(added.position).toEqual({ x: 116, y: 172 });
+    expect(document.body.classList.contains("is-palette-dragging")).toBe(false);
+  });
+
+  it("does not leave a selection state behind after dragging a node", () => {
+    const { canvas } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    node.dispatchEvent(pointerEvent("pointerdown", 100, 100));
+    window.dispatchEvent(pointerEvent("pointermove", 120, 130));
+    expect(document.body.classList.contains("is-canvas-dragging")).toBe(true);
+
+    window.dispatchEvent(pointerEvent("pointerup", 120, 130));
+    expect(document.body.classList.contains("is-canvas-dragging")).toBe(false);
+  });
+
+  it("bends a tall connection so its arrow follows the approach", () => {
+    const { canvas, workflow } = harness();
+    workflow.edges.push({ id: "start-end", source: "start", target: "end" });
+    workflow.nodes[1].position = { x: 720, y: 660 };
+    canvas.render();
+
+    const path = document.querySelector<SVGPathElement>(".edge")!;
+    const numbers = path
+      .getAttribute("d")!
+      .match(/-?\d+(?:\.\d+)?/g)!
+      .map(Number);
+    const control2Y = numbers[5];
+    const targetY = numbers[7];
+    expect(control2Y).not.toBe(targetY);
   });
 
   it("connects an output port to an input port", () => {

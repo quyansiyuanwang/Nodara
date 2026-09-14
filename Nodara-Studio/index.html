@@ -40,8 +40,16 @@
         <section class="canvas-wrap">
           <svg id="canvas" class="canvas">
             <defs>
-              <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
-                <path d="M0,0 L10,4 L0,8 z" fill="#8b93a7" />
+              <marker
+                id="arrow"
+                markerUnits="userSpaceOnUse"
+                markerWidth="7"
+                markerHeight="6"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L7,3 L0,6 z" fill="#8b93a7" />
               </marker>
             </defs>
             <g id="edges" class="edges"></g>
@@ -49,7 +57,7 @@
             <path id="pending-edge" class="edge edge--pending is-hidden" />
           </svg>
           <div id="canvas-hint" class="canvas-hint">
-            Click a node to add it, or drag it onto the canvas. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
+            Click to add at the centre, or drag a palette item to an exact canvas position. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
           </div>
         </section>
 
