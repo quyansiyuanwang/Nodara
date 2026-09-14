@@ -320,6 +320,10 @@ class Studio {
     this.diagnostics = [];
     this.workflowRevision += 1;
     this.palette.refreshAvailability();
+    // Preserve the caret while a property field is being edited.
+    if (!element("inspector").contains(document.activeElement)) {
+      this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
+    }
     this.setValidationState("checking", t("validation.waiting"));
     this.renderWorkspace();
     this.scheduleValidation();

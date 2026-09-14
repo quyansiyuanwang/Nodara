@@ -22,6 +22,22 @@ fn default_object() -> serde_json::Value {
     serde_json::Value::Object(serde_json::Map::new())
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
+}
+
+fn is_zero_u32(value: &u32) -> bool {
+    *value == 0
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
+}
+
 /// Human-facing metadata attached to a workflow.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
 #[serde(default)]
@@ -86,6 +102,22 @@ pub struct Node {
     /// Editor position (ignored by the runtime).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<Position>,
+    /// Whether this node participates in execution. Disabled nodes are treated
+    /// as transparent pass-throughs, so their outgoing branches remain usable.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub enabled: bool,
+    /// Delay before the executor is invoked, in milliseconds.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub delay_before_ms: u64,
+    /// Delay after successful execution, before outgoing branches activate.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub delay_after_ms: u64,
+    /// Number of additional attempts after the first failed execution.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub retry: u32,
+    /// Delay between failed attempts, in milliseconds.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub retry_delay_ms: u64,
     /// Extension bag.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, serde_json::Value>,
@@ -100,6 +132,11 @@ impl Node {
             label: None,
             config: default_object(),
             position: None,
+            enabled: true,
+            delay_before_ms: 0,
+            delay_after_ms: 0,
+            retry: 0,
+            retry_delay_ms: 0,
             metadata: BTreeMap::new(),
         }
     }
@@ -272,6 +309,24 @@ mod tests {
         let json = serde_json::to_string_pretty(&wf).unwrap();
         let back: Workflow = serde_json::from_str(&json).unwrap();
         assert_eq!(back, wf);
+    }
+
+    #[test]
+    fn execution_settings_round_trip_through_json() {
+        let mut node = Node::new("log", "core.Log");
+        node.enabled = false;
+        node.delay_before_ms = 25;
+        node.delay_after_ms = 50;
+        node.retry = 3;
+        node.retry_delay_ms = 100;
+
+        let json = serde_json::to_string(&node).unwrap();
+        let back: Node = serde_json::from_str(&json).unwrap();
+        assert!(!back.enabled);
+        assert_eq!(back.delay_before_ms, 25);
+        assert_eq!(back.delay_after_ms, 50);
+        assert_eq!(back.retry, 3);
+        assert_eq!(back.retry_delay_ms, 100);
     }
 
     #[test]

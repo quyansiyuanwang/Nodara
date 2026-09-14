@@ -336,6 +336,25 @@ body {
   stroke-dasharray: 6 4;
 }
 
+.node--disabled .node__body {
+  fill: #11141c;
+  stroke: #444b61;
+  stroke-dasharray: 3 4;
+}
+
+.node--disabled .node__label,
+.node--disabled .node__type {
+  opacity: 0.55;
+}
+
+.node__disabled {
+  fill: var(--warn);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .node--running .node__body {
   stroke: var(--accent);
 }

@@ -245,11 +245,26 @@ describe("graph editing on the canvas", () => {
 
     const hit = document.querySelector<SVGPathElement>(".edge-hit")!;
     hit.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
-    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item--danger")!;
     expect(remove.textContent).toContain("Delete connection");
     remove.click();
 
     expect(workflow.edges).toHaveLength(0);
+  });
+
+  it("toggles a node from its context menu", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const toggle = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    expect(toggle.textContent).toContain("Disable node");
+    toggle.click();
+
+    expect(workflow.nodes.find((candidate) => candidate.id === "log")?.enabled).toBe(false);
+    expect(document.querySelector<SVGGElement>('[data-node-id="log"]')?.classList.contains("node--disabled")).toBe(true);
   });
 
   it("deletes a node from its context menu", () => {
@@ -259,7 +274,7 @@ describe("graph editing on the canvas", () => {
 
     const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
     node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
-    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    const remove = document.querySelector<HTMLButtonElement>(".context-menu__item--danger")!;
     expect(remove.textContent).toContain("Delete node");
     remove.click();
 

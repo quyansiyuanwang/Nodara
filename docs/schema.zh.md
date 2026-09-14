@@ -78,6 +78,11 @@
 | `label` | string | 否 | 画布上显示的标签。 |
 | `config` | object | 否 | 该节点类型的配置，按描述符校验（`WF141`–`WF143`）。默认 `{}`。 |
 | `position` | `{ "x": number, "y": number }` | 否 | 画布坐标，供编辑器往返使用；运行时忽略。 |
+| `enabled` | boolean | 否 | 默认 `true`。禁用节点会被跳过，并作为透明节点将入站分支透传。 |
+| `delay_before_ms` | integer | 否 | 默认 `0`。执行节点前等待，期间仍可响应取消。 |
+| `delay_after_ms` | integer | 否 | 默认 `0`。节点成功后再等待指定时间，然后激活后续分支。 |
+| `retry` | integer | 否 | 默认 `0`。首次失败后的额外执行次数。 |
+| `retry_delay_ms` | integer | 否 | 默认 `0`。失败尝试之间的等待时间。 |
 | `metadata` | object | 否 | 往返保留的扩展包。 |
 
 某个 `type` 可用的配置键在[节点参考](nodes.zh.md)中逐节点列出；机器可读的权威来源是

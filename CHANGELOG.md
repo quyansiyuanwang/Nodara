@@ -24,6 +24,11 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- Workflow nodes now support common execution controls: `enabled`,
+  `delay_before_ms`, `delay_after_ms`, `retry` and `retry_delay_ms`. The engine
+  skips disabled nodes as pass-throughs, applies cancellation-aware delays and
+  retries failed executions; Studio exposes them in Properties and a node
+  context-menu enable/disable action.
 - Studio now ships an English/Chinese i18n layer. The toolbar language selector
   is persisted locally and localizes the editor chrome, node/category names,
   configuration titles/descriptions, validation status, problems, events,

@@ -70,8 +70,7 @@ impl NodeExecutor for EchoExecutor {
 
 impl NodeExecutor for InProcessEcho {
     fn descriptor(&self) -> NodeDescriptor {
-        NodeDescriptor::new("test.Echo", "In-process Echo", "Test")
-            .with_description("in-process")
+        NodeDescriptor::new("test.Echo", "In-process Echo", "Test").with_description("in-process")
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {

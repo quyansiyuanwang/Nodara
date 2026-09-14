@@ -80,6 +80,21 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 
+### Common node execution settings
+
+Every node has an **Execution** section in Properties. These settings are part
+of the workflow document and are honored by the runtime:
+
+| Setting | Purpose |
+|---|---|
+| Enabled | Disable a node to skip it while passing its incoming branch through to its outgoing edges |
+| Delay before (ms) | Wait before executing the node |
+| Delay after (ms) | Wait after successful execution before activating outgoing branches |
+| Retries | Number of additional attempts after a failed execution |
+| Retry delay (ms) | Wait between failed attempts |
+
+The node context menu also provides an immediate enable/disable action.
+
 ## CLI
 
 | Command | Purpose | Executes nodes |

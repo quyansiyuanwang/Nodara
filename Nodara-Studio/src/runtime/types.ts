@@ -56,6 +56,13 @@ export interface WorkflowNode {
   label?: string;
   config: Record<string, unknown>;
   position?: { x: number; y: number };
+  /** Disabled nodes act as transparent pass-throughs during execution. */
+  enabled?: boolean;
+  delay_before_ms?: number;
+  delay_after_ms?: number;
+  /** Additional attempts after the first failed execution. */
+  retry?: number;
+  retry_delay_ms?: number;
 }
 
 export interface WorkflowEdge {

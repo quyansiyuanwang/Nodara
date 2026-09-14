@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use nodara_schema::{
     validate_with, ExecutionEvent, RunStatus, ValidationOptions, Workflow, WorkflowGraph,
@@ -423,6 +423,21 @@ impl WorkflowEngine {
             let Some(node) = graph.node(&node_id).cloned() else {
                 continue;
             };
+            context.set_node(Some(node.id.clone()));
+
+            if !node.enabled {
+                context.log(
+                    nodara_schema::LogLevel::Info,
+                    format!("node `{}` is disabled and was skipped", node.id),
+                );
+                for edge in graph.edges_from(&node.id) {
+                    if edge_is_taken(edge, &context, &bus) {
+                        activated.insert(edge.target.clone());
+                    }
+                }
+                continue;
+            }
+
             let Some(executor) = self.registry.get(&node.node_type) else {
                 let error = ExecutionError::UnknownNodeType {
                     node_id: node.id.clone(),
@@ -436,7 +451,6 @@ impl WorkflowEngine {
                 break;
             };
             let descriptor = executor.descriptor();
-            context.set_node(Some(node.id.clone()));
 
             // Policies see the resolved configuration, matching the
             // `CapabilityRequest::input` contract: context-sensitive rules
@@ -505,7 +519,42 @@ impl WorkflowEngine {
             );
 
             let node_started = Instant::now();
-            match executor.execute(input, &mut context) {
+            if !wait_interruptible(control, node.delay_before_ms) {
+                status = RunStatus::Cancelled;
+                failure = Some(cancelled_failure());
+                break;
+            }
+
+            let mut attempt = 0u32;
+            let execution = loop {
+                attempt = attempt.saturating_add(1);
+                match executor.execute(input.clone(), &mut context) {
+                    Ok(output) => break Some(Ok(output)),
+                    Err(error)
+                        if attempt <= node.retry && !matches!(&error, NodeError::Cancelled) =>
+                    {
+                        context.log(
+                            nodara_schema::LogLevel::Warn,
+                            format!(
+                                "node `{}` attempt {attempt} failed: {error}; retrying",
+                                node.id
+                            ),
+                        );
+                        if !wait_interruptible(control, node.retry_delay_ms) {
+                            break None;
+                        }
+                    }
+                    Err(error) => break Some(Err(error)),
+                }
+            };
+
+            let Some(execution) = execution else {
+                status = RunStatus::Cancelled;
+                failure = Some(cancelled_failure());
+                break;
+            };
+
+            match execution {
                 Ok(output) => {
                     executed += 1;
                     let duration_ms = node_started.elapsed().as_millis() as u64;
@@ -528,6 +577,11 @@ impl WorkflowEngine {
                         .node(node.id.clone(), node.node_type.clone()),
                     );
 
+                    if !wait_interruptible(control, node.delay_after_ms) {
+                        status = RunStatus::Cancelled;
+                        failure = Some(cancelled_failure());
+                        break;
+                    }
                     for edge in graph.edges_from(&node.id) {
                         if edge_is_taken(edge, &context, &bus) {
                             activated.insert(edge.target.clone());
@@ -620,6 +674,20 @@ impl WorkflowEngine {
             failure,
         }
     }
+}
+
+/// Sleep in short slices so run cancellation and pause boundaries stay responsive.
+fn wait_interruptible(control: &RunControl, total_ms: u64) -> bool {
+    let mut remaining = total_ms;
+    while remaining > 0 {
+        if control.is_cancelled() {
+            return false;
+        }
+        let slice = remaining.min(25);
+        std::thread::sleep(Duration::from_millis(slice));
+        remaining -= slice;
+    }
+    !control.is_cancelled()
 }
 
 fn cancelled_failure() -> RunFailure {

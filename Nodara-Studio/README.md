@@ -93,6 +93,9 @@ known validation code has a Studio translation.
   the delete command. Connections have a wide invisible hit target.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
+* The Properties panel exposes common execution settings for every node:
+  enabled/disabled pass-through, pre/post delay, retry count and retry delay.
+  The node context menu can toggle a node on or off immediately.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors
   disable **Run** until they are fixed and are listed in **Problems**.

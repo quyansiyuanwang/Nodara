@@ -1,14 +1,16 @@
 //! End-to-end tests for the execution engine.
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use nodara_core::{
     register_builtins, AllowAllPolicy, CapabilityRegistry, CollectingEventSink, DenyAllPolicy,
-    EngineOptions, RunControl, RunRequest, WorkflowEngine,
+    EngineOptions, ExecutionContext, NodeError, NodeExecutor, NodeInput, NodeOutput, RunControl,
+    RunRequest, WorkflowEngine,
 };
-use nodara_schema::{Edge, ExecutionEvent, Node, RunStatus, Variable, Workflow};
+use nodara_schema::{Edge, ExecutionEvent, Node, NodeDescriptor, RunStatus, Variable, Workflow};
 
 fn registry() -> Arc<CapabilityRegistry> {
     let mut registry = CapabilityRegistry::new();
@@ -16,6 +18,35 @@ fn registry() -> Arc<CapabilityRegistry> {
     assert!(registry.can_execute("core.Log"));
     assert!(registry.can_execute("system.Delay"));
     Arc::new(registry)
+}
+
+/// Test executor that fails a fixed number of times before succeeding.
+#[derive(Debug)]
+struct FlakyExecutor {
+    calls: Arc<AtomicUsize>,
+    failures: usize,
+}
+
+impl NodeExecutor for FlakyExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("test.Flaky", "Flaky", "Test")
+    }
+
+    fn execute(
+        &self,
+        _input: NodeInput,
+        _context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        let call = self.calls.fetch_add(1, Ordering::SeqCst);
+        if call < self.failures {
+            Err(NodeError::Execution(format!(
+                "temporary failure {}",
+                call + 1
+            )))
+        } else {
+            Ok(NodeOutput::new().with_output("out", serde_json::json!(true)))
+        }
+    }
 }
 
 fn linear_workflow() -> Workflow {
@@ -76,6 +107,84 @@ fn runs_a_linear_workflow_and_publishes_variables() {
         .collect();
     assert!(logs.contains(&"hello".to_string()));
     assert!(logs.contains(&"result is 8".to_string()));
+}
+
+#[test]
+fn a_disabled_node_is_skipped_and_passes_through() {
+    let mut workflow = Workflow::new("wf.disabled");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut log = Node::new("log", "core.Log");
+    log.enabled = false;
+    log.config = serde_json::json!({ "message": "must not run" });
+    workflow.add_node(log);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "log"));
+    workflow.add_edge(Edge::new("e2", "log", "end"));
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(registry()).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.nodes_executed, 2);
+    assert!(!sink.snapshot().iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::Log { message, .. } if message == "must not run"
+    )));
+}
+
+#[test]
+fn node_level_delays_are_applied() {
+    let mut workflow = Workflow::new("wf.node-delay");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut log = Node::new("log", "core.Log");
+    log.delay_before_ms = 20;
+    log.delay_after_ms = 20;
+    log.config = serde_json::json!({ "message": "delayed" });
+    workflow.add_node(log);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "log"));
+    workflow.add_edge(Edge::new("e2", "log", "end"));
+
+    let started = std::time::Instant::now();
+    let outcome =
+        WorkflowEngine::new(registry()).run(RunRequest::new(workflow), &RunControl::new());
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert!(
+        started.elapsed() >= Duration::from_millis(30),
+        "pre/post delays should be reflected in execution time"
+    );
+}
+
+#[test]
+fn a_node_retries_until_it_succeeds() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(FlakyExecutor {
+        calls: calls.clone(),
+        failures: 2,
+    });
+
+    let mut workflow = Workflow::new("wf.retry");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut flaky = Node::new("flaky", "test.Flaky");
+    flaky.retry = 2;
+    flaky.retry_delay_ms = 5;
+    workflow.add_node(flaky);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "flaky"));
+    workflow.add_edge(Edge::new("e2", "flaky", "end"));
+
+    let outcome =
+        WorkflowEngine::new(Arc::new(registry)).run(RunRequest::new(workflow), &RunControl::new());
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
+    assert_eq!(outcome.nodes_executed, 3);
 }
 
 #[test]

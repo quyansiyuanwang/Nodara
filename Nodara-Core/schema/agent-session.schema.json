@@ -306,6 +306,22 @@
           "default": {},
           "description": "Node-type specific configuration, validated against the node descriptor's config schema (published per node type in the workflow JSON Schema)."
         },
+        "delay_after_ms": {
+          "description": "Delay after successful execution, before outgoing branches activate.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "delay_before_ms": {
+          "description": "Delay before the executor is invoked, in milliseconds.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "enabled": {
+          "description": "Whether this node participates in execution. Disabled nodes are treated as transparent pass-throughs, so their outgoing branches remain usable.",
+          "type": "boolean"
+        },
         "id": {
           "description": "Unique, stable identifier within the workflow.",
           "type": "string"
@@ -332,6 +348,18 @@
             }
           ],
           "description": "Editor position (ignored by the runtime)."
+        },
+        "retry": {
+          "description": "Number of additional attempts after the first failed execution.",
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "retry_delay_ms": {
+          "description": "Delay between failed attempts, in milliseconds.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
         },
         "type": {
           "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.\n\n`workflow_schema_for` publishes the enum of types the runtime installed, so an editor can complete this field.",

@@ -38,6 +38,7 @@ export class Inspector {
     const descriptor = this.descriptorFor(node.type);
     this.renderHeader(node, descriptor);
     this.renderIdentity(node);
+    this.renderExecution(node);
     this.renderConfig(node, descriptor);
     this.renderDiagnostics(diagnostics.filter((item) => item.node_id === node.id));
   }
@@ -103,6 +104,93 @@ export class Inspector {
     identity.appendChild(labelInput);
 
     this.root.appendChild(identity);
+  }
+
+  private renderExecution(node: WorkflowNode): void {
+    const heading = document.createElement("h4");
+    heading.className = "inspector__section";
+    heading.textContent = t("inspector.execution");
+    this.root.appendChild(heading);
+
+    renderConfigForm(
+      this.root,
+      {
+        type: "object",
+        properties: {
+          enabled: {
+            type: "boolean",
+            title: t("execution.enabled"),
+            description: t("execution.enabledDetail"),
+            default: true,
+          },
+          delay_before_ms: {
+            type: "integer",
+            title: t("execution.delayBefore"),
+            description: t("execution.delayBeforeDetail"),
+            minimum: 0,
+            default: 0,
+          },
+          delay_after_ms: {
+            type: "integer",
+            title: t("execution.delayAfter"),
+            description: t("execution.delayAfterDetail"),
+            minimum: 0,
+            default: 0,
+          },
+          retry: {
+            type: "integer",
+            title: t("execution.retries"),
+            description: t("execution.retriesDetail"),
+            minimum: 0,
+            default: 0,
+          },
+          retry_delay_ms: {
+            type: "integer",
+            title: t("execution.retryDelay"),
+            description: t("execution.retryDelayDetail"),
+            minimum: 0,
+            default: 0,
+          },
+        },
+      },
+      {
+        enabled: node.enabled ?? true,
+        delay_before_ms: node.delay_before_ms ?? 0,
+        delay_after_ms: node.delay_after_ms ?? 0,
+        retry: node.retry ?? 0,
+        retry_delay_ms: node.retry_delay_ms ?? 0,
+      },
+      (key, value) => this.updateExecution(node, key, value),
+    );
+  }
+
+  private updateExecution(node: WorkflowNode, key: string, value: unknown): void {
+    const number = typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+    switch (key) {
+      case "enabled":
+        if (value === false) node.enabled = false;
+        else delete node.enabled;
+        break;
+      case "delay_before_ms":
+        if (number > 0) node.delay_before_ms = number;
+        else delete node.delay_before_ms;
+        break;
+      case "delay_after_ms":
+        if (number > 0) node.delay_after_ms = number;
+        else delete node.delay_after_ms;
+        break;
+      case "retry":
+        if (number > 0) node.retry = Math.floor(number);
+        else delete node.retry;
+        break;
+      case "retry_delay_ms":
+        if (number > 0) node.retry_delay_ms = number;
+        else delete node.retry_delay_ms;
+        break;
+      default:
+        return;
+    }
+    this.handlers.onChange();
   }
 
   private renderConfig(node: WorkflowNode, descriptor: NodeDescriptor | undefined): void {

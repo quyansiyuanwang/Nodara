@@ -346,6 +346,27 @@ export class Canvas {
       : t("canvas.connectionTitle", { id: target.id });
     this.contextMenu.appendChild(title);
 
+    if (target.kind === "node") {
+      const node = this.workflow.nodes.find((candidate) => candidate.id === target.id);
+      if (node) {
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "context-menu__item";
+        const toggleLabel = document.createElement("span");
+        toggleLabel.textContent = node.enabled === false
+          ? t("canvas.enableNode")
+          : t("canvas.disableNode");
+        toggle.appendChild(toggleLabel);
+        toggle.addEventListener("click", () => {
+          if (node.enabled === false) delete node.enabled;
+          else node.enabled = false;
+          this.contextMenu.hidden = true;
+          this.handlers.onChange();
+        });
+        this.contextMenu.appendChild(toggle);
+      }
+    }
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "context-menu__item context-menu__item--danger";
@@ -377,6 +398,7 @@ export class Canvas {
       group.dataset.nodeId = node.id;
       if (this.selected === node.id) group.classList.add("node--selected");
       if (descriptor?.dangerous) group.classList.add("node--gated");
+      if (node.enabled === false) group.classList.add("node--disabled");
       if (this.status === "running") group.classList.add("node--ready");
 
       const x = node.position?.x ?? 0;
@@ -403,6 +425,34 @@ export class Canvas {
       type.classList.add("node__type");
       type.textContent = node.type;
       group.appendChild(type);
+
+      if (node.enabled === false) {
+        const disabled = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        disabled.setAttribute("x", String(NODE_WIDTH - 10));
+        disabled.setAttribute("y", "16");
+        disabled.setAttribute("text-anchor", "end");
+        disabled.classList.add("node__disabled");
+        disabled.textContent = t("canvas.nodeDisabled");
+        group.appendChild(disabled);
+      }
+
+      const executionDetails: string[] = [];
+      if (node.enabled === false) executionDetails.push(t("canvas.nodeDisabled"));
+      if ((node.delay_before_ms ?? 0) > 0) {
+        executionDetails.push(`${t("execution.delayBefore")}: ${node.delay_before_ms}`);
+      }
+      if ((node.delay_after_ms ?? 0) > 0) {
+        executionDetails.push(`${t("execution.delayAfter")}: ${node.delay_after_ms}`);
+      }
+      if ((node.retry ?? 0) > 0) executionDetails.push(`${t("execution.retries")}: ${node.retry}`);
+      if ((node.retry_delay_ms ?? 0) > 0) {
+        executionDetails.push(`${t("execution.retryDelay")}: ${node.retry_delay_ms}`);
+      }
+      if (executionDetails.length > 0) {
+        const details = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        details.textContent = executionDetails.join("\n");
+        group.appendChild(details);
+      }
 
       const inputs = descriptor?.inputs ?? [];
       const outputs = descriptor?.outputs ?? [];
