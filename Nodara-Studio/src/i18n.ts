@@ -558,6 +558,9 @@ export function localizeDiagnostic(diagnostic: Diagnostic): Diagnostic {
     WF131: `${node} 无法从入口节点到达`,
     WF132: `${node} 没有后续连线`,
     WF140: `未知节点类型 \`${diagnostic.message.match(/`([^`]+)`/)?.[1] ?? ""}\``,
+    WF150: `${node} 配置引用了未声明的变量`,
+    WF151: `${node} 运行条件引用了未声明的变量`,
+    WF152: `连线 ${diagnostic.edge_id ? `\`${diagnostic.edge_id}\`` : ""} 的执行条件引用了未声明的变量`,
   };
   return {
     ...diagnostic,

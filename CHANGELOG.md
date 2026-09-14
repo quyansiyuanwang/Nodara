@@ -96,6 +96,8 @@ All notable changes to this project are documented here. The format follows
   the variable scope shipped to plugin processes all carry masked values.
 - Policies and approval requests now see the resolved node configuration, as
   the `CapabilityRequest::input` contract always documented.
+- Validation now checks variable references in node and edge conditions with
+  `WF151`/`WF152`, in addition to existing `{{template}}` reference checks.
 - A malformed window selector is a configuration error instead of silently
   falling back to the foreground window.
 - The expression evaluator rejects expressions nested beyond 128 levels

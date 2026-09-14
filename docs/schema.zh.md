@@ -139,6 +139,8 @@
 | `WF142` | error | `config` 缺少必填键 |
 | `WF143` | warning | `config` 含有描述符未声明的键 |
 | `WF150` | warning | `{{模板}}` 引用了未声明的变量 |
+| `WF151` | warning | 节点 `condition` 引用了未声明的变量 |
+| `WF152` | warning | 连线 `condition` 引用了未声明的变量 |
 
 严格程度可在每次调用时配置（`reject_cycles`、`require_start`、`require_end`、
 `warn_unreachable`、`warn_dead_end`、`check_variable_references`）。

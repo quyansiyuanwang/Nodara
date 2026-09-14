@@ -433,7 +433,7 @@ pub fn validate_with_options(
                 if declared.contains(reference.as_str()) {
                     continue;
                 }
-                if reported.insert((node.id.clone(), reference.clone())) {
+                if reported.insert((format!("node:{}", node.id), reference.clone())) {
                     report.push(
                         Diagnostic::new(
                             Severity::Warning,
@@ -447,6 +447,52 @@ pub fn validate_with_options(
                         .node(&node.id)
                         .hint("declare it under `variables` or bind it at runtime"),
                     );
+                }
+            }
+            if let Some(condition) = &node.condition {
+                for reference in collect_expression_identifiers(condition) {
+                    if declared.contains(reference.as_str()) {
+                        continue;
+                    }
+                    if reported.insert((format!("condition:{}", node.id), reference.clone())) {
+                        report.push(
+                            Diagnostic::new(
+                                Severity::Warning,
+                                "WF151",
+                                format!(
+                                    "node `{}` condition references undeclared variable `{reference}`",
+                                    node.id
+                                ),
+                                "/nodes",
+                            )
+                            .node(&node.id)
+                            .hint("declare it under `variables` or bind it at runtime"),
+                        );
+                    }
+                }
+            }
+        }
+        for edge in &workflow.edges {
+            if let Some(condition) = &edge.condition {
+                for reference in collect_expression_identifiers(condition) {
+                    if declared.contains(reference.as_str()) {
+                        continue;
+                    }
+                    if reported.insert((format!("edge:{}", edge.id), reference.clone())) {
+                        report.push(
+                            Diagnostic::new(
+                                Severity::Warning,
+                                "WF152",
+                                format!(
+                                    "edge `{}` condition references undeclared variable `{reference}`",
+                                    edge.id
+                                ),
+                                "/edges",
+                            )
+                            .edge(&edge.id)
+                            .hint("declare it under `variables` or bind it at runtime"),
+                        );
+                    }
                 }
             }
         }
@@ -534,6 +580,32 @@ fn collect_refs_into(value: &serde_json::Value, out: &mut Vec<String>) {
     }
 }
 
+/// Extract identifier roots used by an expression (`a.b + 1` yields `a`).
+fn collect_expression_identifiers(expression: &str) -> Vec<String> {
+    let chars: Vec<char> = expression.chars().collect();
+    let mut names = Vec::new();
+    let mut index = 0;
+    while index < chars.len() {
+        let current = chars[index];
+        if current.is_alphabetic() || current == '_' {
+            let start = index;
+            while index < chars.len()
+                && (chars[index].is_alphanumeric() || chars[index] == '_' || chars[index] == '.')
+            {
+                index += 1;
+            }
+            let token: String = chars[start..index].iter().collect();
+            let root = token.split('.').next().unwrap_or(&token);
+            if root != "true" && root != "false" {
+                names.push(root.to_string());
+            }
+            continue;
+        }
+        index += 1;
+    }
+    names
+}
+
 /// Parse `{{ name }}` placeholders out of a template string.
 pub fn parse_placeholders(text: &str) -> Vec<String> {
     let mut names = Vec::new();
@@ -606,6 +678,16 @@ mod tests {
         wf.add_node(Node::new("start", "core.End"));
         let report = validate(&wf);
         assert!(report.diagnostics.iter().any(|d| d.code == "WF103"));
+    }
+
+    #[test]
+    fn checks_node_and_edge_condition_references() {
+        let mut wf = linear();
+        wf.node_mut("log").unwrap().condition = Some("missing > 0".to_string());
+        wf.edges[0].condition = Some("also_missing == 1".to_string());
+        let report = validate(&wf);
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF151"));
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF152"));
     }
 
     #[test]

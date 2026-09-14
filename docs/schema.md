@@ -145,6 +145,8 @@ optional `hint`:
 | `WF142` | error | `config` is missing a required key |
 | `WF143` | warning | `config` has a key the descriptor does not declare |
 | `WF150` | warning | `{{template}}` references an undeclared variable |
+| `WF151` | warning | Node `condition` references an undeclared variable |
+| `WF152` | warning | Edge `condition` references an undeclared variable |
 
 The strictness is configurable per call (`reject_cycles`, `require_start`,
 `require_end`, `warn_unreachable`, `warn_dead_end`,
