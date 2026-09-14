@@ -26,8 +26,8 @@ All notable changes to this project are documented here. The format follows
   `description`, `default`, `enum`, bounds and examples per property.
 - Studio’s schema-driven configuration forms now mark required fields, show
   inline descriptions, use schema examples as placeholders, apply common string
-  constraints and render nested object schemas as editable groups instead of
-  raw JSON.
+  constraints, render nested object schemas as editable groups instead of raw
+  JSON and provide one-click reset-to-default controls.
 - Studio can duplicate a node with `Ctrl+D` or the node context menu,
   preserving configuration, enabled state, delays and retry settings while
   assigning a fresh node id.

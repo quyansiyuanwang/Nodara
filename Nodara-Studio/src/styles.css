@@ -622,11 +622,34 @@ body.is-resizing-y * {
   margin-bottom: 12px;
 }
 
+.field__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .field__label {
   display: block;
   font-size: 12px;
   margin-bottom: 4px;
   color: var(--text-dim);
+}
+
+.field__reset {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+
+.field__reset:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .field__hint {

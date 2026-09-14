@@ -80,6 +80,19 @@ describe("schema-driven configuration forms", () => {
     expect(host.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Notepad");
   });
 
+  it("resets a field to its schema default", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: { retries: { type: "integer", default: 3 } },
+    };
+    const { host, changes } = render(schema, { retries: 9 });
+    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
+    expect(input.value).toBe("9");
+    host.querySelector<HTMLButtonElement>(".field__reset")!.click();
+    expect(input.value).toBe("3");
+    expect(changes.retries).toBe(3);
+  });
+
   it("renders nested object fields without a JSON editor", () => {
     const schema: JsonSchema = {
       type: "object",

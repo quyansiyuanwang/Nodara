@@ -54,15 +54,19 @@ export function renderField(
   wrapper.className = "field";
 
   const id = `${options.idPrefix ?? "field"}-${key.replace(/[^A-Za-z0-9]/g, "-")}`;
+  const fieldHeader = document.createElement("div");
+  fieldHeader.className = "field__header";
   const heading = document.createElement("label");
   heading.className = "field__label";
   heading.htmlFor = id;
   heading.textContent = `${label(key, schema)}${options.required ? " *" : ""}`;
   heading.dataset.required = options.required ? "true" : "false";
   if (schema.description) heading.title = schema.description;
-  wrapper.appendChild(heading);
+  fieldHeader.appendChild(heading);
+  wrapper.appendChild(fieldHeader);
 
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  let restoreDefault: (() => void) | null = null;
 
   if (type === "object" && schema.properties && Object.keys(schema.properties).length > 0) {
     wrapper.classList.add("field--group");
@@ -90,6 +94,11 @@ export function renderField(
     }
     select.value = value === undefined ? String(schema.default ?? schema.enum[0]) : String(value);
     select.addEventListener("change", () => options.onChange(coerce(select.value, schema)));
+    restoreDefault = () => {
+      const next = schema.default ?? schema.enum?.[0];
+      select.value = String(next);
+      options.onChange(next);
+    };
     wrapper.appendChild(select);
   } else if (type === "boolean") {
     const checkbox = document.createElement("input");
@@ -98,6 +107,11 @@ export function renderField(
     checkbox.required = options.required === true;
     checkbox.checked = Boolean(value ?? schema.default ?? false);
     checkbox.addEventListener("change", () => options.onChange(checkbox.checked));
+    restoreDefault = () => {
+      const next = Boolean(schema.default ?? false);
+      checkbox.checked = next;
+      options.onChange(next);
+    };
     wrapper.appendChild(checkbox);
   } else if (type === "number" || type === "integer") {
     const input = document.createElement("input");
@@ -111,6 +125,10 @@ export function renderField(
     else if (type === "integer") input.step = "1";
     input.value = value === undefined || value === null ? "" : String(value);
     input.addEventListener("input", () => options.onChange(coerce(input.value, schema)));
+    restoreDefault = () => {
+      input.value = schema.default === undefined ? "" : String(schema.default);
+      options.onChange(schema.default);
+    };
     wrapper.appendChild(input);
   } else if (type === "string") {
     const long = (schema.description ?? "").length > 60 || key === "message";
@@ -134,6 +152,11 @@ export function renderField(
     }
     input.value = value === undefined || value === null ? "" : String(value);
     input.addEventListener("input", () => options.onChange(input.value));
+    restoreDefault = () => {
+      const next = schema.default === undefined ? "" : String(schema.default);
+      input.value = next;
+      options.onChange(schema.default);
+    };
     wrapper.appendChild(input);
   } else {
     // Objects without a declared shape, arrays and anything unexpected: a JSON
@@ -156,7 +179,22 @@ export function renderField(
         errorHint.textContent = t("form.invalidJson", { message: (error as Error).message });
       }
     });
+    restoreDefault = () => {
+      const next = schema.default ?? {};
+      textarea.value = JSON.stringify(next, null, 2);
+      errorHint.textContent = "";
+      options.onChange(next);
+    };
     wrapper.append(textarea, errorHint);
+  }
+
+  if (restoreDefault && schema.default !== undefined) {
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "field__reset";
+    reset.textContent = t("form.resetDefault");
+    reset.addEventListener("click", restoreDefault);
+    fieldHeader.appendChild(reset);
   }
 
   if (schema.description) {
