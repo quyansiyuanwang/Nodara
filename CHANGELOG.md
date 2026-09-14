@@ -107,6 +107,9 @@ All notable changes to this project are documented here. The format follows
 - Studio validates automatically after every workflow edit (debounced while
   typing), displays the result beside Validate, disables Run on errors, and
   validates again immediately before starting a run.
+- Studio admits at most one `core.Start` node. The palette disables Start once
+  one exists, direct additions are rejected, and imported duplicate Starts are
+  reported as errors and cannot run.
 
 ### Fixed (continued)
 

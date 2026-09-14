@@ -69,7 +69,7 @@ If the badge still says `runtime unreachable`, verify that
 
 | Action | Method |
 |---|---|
-| Add a node | **Click** it in the palette, or drag it to an exact canvas position |
+| Add a node | **Click** it in the palette, or drag it to an exact canvas position; exactly one `core.Start` is allowed |
 | Move a node | Drag the node body |
 | Create a connection | Drag from an output port to an input port |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |

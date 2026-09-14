@@ -6,12 +6,15 @@
  * Studio being rebuilt.
  */
 
+import { NodeTypeAdmission } from "../model/workflow";
 import { NodeDescriptor } from "../runtime/types";
 
 export interface PaletteHandlers {
   onAdd: (descriptor: NodeDescriptor) => void;
   /** Begin a pointer drag; the canvas owns the drop interaction. */
   onDragStart?: (descriptor: NodeDescriptor, event: PointerEvent) => void;
+  /** Editor-level rules such as the single core.Start restriction. */
+  allowed?: (descriptor: NodeDescriptor) => NodeTypeAdmission;
 }
 
 export class Palette {
@@ -20,6 +23,7 @@ export class Palette {
   private query = "";
   /** Suppresses the click generated after a pointer drag. */
   private suppressClick = false;
+  private availabilityKey = "";
 
   constructor(
     private readonly root: HTMLElement,
@@ -39,6 +43,12 @@ export class Palette {
     this.render(this.query);
   }
 
+  /** Re-render only when an item's add/disabled state actually changes. */
+  refreshAvailability(): void {
+    if (this.currentAvailabilityKey() === this.availabilityKey) return;
+    this.render(this.query);
+  }
+
   /** Case-insensitive filter across node type, display name and description. */
   filter(query: string): void {
     this.query = query.trim().toLowerCase();
@@ -47,6 +57,7 @@ export class Palette {
 
   private render(query: string): void {
     this.root.replaceChildren();
+    this.availabilityKey = this.currentAvailabilityKey();
     const groups = [...this.categories.entries()].sort(([a], [b]) => a.localeCompare(b));
 
     let matches = 0;
@@ -67,12 +78,16 @@ export class Palette {
       this.root.appendChild(heading);
 
       for (const descriptor of visible) {
+        const admission = this.handlers.allowed?.(descriptor) ?? { allowed: true };
         const item = document.createElement("button");
         item.className = "palette__item";
         item.type = "button";
         item.draggable = false;
+        item.disabled = !admission.allowed;
         item.dataset.nodeType = descriptor.node_type;
-        item.title = `${descriptor.node_type}\n${descriptor.description}\n\nClick to add, or drag onto the canvas.`;
+        item.title = admission.allowed
+          ? `${descriptor.node_type}\n${descriptor.description}\n\nClick to add, or drag onto the canvas.`
+          : `${descriptor.node_type}\n${descriptor.description}\n\n${admission.reason ?? "This node cannot be added."}`;
 
         const name = document.createElement("span");
         name.className = "palette__name";
@@ -88,6 +103,7 @@ export class Palette {
         }
 
         item.addEventListener("click", (event) => {
+          if (item.disabled) return;
           if (this.suppressClick) {
             this.suppressClick = false;
             event.preventDefault();
@@ -96,7 +112,7 @@ export class Palette {
           this.handlers.onAdd(descriptor);
         });
         item.addEventListener("pointerdown", (event) => {
-          if (event.button !== 0 || !this.handlers.onDragStart) return;
+          if (item.disabled || event.button !== 0 || !this.handlers.onDragStart) return;
           this.suppressClick = false;
           const startX = event.clientX;
           const startY = event.clientY;
@@ -127,5 +143,15 @@ export class Palette {
         : "No node types match that filter.";
       this.root.appendChild(empty);
     }
+  }
+
+  private currentAvailabilityKey(): string {
+    return [...this.categories.values()]
+      .flat()
+      .map((descriptor) => {
+        const admission = this.handlers.allowed?.(descriptor) ?? { allowed: true };
+        return `${descriptor.node_type}:${admission.allowed}`;
+      })
+      .join("|");
   }
 }

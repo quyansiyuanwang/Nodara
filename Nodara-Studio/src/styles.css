@@ -236,8 +236,16 @@ body {
   border-color: var(--accent);
 }
 
-.palette__item:hover {
+.palette__item:hover:not(:disabled) {
   border-color: var(--accent-dim);
+}
+
+.palette__item:disabled {
+  border-color: var(--line);
+  border-style: dashed;
+  color: var(--text-dim);
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .badge {

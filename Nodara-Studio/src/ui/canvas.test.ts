@@ -80,6 +80,12 @@ describe("graph editing on the canvas", () => {
     document.body.innerHTML = "";
   });
 
+  it("refuses to add a second Start node", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Start"), 300, 200);
+    expect(workflow.nodes.filter((node) => node.type === "core.Start")).toHaveLength(1);
+  });
+
   it("adds a node from the palette", () => {
     const { canvas, workflow } = harness();
     const before = workflow.nodes.length;

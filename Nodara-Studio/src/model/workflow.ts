@@ -60,6 +60,33 @@ export function applyWorkflow(target: Workflow, incoming: Partial<Workflow> | nu
   return target;
 }
 
+export interface NodeTypeAdmission {
+  allowed: boolean;
+  reason?: string;
+}
+
+/**
+ * Editor-level admission rules for single-instance scaffold nodes.
+ *
+ * Runtime validation remains authoritative, but rejecting a second Start at the
+ * point of insertion gives immediate feedback and keeps the graph unambiguous.
+ */
+export function nodeTypeAdmission(
+  workflow: Workflow,
+  nodeType: string,
+): NodeTypeAdmission {
+  if (
+    nodeType === "core.Start" &&
+    workflow.nodes.some((node) => node.type === "core.Start")
+  ) {
+    return {
+      allowed: false,
+      reason: "only one core.Start node is allowed per workflow",
+    };
+  }
+  return { allowed: true };
+}
+
 let nodeCounter = 0;
 
 /** A unique node id derived from the node type, readable in a diff. */
@@ -141,8 +168,11 @@ export function localProblems(workflow: Workflow): string[] {
     if (!ids.has(edge.source)) problems.push(`edge \`${edge.id}\` has a missing source`);
     if (!ids.has(edge.target)) problems.push(`edge \`${edge.id}\` has a missing target`);
   }
-  if (!workflow.nodes.some((node) => node.type === "core.Start")) {
+  const startNodes = workflow.nodes.filter((node) => node.type === "core.Start");
+  if (startNodes.length === 0) {
     problems.push("no core.Start node");
+  } else if (startNodes.length > 1) {
+    problems.push(`workflow declares ${startNodes.length} core.Start nodes; only one is allowed`);
   }
   if (!workflow.nodes.some((node) => node.type === "core.End")) {
     problems.push("no core.End node");

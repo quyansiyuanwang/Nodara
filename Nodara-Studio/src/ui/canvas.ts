@@ -12,6 +12,7 @@ import {
   edgeExists,
   nextEdgeId,
   nextNodeId,
+  nodeTypeAdmission,
 } from "../model/workflow";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
@@ -238,6 +239,12 @@ export class Canvas {
 
   /** Add a node programmatically (used by palette clicks and exact drops). */
   addNode(descriptor: NodeDescriptor, x: number, y: number, stagger = true): void {
+    const admission = nodeTypeAdmission(this.workflow, descriptor.node_type);
+    if (!admission.allowed) {
+      this.handlers.onStatus(admission.reason ?? "that node cannot be added again");
+      return;
+    }
+
     const id = nextNodeId(descriptor, this.workflow.nodes);
     const stackOffset = stagger ? this.workflow.nodes.length * 12 : 0;
     const node: WorkflowNode = {

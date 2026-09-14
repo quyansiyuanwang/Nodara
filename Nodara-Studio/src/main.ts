@@ -11,6 +11,7 @@ import {
   applyWorkflow,
   emptyWorkflow,
   localProblems,
+  nodeTypeAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./model/workflow";
 import { defaultRuntimeBaseUrl, RuntimeClient, RuntimeError } from "./runtime/client";
@@ -80,6 +81,7 @@ class Studio {
     this.palette = new Palette(element("palette"), {
       onAdd: (descriptor) => this.canvas.addNodeAtViewportCenter(descriptor),
       onDragStart: (descriptor, event) => this.canvas.beginPaletteDrag(descriptor, event),
+      allowed: (descriptor) => nodeTypeAdmission(this.workflow, descriptor.node_type),
     });
     this.inspector = new Inspector(
       element("inspector"),
@@ -296,6 +298,7 @@ class Studio {
   private workflowChanged(): void {
     this.diagnostics = [];
     this.workflowRevision += 1;
+    this.palette.refreshAvailability();
     this.setValidationState("checking", "Waiting for edits to settle before validating.");
     this.renderWorkspace();
     this.scheduleValidation();

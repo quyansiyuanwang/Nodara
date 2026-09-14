@@ -8,6 +8,7 @@ import {
   localProblems,
   nextEdgeId,
   nextNodeId,
+  nodeTypeAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./workflow";
 import { NodeDescriptor, Workflow } from "../runtime/types";
@@ -61,6 +62,15 @@ describe("workflow model", () => {
     expect(workflow.schema_version).toBe("2.0");
   });
 
+  it("admits only one core.Start node", () => {
+    const workflow = emptyWorkflow();
+    expect(nodeTypeAdmission(workflow, "core.Start").allowed).toBe(false);
+    expect(nodeTypeAdmission(workflow, "core.Log").allowed).toBe(true);
+
+    workflow.nodes = workflow.nodes.filter((node) => node.type !== "core.Start");
+    expect(nodeTypeAdmission(workflow, "core.Start").allowed).toBe(true);
+  });
+
   it("generates unique ids", () => {
     const workflow = emptyWorkflow();
     expect(nextNodeId(descriptor("windows.Input.Keyboard"), workflow.nodes)).toBe("keyboard");
@@ -97,6 +107,17 @@ describe("workflow model", () => {
     expect(edgeExists(edges, "a", "b", "out", "in")).toBe(true);
     expect(edgeExists(edges, "a", "c")).toBe(false);
     expect(edgeExists(edges, "a", "c", "other", "in")).toBe(true);
+  });
+
+  it("reports multiple Start nodes as a local error", () => {
+    const workflow = emptyWorkflow();
+    workflow.nodes.push({
+      id: "start2",
+      type: "core.Start",
+      label: "Second Start",
+      config: {},
+    });
+    expect(localProblems(workflow).some((line) => line.includes("2 core.Start nodes"))).toBe(true);
   });
 
   it("reports the mistakes an editor can catch locally", () => {

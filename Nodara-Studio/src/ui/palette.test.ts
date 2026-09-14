@@ -61,6 +61,24 @@ describe("dynamic node discovery in the palette", () => {
     expect(badge.getAttribute("title")).toContain("input.control");
   });
 
+  it("disables an item when editor admission forbids it", () => {
+    let allowed = false;
+    const palette = new Palette(host, {
+      onAdd: () => undefined,
+      allowed: () => ({ allowed, reason: "only one is allowed" }),
+    });
+    palette.setDescriptors([descriptor("core.Start", "Start", "Core")]);
+
+    let item = host.querySelector<HTMLButtonElement>(".palette__item")!;
+    expect(item.disabled).toBe(true);
+    expect(item.title).toContain("only one is allowed");
+
+    allowed = true;
+    palette.refreshAvailability();
+    item = host.querySelector<HTMLButtonElement>(".palette__item")!;
+    expect(item.disabled).toBe(false);
+  });
+
   it("adds a node when the item is activated", () => {
     const added: string[] = [];
     const palette = new Palette(host, {

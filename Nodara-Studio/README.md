@@ -78,7 +78,8 @@ logs. The child runtime is launched without an additional console window.
 ## Canvas controls
 
 * **Click** a node in the palette to add it near the canvas centre, or drag it to
-  an exact position.
+  an exact position. A workflow can contain exactly one `core.Start`; the
+  palette disables Start after one is present.
 * Drag a node to move it. Drag from an output port to an input port to connect.
 * Select a node or connection and press `Delete`, or right-click it and choose
   the delete command. Connections have a wide invisible hit target.
