@@ -81,6 +81,10 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 
+### Workflow settings and variables
+
+When no node or connection is selected, Properties edits the workflow ID, name, description and tags. It also lists workflow variables and provides controls to add, edit or delete them, including descriptions and secret flags.
+
 ### Common node execution settings
 
 Every node has an **Execution** section in Properties. These settings are part

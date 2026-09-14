@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- Studio can edit workflow metadata and variables without opening JSON: ID,
+  name, description, tags, variable values, descriptions and secret flags are
+  available in Properties, with add/delete actions for variables.
 - Studio now shows connection properties when an edge is selected, allowing
   edge labels and guard expressions to be edited directly and validated
   automatically.

@@ -29,6 +29,41 @@ describe("node execution settings", () => {
     document.body.innerHTML = "";
   });
 
+  it("edits workflow metadata and adds variables", () => {
+    const workflow = emptyWorkflow();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    let changes = 0;
+    const inspector = new Inspector(
+      root,
+      workflow,
+      () => undefined,
+      { onChange: () => { changes += 1; } },
+    );
+
+    inspector.render(null);
+    const id = root.querySelector<HTMLInputElement>("#workflow-id")!;
+    id.value = "workflow.test";
+    id.dispatchEvent(new Event("input"));
+    const name = root.querySelector<HTMLInputElement>("#workflow-name")!;
+    name.value = "Test flow";
+    name.dispatchEvent(new Event("input"));
+    const tags = root.querySelector<HTMLInputElement>("#workflow-tags")!;
+    tags.value = "smoke, windows";
+    tags.dispatchEvent(new Event("input"));
+
+    expect(workflow.id).toBe("workflow.test");
+    expect(workflow.metadata.name).toBe("Test flow");
+    expect(workflow.metadata.tags).toEqual(["smoke", "windows"]);
+
+    const add = [...root.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent?.includes("Add variable"),
+    )!;
+    add.click();
+    expect(workflow.variables.variable1).toEqual({ value: "", secret: false });
+    expect(changes).toBe(4);
+  });
+
   it("edits connection labels and conditions directly", () => {
     const workflow = emptyWorkflow();
     workflow.edges.push({ id: "e1", source: "start", target: "end" });

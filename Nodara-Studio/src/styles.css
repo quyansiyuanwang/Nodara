@@ -509,6 +509,48 @@ body.is-resizing-y * {
   user-select: none !important;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section-header .inspector__section {
+  margin-bottom: 8px;
+}
+
+.variable-card {
+  display: grid;
+  gap: 6px;
+  padding: 9px;
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #131721;
+}
+
+.variable-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.variable-card__header code {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.field__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
 /* Canvas context menu ---------------------------------------------------- */
 .context-menu {
   position: fixed;

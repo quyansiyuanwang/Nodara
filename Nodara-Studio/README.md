@@ -95,6 +95,8 @@ known validation code has a Studio translation.
   expression directly, and the workflow revalidates automatically.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
+* With no node selected, Properties edits workflow ID, name, description and
+  tags, and manages workflow variables (value, description and secret flag).
 * The Properties panel exposes common execution settings for every node:
   enabled/disabled pass-through, pre/post delay, retry count and retry delay.
   The node context menu can toggle a node on or off immediately.

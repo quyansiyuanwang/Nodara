@@ -40,7 +40,7 @@ export class Inspector {
       return;
     }
     if (!nodeId) {
-      this.root.appendChild(muted(t("inspector.selectNode")));
+      this.renderWorkflow();
       this.renderVariables(diagnostics);
       return;
     }
@@ -56,6 +56,65 @@ export class Inspector {
     this.renderExecution(node);
     this.renderConfig(node, descriptor);
     this.renderDiagnostics(diagnostics.filter((item) => item.node_id === node.id));
+  }
+
+  private renderWorkflow(): void {
+    const heading = document.createElement("h4");
+    heading.className = "inspector__section";
+    heading.textContent = t("inspector.workflow");
+    this.root.appendChild(heading);
+
+    const addField = (
+      key: string,
+      title: string,
+      value: string,
+      multiline = false,
+    ): HTMLInputElement | HTMLTextAreaElement => {
+      const field = document.createElement("div");
+      field.className = "field";
+      const label = document.createElement("label");
+      label.className = "field__label";
+      label.htmlFor = key;
+      label.textContent = title;
+      const input = document.createElement(multiline ? "textarea" : "input") as
+        | HTMLInputElement
+        | HTMLTextAreaElement;
+      input.id = key;
+      input.className = "input";
+      input.value = value;
+      if (multiline) (input as HTMLTextAreaElement).rows = 2;
+      input.addEventListener("input", () => {
+        if (key === "workflow-id") this.workflow.id = input.value.trim();
+        else if (key === "workflow-name") this.workflow.metadata.name = input.value;
+        else if (key === "workflow-description") {
+          this.workflow.metadata.description = input.value || undefined;
+        } else if (key === "workflow-tags") {
+          this.workflow.metadata.tags = input.value
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean);
+        }
+        this.handlers.onChange();
+      });
+      field.append(label, input);
+      this.root.appendChild(field);
+      return input;
+    };
+
+    addField("workflow-id", t("inspector.workflowId"), this.workflow.id);
+    addField("workflow-name", t("inspector.workflowName"), this.workflow.metadata.name);
+    addField(
+      "workflow-description",
+      t("inspector.workflowDescription"),
+      this.workflow.metadata.description ?? "",
+      true,
+    );
+    const tags = addField(
+      "workflow-tags",
+      t("inspector.workflowTags"),
+      this.workflow.metadata.tags.join(", "),
+    );
+    tags.title = t("inspector.workflowTagsHint");
   }
 
   private renderEdge(edge: WorkflowEdge): void {
@@ -297,10 +356,29 @@ export class Inspector {
   }
 
   private renderVariables(diagnostics: Diagnostic[]): void {
+    const headingRow = document.createElement("div");
+    headingRow.className = "section-header";
     const heading = document.createElement("h4");
     heading.className = "inspector__section";
     heading.textContent = t("inspector.variables");
-    this.root.appendChild(heading);
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "btn btn--small";
+    add.textContent = t("actions.addVariable");
+    add.addEventListener("click", () => {
+      let index = 1;
+      while (this.workflow.variables[`variable${index}`]) index += 1;
+      this.workflow.variables[`variable${index}`] = { value: "", secret: false };
+      this.handlers.onChange();
+      this.render(null, diagnostics);
+    });
+    headingRow.append(heading, add);
+    this.root.appendChild(headingRow);
+
+    const hint = document.createElement("p");
+    hint.className = "muted";
+    hint.textContent = t("inspector.variableHint");
+    this.root.appendChild(hint);
 
     const names = Object.keys(this.workflow.variables);
     if (names.length === 0) {
@@ -308,28 +386,61 @@ export class Inspector {
     }
     for (const name of names) {
       const variable = this.workflow.variables[name];
-      const row = document.createElement("div");
-      row.className = "field";
+      const card = document.createElement("div");
+      card.className = "variable-card";
+      card.dataset.variableName = name;
 
-      const label = document.createElement("label");
-      label.className = "field__label";
-      label.textContent = name;
-      const input = document.createElement("input");
-      input.className = "input";
-      input.value =
+      const header = document.createElement("div");
+      header.className = "variable-card__header";
+      const label = document.createElement("code");
+      label.textContent = `{{${name}}}`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "btn btn--small";
+      remove.textContent = t("actions.deleteVariable");
+      remove.addEventListener("click", () => {
+        delete this.workflow.variables[name];
+        this.handlers.onChange();
+        this.render(null, diagnostics);
+      });
+      header.append(label, remove);
+
+      const value = document.createElement("textarea");
+      value.className = "input input--code";
+      value.rows = 2;
+      value.value =
         typeof variable.value === "string" ? variable.value : JSON.stringify(variable.value);
-      input.addEventListener("change", () => {
+      value.addEventListener("change", () => {
         try {
-          variable.value = JSON.parse(input.value);
+          variable.value = JSON.parse(value.value);
         } catch {
-          variable.value = input.value;
+          variable.value = value.value;
         }
         this.handlers.onChange();
       });
 
-      row.appendChild(label);
-      row.appendChild(input);
-      this.root.appendChild(row);
+      const description = document.createElement("input");
+      description.className = "input";
+      description.placeholder = t("inspector.variableDescription");
+      description.value = variable.description ?? "";
+      description.addEventListener("input", () => {
+        variable.description = description.value || undefined;
+        this.handlers.onChange();
+      });
+
+      const secretLabel = document.createElement("label");
+      secretLabel.className = "field__check";
+      const secret = document.createElement("input");
+      secret.type = "checkbox";
+      secret.checked = variable.secret === true;
+      secret.addEventListener("change", () => {
+        variable.secret = secret.checked;
+        this.handlers.onChange();
+      });
+      secretLabel.append(secret, document.createTextNode(` ${t("inspector.secret")}`));
+
+      card.append(header, value, description, secretLabel);
+      this.root.appendChild(card);
     }
     this.renderDiagnostics(diagnostics);
   }
