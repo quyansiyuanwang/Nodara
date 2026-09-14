@@ -124,8 +124,9 @@ export function renderField(
     if (long) {
       (input as HTMLTextAreaElement).rows = 3;
     } else {
-      (input as HTMLInputElement).placeholder = examplePlaceholder(schema);
+      (input as HTMLInputElement).type = "text";
     }
+    input.placeholder = examplePlaceholder(schema);
     if (schema.minLength !== undefined) input.minLength = schema.minLength;
     if (schema.maxLength !== undefined) input.maxLength = schema.maxLength;
     if (schema.pattern !== undefined && !long) {
