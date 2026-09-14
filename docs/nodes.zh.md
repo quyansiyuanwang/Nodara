@@ -196,6 +196,10 @@
 |---|---|---|---|---|
 | `text` | string | **是** | — | 要输入的字面文本。 |
 | `interval_ms` | integer | 否 | `10` | 按键间隔；`0` 表示以窗口能接受的最快速度输入。最小 `0`。 |
+| `focus` | boolean | 否 | `false` | 输入文本前查找并聚焦目标窗口。 |
+| `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
+| `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
+| `exact` | boolean | 否 | `false` | 要求目标标题和类名精确匹配。 |
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
@@ -214,6 +218,10 @@
 | `action` | string | **是** | `click` | `move`、`click`、`double_click`、`right_click`、`middle_click`、`down`、`up`。 |
 | `x` | integer | 否 | — | 屏幕绝对 X 像素。 |
 | `y` | integer | 否 | — | 屏幕绝对 Y 像素。 |
+| `focus` | boolean | 否 | `false` | 执行鼠标操作前查找并聚焦目标窗口。 |
+| `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
+| `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
+| `exact` | boolean | 否 | `false` | 要求目标标题和类名精确匹配。 |
 
 ```json
 { "id": "click_ok", "type": "windows.Input.Mouse",

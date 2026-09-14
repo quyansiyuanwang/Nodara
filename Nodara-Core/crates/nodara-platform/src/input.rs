@@ -7,18 +7,77 @@ use nodara_schema::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
 
 use crate::keys::{self, KeyStroke};
 use crate::native;
+use crate::window::{self, WindowSelector};
 
 fn port(name: &str, display: &str, kind: PortKind, value_type: ValueType) -> PortDescriptor {
     PortDescriptor::new(name, display, kind, value_type)
 }
 
-fn config_schema(properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
+fn input_window_properties() -> serde_json::Value {
+    serde_json::json!({
+        "focus": {
+            "type": "boolean",
+            "title": "Focus target window",
+            "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
+            "default": false
+        },
+        "title": {
+            "type": "string",
+            "title": "Window title",
+            "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+            "examples": ["Notepad", "Settings"]
+        },
+        "class": {
+            "type": "string",
+            "title": "Window class",
+            "description": "Target Win32 window class used when `focus` is true.",
+            "examples": ["Notepad"]
+        },
+        "exact": {
+            "type": "boolean",
+            "title": "Exact match",
+            "description": "Require the target title and class to match exactly.",
+            "default": false
+        }
+    })
+}
+
+fn config_schema(mut properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
+    if let (Some(base), Some(extra)) = (
+        properties.as_object_mut(),
+        input_window_properties().as_object(),
+    ) {
+        for (key, value) in extra {
+            base.insert(key.clone(), value.clone());
+        }
+    }
     serde_json::json!({
         "type": "object",
         "properties": properties,
         "required": required,
         "additionalProperties": false,
     })
+}
+
+fn focus_target(input: &NodeInput) -> NodeResult<()> {
+    if !input.config_bool("focus").unwrap_or(false) {
+        return Ok(());
+    }
+    let selector = WindowSelector {
+        title: input.config_str("title").map(str::to_string),
+        class: input.config_str("class").map(str::to_string),
+        exact: input.config_bool("exact").unwrap_or(false),
+        foreground: false,
+    };
+    if selector.title.is_none() && selector.class.is_none() {
+        return Err(NodeError::InvalidConfig(
+            "`focus` requires a target window `title` or `class`".to_string(),
+        ));
+    }
+    let record =
+        window::find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
+    native::focus(record.id).map_err(|error| NodeError::Execution(error.to_string()))?;
+    Ok(())
 }
 
 fn dangerous_descriptor(descriptor: NodeDescriptor, permission: &str) -> NodeDescriptor {
@@ -73,6 +132,7 @@ impl NodeExecutor for KeyboardExecutor {
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let chord = input.require_str("keys")?;
         context.check_cancelled()?;
+        focus_target(&input)?;
         let (modifiers, stroke) = keys::parse_chord(&chord)
             .ok_or_else(|| NodeError::InvalidConfig(format!("unknown key chord `{chord}`")))?;
         for modifier in &modifiers {
@@ -129,6 +189,7 @@ impl NodeExecutor for TextExecutor {
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let text = input.require_str("text")?;
         let interval = input.config_i64("interval_ms").unwrap_or(10).max(0) as u64;
+        focus_target(&input)?;
         for character in text.chars() {
             context.check_cancelled()?;
             let stroke = keys::resolve_char(character).ok_or_else(|| {
@@ -188,6 +249,7 @@ impl NodeExecutor for MouseExecutor {
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let action = input.require_str("action")?;
         context.check_cancelled()?;
+        focus_target(&input)?;
 
         let moved = match (input.config_i64("x"), input.config_i64("y")) {
             (Some(x), Some(y)) => {
@@ -232,5 +294,32 @@ impl NodeExecutor for MouseExecutor {
             "out",
             serde_json::json!({ "action": action, "moved": moved, "foreground": cursor }),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(config: serde_json::Value) -> NodeInput {
+        NodeInput {
+            node_id: "input".to_string(),
+            node_type: "windows.Input.Keyboard".to_string(),
+            config: config.clone(),
+            resolved_config: config,
+            inputs: Default::default(),
+        }
+    }
+
+    #[test]
+    fn focus_is_optional() {
+        focus_target(&input(serde_json::json!({ "keys": "enter" }))).unwrap();
+    }
+
+    #[test]
+    fn focus_requires_a_selector() {
+        let error = focus_target(&input(serde_json::json!({ "focus": true })))
+            .expect_err("focus without a window selector must fail");
+        assert_eq!(error.code(), "E_INVALID_CONFIG");
     }
 }

@@ -833,6 +833,26 @@
       "additionalProperties": false,
       "description": "Sends a key or key chord to the focused window",
       "properties": {
+        "class": {
+          "description": "Target Win32 window class used when `focus` is true.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the target title and class to match exactly.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "focus": {
+          "default": false,
+          "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
+          "title": "Focus target window",
+          "type": "boolean"
+        },
         "keys": {
           "description": "Key or chord to send to the focused window. Modifiers and keys are joined with `+`.",
           "examples": [
@@ -841,6 +861,15 @@
             "enter"
           ],
           "title": "Key chord",
+          "type": "string"
+        },
+        "title": {
+          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
           "type": "string"
         }
       },
@@ -870,6 +899,35 @@
           "title": "Action",
           "type": "string"
         },
+        "class": {
+          "description": "Target Win32 window class used when `focus` is true.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the target title and class to match exactly.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "focus": {
+          "default": false,
+          "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
+          "title": "Focus target window",
+          "type": "boolean"
+        },
+        "title": {
+          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
+          "type": "string"
+        },
         "x": {
           "description": "Absolute screen X in pixels. Omitted for `click` and `move` keeps the current position.",
           "title": "X",
@@ -892,6 +950,26 @@
       "additionalProperties": false,
       "description": "Types literal text into the focused window",
       "properties": {
+        "class": {
+          "description": "Target Win32 window class used when `focus` is true.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require the target title and class to match exactly.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "focus": {
+          "default": false,
+          "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
+          "title": "Focus target window",
+          "type": "boolean"
+        },
         "interval_ms": {
           "default": 10,
           "description": "Delay between keystrokes. `0` types as fast as the window accepts input.",
@@ -902,6 +980,15 @@
         "text": {
           "description": "Literal text to type into the focused window.",
           "title": "Text",
+          "type": "string"
+        },
+        "title": {
+          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
           "type": "string"
         }
       },

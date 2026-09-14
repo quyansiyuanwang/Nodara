@@ -212,6 +212,10 @@ Types literal text into the focused window.
 |---|---|---|---|---|
 | `text` | string | **yes** | — | Literal text to type. |
 | `interval_ms` | integer | no | `10` | Delay between keystrokes; `0` types as fast as the window accepts input. Minimum `0`. |
+| `focus` | boolean | no | `false` | Find and focus a target window before typing. |
+| `title` | string | no | — | Target window title when `focus` is true. |
+| `class` | string | no | — | Target Win32 window class when `focus` is true. |
+| `exact` | boolean | no | `false` | Require the target title and class to match exactly. |
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
@@ -231,6 +235,10 @@ clicking where the cursor already is.
 | `action` | string | **yes** | `click` | `move`, `click`, `double_click`, `right_click`, `middle_click`, `down` or `up`. |
 | `x` | integer | no | — | Absolute screen X in pixels. |
 | `y` | integer | no | — | Absolute screen Y in pixels. |
+| `focus` | boolean | no | `false` | Find and focus a target window before performing the mouse action. |
+| `title` | string | no | — | Target window title when `focus` is true. |
+| `class` | string | no | — | Target Win32 window class when `focus` is true. |
+| `exact` | boolean | no | `false` | Require the target title and class to match exactly. |
 
 ```json
 { "id": "click_ok", "type": "windows.Input.Mouse",

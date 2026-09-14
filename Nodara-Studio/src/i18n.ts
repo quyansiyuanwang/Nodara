@@ -385,6 +385,7 @@ const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
   "Exact match": { title: "精确匹配", description: "要求标题和类名完全匹配，而不是包含匹配。" },
   "Foreground window": { title: "使用前台窗口", description: "直接使用当前前台窗口，优先于标题和类名条件。" },
   "Window title": { title: "窗口标题", description: "要匹配的窗口标题；默认使用包含匹配。" },
+  "Focus target window": { title: "聚焦目标窗口", description: "发送输入前查找并聚焦目标窗口；关闭时向当前前台窗口发送输入。" },
 };
 
 const STATUS_ZH: Record<string, string> = {
