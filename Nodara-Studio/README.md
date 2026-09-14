@@ -98,7 +98,8 @@ known validation code has a Studio translation.
 * With no node selected, Properties edits workflow ID, name, description and
   tags, and manages workflow variables (value, description and secret flag).
 * The Properties panel exposes common execution settings for every node:
-  enabled/disabled pass-through, pre/post delay, retry count and retry delay.
+  enabled/disabled pass-through, pre/post delay, continue-on-error, retry count
+  and retry delay.
   The node context menu can toggle a node on or off immediately.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors

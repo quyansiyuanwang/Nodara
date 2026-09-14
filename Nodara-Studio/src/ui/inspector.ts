@@ -276,6 +276,12 @@ export class Inspector {
             minimum: 0,
             default: 0,
           },
+          continue_on_error: {
+            type: "boolean",
+            title: t("execution.continueOnError"),
+            description: t("execution.continueOnErrorDetail"),
+            default: false,
+          },
           retry: {
             type: "integer",
             title: t("execution.retries"),
@@ -296,6 +302,7 @@ export class Inspector {
         enabled: node.enabled ?? true,
         delay_before_ms: node.delay_before_ms ?? 0,
         delay_after_ms: node.delay_after_ms ?? 0,
+        continue_on_error: node.continue_on_error ?? false,
         retry: node.retry ?? 0,
         retry_delay_ms: node.retry_delay_ms ?? 0,
       },
@@ -317,6 +324,10 @@ export class Inspector {
       case "delay_after_ms":
         if (number > 0) node.delay_after_ms = number;
         else delete node.delay_after_ms;
+        break;
+      case "continue_on_error":
+        if (value === true) node.continue_on_error = true;
+        else delete node.continue_on_error;
         break;
       case "retry":
         if (number > 0) node.retry = Math.floor(number);

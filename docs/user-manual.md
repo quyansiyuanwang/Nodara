@@ -95,6 +95,7 @@ of the workflow document and are honored by the runtime:
 | Enabled | Disable a node to skip it while passing its incoming branch through to its outgoing edges |
 | Delay before (ms) | Wait before executing the node |
 | Delay after (ms) | Wait after successful execution before activating outgoing branches |
+| Continue on error | After retries are exhausted, continue through outgoing branches instead of failing the run |
 | Retries | Number of additional attempts after a failed execution |
 | Retry delay (ms) | Wait between failed attempts |
 

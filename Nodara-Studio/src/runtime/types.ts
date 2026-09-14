@@ -60,6 +60,8 @@ export interface WorkflowNode {
   enabled?: boolean;
   delay_before_ms?: number;
   delay_after_ms?: number;
+  /** Continue through outgoing branches after all retries fail. */
+  continue_on_error?: boolean;
   /** Additional attempts after the first failed execution. */
   retry?: number;
   retry_delay_ms?: number;

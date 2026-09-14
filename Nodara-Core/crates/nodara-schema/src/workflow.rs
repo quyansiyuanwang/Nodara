@@ -30,6 +30,10 @@ fn is_true(value: &bool) -> bool {
     *value
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 fn is_zero_u32(value: &u32) -> bool {
     *value == 0
 }
@@ -112,6 +116,11 @@ pub struct Node {
     /// Delay after successful execution, before outgoing branches activate.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub delay_after_ms: u64,
+    /// Whether execution continues through this node's outgoing branches after
+    /// all retry attempts fail. Policy denials and validation errors never use
+    /// this escape hatch.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub continue_on_error: bool,
     /// Number of additional attempts after the first failed execution.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub retry: u32,
@@ -135,6 +144,7 @@ impl Node {
             enabled: true,
             delay_before_ms: 0,
             delay_after_ms: 0,
+            continue_on_error: false,
             retry: 0,
             retry_delay_ms: 0,
             metadata: BTreeMap::new(),
@@ -317,6 +327,7 @@ mod tests {
         node.enabled = false;
         node.delay_before_ms = 25;
         node.delay_after_ms = 50;
+        node.continue_on_error = true;
         node.retry = 3;
         node.retry_delay_ms = 100;
 
@@ -325,6 +336,7 @@ mod tests {
         assert!(!back.enabled);
         assert_eq!(back.delay_before_ms, 25);
         assert_eq!(back.delay_after_ms, 50);
+        assert!(back.continue_on_error);
         assert_eq!(back.retry, 3);
         assert_eq!(back.retry_delay_ms, 100);
     }

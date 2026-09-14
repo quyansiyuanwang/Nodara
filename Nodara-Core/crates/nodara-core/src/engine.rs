@@ -608,6 +608,21 @@ impl WorkflowEngine {
                         .node(node.id.clone(), node.node_type.clone())
                         .detail(serde_json::json!({ "duration_ms": duration_ms })),
                     );
+                    if node.continue_on_error && !matches!(error, NodeError::Cancelled) {
+                        context.log(
+                            nodara_schema::LogLevel::Warn,
+                            format!(
+                                "node `{}` failed; continuing because `continue_on_error` is enabled",
+                                node.id
+                            ),
+                        );
+                        for edge in graph.edges_from(&node.id) {
+                            if edge_is_taken(edge, &context, &bus) {
+                                activated.insert(edge.target.clone());
+                            }
+                        }
+                        continue;
+                    }
                     status = if matches!(error, NodeError::Cancelled) {
                         RunStatus::Cancelled
                     } else {

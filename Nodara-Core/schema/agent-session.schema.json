@@ -306,6 +306,10 @@
           "default": {},
           "description": "Node-type specific configuration, validated against the node descriptor's config schema (published per node type in the workflow JSON Schema)."
         },
+        "continue_on_error": {
+          "description": "Whether execution continues through this node's outgoing branches after all retry attempts fail. Policy denials and validation errors never use this escape hatch.",
+          "type": "boolean"
+        },
         "delay_after_ms": {
           "description": "Delay after successful execution, before outgoing branches activate.",
           "format": "uint64",

@@ -136,6 +136,41 @@ fn a_disabled_node_is_skipped_and_passes_through() {
 }
 
 #[test]
+fn continue_on_error_takes_outgoing_branches() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(FlakyExecutor {
+        calls: calls.clone(),
+        failures: 10,
+    });
+
+    let mut workflow = Workflow::new("wf.continue");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut flaky = Node::new("flaky", "test.Flaky");
+    flaky.retry = 1;
+    flaky.continue_on_error = true;
+    workflow.add_node(flaky);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "flaky"));
+    workflow.add_edge(Edge::new("e2", "flaky", "end"));
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(Arc::new(registry)).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert_eq!(outcome.nodes_executed, 2);
+    assert!(sink.snapshot().iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::NodeFailed { node_id, .. } if node_id == "flaky"
+    )));
+}
+
+#[test]
 fn node_level_delays_are_applied() {
     let mut workflow = Workflow::new("wf.node-delay");
     workflow.add_node(Node::new("start", "core.Start"));
