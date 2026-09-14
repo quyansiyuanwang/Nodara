@@ -24,6 +24,10 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- Studio’s schema-driven configuration forms now mark required fields, show
+  inline descriptions, use schema examples as placeholders, apply common string
+  constraints and render nested object schemas as editable groups instead of
+  raw JSON.
 - Studio can duplicate a node with `Ctrl+D` or the node context menu,
   preserving configuration, enabled state, delays and retry settings while
   assigning a fresh node id.

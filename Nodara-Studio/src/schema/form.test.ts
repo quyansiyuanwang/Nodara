@@ -67,6 +67,41 @@ describe("schema-driven configuration forms", () => {
     expect(changes.enabled).toBe(true);
   });
 
+  it("marks required fields and uses examples as placeholders", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      required: ["title"],
+      properties: {
+        title: { type: "string", title: "Title", examples: ["Notepad"] },
+      },
+    };
+    const { host } = render(schema, {});
+    expect(host.querySelector(".field__label")?.textContent).toBe("Title *");
+    expect(host.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Notepad");
+  });
+
+  it("renders nested object fields without a JSON editor", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        window: {
+          type: "object",
+          title: "Window",
+          required: ["title"],
+          properties: {
+            title: { type: "string", title: "Window title" },
+          },
+        },
+      },
+    };
+    const { host, changes } = render(schema, { window: { title: "Notepad" } });
+    const input = host.querySelector<HTMLInputElement>("#field-window-title")!;
+    expect(input.value).toBe("Notepad");
+    input.value = "Settings";
+    input.dispatchEvent(new Event("input"));
+    expect(changes.window).toEqual({ title: "Settings" });
+  });
+
   it("falls back to a JSON editor for anything it cannot render", () => {
     const schema: JsonSchema = {
       type: "object",

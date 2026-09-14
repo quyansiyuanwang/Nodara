@@ -26,8 +26,15 @@ export interface JsonSchema {
   description?: string;
   default?: unknown;
   enum?: unknown[];
+  const?: unknown;
+  examples?: unknown[];
   minimum?: number;
   maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  step?: number;
+  format?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
   additionalProperties?: boolean | JsonSchema;

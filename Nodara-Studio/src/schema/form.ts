@@ -1,10 +1,9 @@
 /**
  * A small JSON Schema renderer.
  *
- * It covers the subset a node descriptor actually uses — strings, numbers,
- * booleans, enums, objects and free-form values — which is exactly the subset
- * `nodara-schema`'s descriptors are written in. Anything it does not understand
- * falls back to a JSON textarea rather than silently losing the value.
+ * It covers the subset node descriptors actually use: strings, numbers,
+ * booleans, enums, nested objects and free-form values. Anything it cannot
+ * render falls back to a JSON textarea instead of silently losing the value.
  */
 
 import { t } from "../i18n";
@@ -12,6 +11,8 @@ import { JsonSchema } from "../runtime/types";
 
 export interface FieldOptions {
   onChange: (value: unknown) => void;
+  required?: boolean;
+  idPrefix?: string;
 }
 
 function label(path: string, schema: JsonSchema): string {
@@ -34,6 +35,13 @@ function coerce(raw: string, schema: JsonSchema): unknown {
   }
 }
 
+function examplePlaceholder(schema: JsonSchema): string {
+  const example = schema.examples?.find((value) => typeof value === "string");
+  if (typeof example === "string") return example;
+  if (schema.format) return schema.format;
+  return "";
+}
+
 /** Render one field, appending it to `parent`. */
 export function renderField(
   parent: HTMLElement,
@@ -45,22 +53,35 @@ export function renderField(
   const wrapper = document.createElement("div");
   wrapper.className = "field";
 
-  const id = `field-${key.replace(/[^A-Za-z0-9]/g, "-")}`;
+  const id = `${options.idPrefix ?? "field"}-${key.replace(/[^A-Za-z0-9]/g, "-")}`;
   const heading = document.createElement("label");
   heading.className = "field__label";
   heading.htmlFor = id;
-  heading.textContent = label(key, schema);
-  if (schema.description) {
-    heading.title = schema.description;
-  }
+  heading.textContent = `${label(key, schema)}${options.required ? " *" : ""}`;
+  heading.dataset.required = options.required ? "true" : "false";
+  if (schema.description) heading.title = schema.description;
   wrapper.appendChild(heading);
 
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
 
-  if (schema.enum) {
+  if (type === "object" && schema.properties && Object.keys(schema.properties).length > 0) {
+    wrapper.classList.add("field--group");
+    const objectValue =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    for (const [childKey, childSchema] of Object.entries(schema.properties)) {
+      renderField(wrapper, childKey, childSchema, objectValue[childKey], {
+        required: schema.required?.includes(childKey),
+        idPrefix: id,
+        onChange: (childValue) => options.onChange({ ...objectValue, [childKey]: childValue }),
+      });
+    }
+  } else if (schema.enum) {
     const select = document.createElement("select");
     select.id = id;
     select.className = "input";
+    select.required = options.required === true;
     for (const option of schema.enum) {
       const element = document.createElement("option");
       element.value = String(option);
@@ -68,14 +89,13 @@ export function renderField(
       select.appendChild(element);
     }
     select.value = value === undefined ? String(schema.default ?? schema.enum[0]) : String(value);
-    select.addEventListener("change", () =>
-      options.onChange(coerce(select.value, schema)),
-    );
+    select.addEventListener("change", () => options.onChange(coerce(select.value, schema)));
     wrapper.appendChild(select);
   } else if (type === "boolean") {
     const checkbox = document.createElement("input");
     checkbox.id = id;
     checkbox.type = "checkbox";
+    checkbox.required = options.required === true;
     checkbox.checked = Boolean(value ?? schema.default ?? false);
     checkbox.addEventListener("change", () => options.onChange(checkbox.checked));
     wrapper.appendChild(checkbox);
@@ -84,8 +104,11 @@ export function renderField(
     input.id = id;
     input.className = "input";
     input.type = "number";
+    input.required = options.required === true;
     if (schema.minimum !== undefined) input.min = String(schema.minimum);
     if (schema.maximum !== undefined) input.max = String(schema.maximum);
+    if (schema.step !== undefined) input.step = String(schema.step);
+    else if (type === "integer") input.step = "1";
     input.value = value === undefined || value === null ? "" : String(value);
     input.addEventListener("input", () => options.onChange(coerce(input.value, schema)));
     wrapper.appendChild(input);
@@ -96,36 +119,46 @@ export function renderField(
       | HTMLInputElement;
     input.id = id;
     input.className = "input";
+    input.required = options.required === true;
     if (!long) (input as HTMLInputElement).type = "text";
-    if (long) (input as HTMLTextAreaElement).rows = 3;
+    if (long) {
+      (input as HTMLTextAreaElement).rows = 3;
+    } else {
+      (input as HTMLInputElement).placeholder = examplePlaceholder(schema);
+    }
+    if (schema.minLength !== undefined) input.minLength = schema.minLength;
+    if (schema.maxLength !== undefined) input.maxLength = schema.maxLength;
+    if (schema.pattern !== undefined && !long) {
+      (input as HTMLInputElement).pattern = schema.pattern;
+    }
     input.value = value === undefined || value === null ? "" : String(value);
     input.addEventListener("input", () => options.onChange(input.value));
     wrapper.appendChild(input);
   } else {
-    // Objects, arrays and anything unexpected: a JSON editor that never loses
-    // the value, with a syntax hint when it does not parse.
+    // Objects without a declared shape, arrays and anything unexpected: a JSON
+    // editor that never loses the value.
     const textarea = document.createElement("textarea");
     textarea.id = id;
     textarea.className = "input input--code";
     textarea.rows = 4;
     textarea.spellcheck = false;
+    textarea.required = options.required === true;
     textarea.value = JSON.stringify(value ?? schema.default ?? {}, null, 2);
-    const hint = document.createElement("p");
-    hint.className = "field__hint";
+    const errorHint = document.createElement("p");
+    errorHint.className = "field__hint field__hint--error";
     textarea.addEventListener("input", () => {
       try {
         const parsed = JSON.parse(textarea.value);
-        hint.textContent = "";
+        errorHint.textContent = "";
         options.onChange(parsed);
       } catch (error) {
-        hint.textContent = t("form.invalidJson", { message: (error as Error).message });
+        errorHint.textContent = t("form.invalidJson", { message: (error as Error).message });
       }
     });
-    wrapper.appendChild(textarea);
-    wrapper.appendChild(hint);
+    wrapper.append(textarea, errorHint);
   }
 
-  if (schema.description && type !== "string") {
+  if (schema.description) {
     const hint = document.createElement("p");
     hint.className = "field__hint";
     hint.textContent = schema.description;
@@ -152,6 +185,8 @@ export function renderConfigForm(
   }
   for (const key of keys) {
     renderField(parent, key, properties[key], config[key], {
+      required: schema.required?.includes(key),
+      idPrefix: "field",
       onChange: (value) => onChange(key, value),
     });
   }

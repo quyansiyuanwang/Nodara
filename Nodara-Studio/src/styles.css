@@ -635,6 +635,17 @@ body.is-resizing-y * {
   color: var(--text-dim);
 }
 
+.field__hint--error {
+  color: var(--error);
+}
+
+.field--group {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #121620;
+}
+
 .gate {
   margin: 8px 0;
   padding: 8px 10px;
