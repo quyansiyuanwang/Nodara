@@ -97,6 +97,16 @@ All notable changes to this project are documented here. The format follows
   the second, overriding copy of the same decision was removed.
 - A failed run-thread spawn surfaces as `E_THREAD` on the run instead of
   aborting the process (engine and runtime).
+- `windows.Input.Keyboard` chords whose last key is written in uppercase
+  (`Ctrl+S`) no longer extra-hold Shift. Capital Shift is only for
+  `windows.Input.Text` typing a letter.
+- `serve --in-process` (and `register_vision`) now honours `NODARA_OCR_COMMAND`,
+  matching the vision plugin binary.
+- `PluginHost::install_into` no longer replaces an in-process executor with a
+  stdio plugin of the same node type, so `run`/`serve --in-process --plugin-dir`
+  keeps the embedded official capabilities.
+- `windows.Window.Capture` describes a full-window capture (including chrome),
+  matching `GetWindowRect`.
 
 **Agent**
 
@@ -121,6 +131,8 @@ All notable changes to this project are documented here. The format follows
 
 - CI runs clippy for the agent workspace alongside core, and explains why the
   plugin-dependent and legacy examples are not part of plain validation.
+- Core clippy `-D warnings`: newest-first lists and descriptor sorts use
+  `sort_by_key` (unblocking Core CI).
 
 ## [2.0.0] — plugin-ecosystem rearchitecture
 

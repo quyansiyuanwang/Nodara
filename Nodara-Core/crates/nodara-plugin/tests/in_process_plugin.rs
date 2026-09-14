@@ -26,6 +26,12 @@ use serde_json::{json, Value};
 #[derive(Debug, Default)]
 struct EchoExecutor;
 
+/// Same type as [`EchoExecutor`], with a descriptor that is easy to tell apart
+/// from the plugin copy. Used to prove `install_into` does not clobber
+/// in-process executors.
+#[derive(Debug, Default)]
+struct InProcessEcho;
+
 impl NodeExecutor for EchoExecutor {
     fn descriptor(&self) -> NodeDescriptor {
         NodeDescriptor {
@@ -59,6 +65,17 @@ impl NodeExecutor for EchoExecutor {
         Ok(NodeOutput::new()
             .with_output("out", json!(text))
             .with_variable("echoed", json!(text)))
+    }
+}
+
+impl NodeExecutor for InProcessEcho {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("test.Echo", "In-process Echo", "Test")
+            .with_description("in-process")
+    }
+
+    fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        EchoExecutor.execute(input, context)
     }
 }
 
@@ -230,6 +247,41 @@ fn host_registers_descriptors_for_unloaded_plugins() {
     assert!(registry.node_types().contains(&"test.Echo".to_string()));
     // Descriptor-only registration must not pretend to be executable.
     assert!(!registry.can_execute("test.Echo"));
+}
+
+#[test]
+fn loaded_plugin_does_not_replace_an_in_process_executor() {
+    let host = PluginHost::new();
+    host.install_client(
+        manifest(),
+        std::path::PathBuf::from("."),
+        Arc::new(client()),
+    );
+    assert!(host.has_loaded_plugins());
+
+    let mut registry = CapabilityRegistry::new();
+    registry.register(InProcessEcho);
+    host.install_into(&mut registry);
+
+    let descriptor = registry.descriptor("test.Echo").unwrap();
+    assert_eq!(descriptor.display_name, "In-process Echo");
+    assert_eq!(descriptor.description, "in-process");
+    assert!(registry.can_execute("test.Echo"));
+}
+
+#[test]
+fn loaded_plugin_still_registers_types_the_registry_cannot_yet_execute() {
+    let host = PluginHost::new();
+    host.install_client(
+        manifest(),
+        std::path::PathBuf::from("."),
+        Arc::new(client()),
+    );
+
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    host.install_into(&mut registry);
+    assert!(registry.can_execute("test.Echo"));
 }
 
 #[test]

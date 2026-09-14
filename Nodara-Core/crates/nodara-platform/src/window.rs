@@ -270,7 +270,7 @@ impl NodeExecutor for CaptureExecutor {
             permissions: vec!["screen.capture".to_string()],
             allows_additional_config: false,
             ..NodeDescriptor::new("windows.Window.Capture", "Capture Window", "Window")
-                .with_description("Captures a window's client area")
+                .with_description("Captures a window, including its frame")
         }
     }
 

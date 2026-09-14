@@ -96,7 +96,7 @@ impl AgentSessionStore {
     pub fn list(&self) -> Vec<AgentSession> {
         let inner = self.inner.lock();
         let mut sessions: Vec<AgentSession> = inner.sessions.values().cloned().collect();
-        sessions.sort_by(|a, b| b.created_at_ms.cmp(&a.created_at_ms));
+        sessions.sort_by_key(|a| std::cmp::Reverse(a.created_at_ms));
         sessions
     }
 

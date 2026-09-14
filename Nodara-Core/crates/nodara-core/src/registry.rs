@@ -81,7 +81,7 @@ impl CapabilityRegistry {
     /// Every descriptor, sorted by node type.
     pub fn descriptors(&self) -> Vec<NodeDescriptor> {
         let mut descriptors: Vec<NodeDescriptor> = self.descriptors.values().cloned().collect();
-        descriptors.sort_by(|a, b| a.node_type.cmp(&b.node_type));
+        descriptors.sort_by_key(|a| a.node_type.clone());
         descriptors
     }
 

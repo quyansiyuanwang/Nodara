@@ -436,7 +436,7 @@
               },
               "type": {
                 "const": "windows.Window.Capture",
-                "description": "Captures a window's client area"
+                "description": "Captures a window, including its frame"
               }
             }
           }
@@ -886,7 +886,7 @@
     },
     "NodeConfig.windows.Window.Capture": {
       "additionalProperties": false,
-      "description": "Captures a window's client area",
+      "description": "Captures a window, including its frame",
       "properties": {
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",

@@ -131,8 +131,7 @@ impl NodeExecutor for TextExecutor {
         let interval = input.config_i64("interval_ms").unwrap_or(10).max(0) as u64;
         for character in text.chars() {
             context.check_cancelled()?;
-            let name = character.to_string();
-            let stroke = keys::resolve(&name).ok_or_else(|| {
+            let stroke = keys::resolve_char(character).ok_or_else(|| {
                 NodeError::Unsupported(format!("character `{character}` cannot be typed"))
             })?;
             press(stroke);

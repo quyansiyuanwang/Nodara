@@ -172,6 +172,12 @@ pub fn install_backend_from_env() {
     }
 }
 
+/// Drop the process-wide backend. Tests use this so env install is observable.
+#[cfg(test)]
+pub(crate) fn clear_ocr_backend() {
+    *BACKEND.lock() = None;
+}
+
 /// Convenience: a short description of the active backend.
 pub fn backend_name() -> String {
     ocr_backend().map_or_else(|| "none".to_string(), |backend| backend.name().to_string())

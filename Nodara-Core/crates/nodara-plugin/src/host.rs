@@ -118,8 +118,21 @@ impl PluginHost {
         let client = Arc::new(PluginClient::connect_with_sink(
             &manifest, &directory, sink,
         )?);
-        let descriptors = client.descriptors().to_vec();
+        self.install_client(manifest, directory, client);
+        Ok(())
+    }
 
+    /// Attach an already-connected client without launching a process.
+    ///
+    /// Production code goes through [`Self::load`]. Tests (and any future
+    /// in-process host) use this with [`PluginClient::from_transport`].
+    pub fn install_client(
+        &self,
+        manifest: PluginManifest,
+        directory: PathBuf,
+        client: Arc<PluginClient>,
+    ) {
+        let descriptors = client.descriptors().to_vec();
         let mut plugins = self.plugins.lock();
         if let Some(existing) = plugins
             .iter_mut()
@@ -137,7 +150,6 @@ impl PluginHost {
                 descriptors,
             });
         }
-        Ok(())
     }
 
     /// Launch every plugin found during discovery.
@@ -160,12 +172,21 @@ impl PluginHost {
     /// Loaded plugins contribute runnable executors; unloaded plugins contribute
     /// descriptors only, which keeps `GET /node-types` and validation honest about
     /// what exists while `execute` still fails loudly for a stopped plugin.
+    ///
+    /// A node type that already has an executor — typically an in-process
+    /// official capability registered before plugins are installed — is never
+    /// replaced. `serve --in-process --plugin-dir plugins` would otherwise
+    /// launch the same official plugins and swap the embedded executors for
+    /// stdio RPC copies of themselves.
     pub fn install_into(&self, registry: &mut CapabilityRegistry) {
         let plugins = self.plugins.lock();
         for entry in plugins.iter() {
             match &entry.client {
                 Some(client) => {
                     for descriptor in &entry.descriptors {
+                        if registry.can_execute(&descriptor.node_type) {
+                            continue;
+                        }
                         registry.register_arc(Arc::new(PluginExecutor::new(
                             client.clone(),
                             descriptor.clone(),
@@ -219,7 +240,7 @@ impl PluginHost {
             .iter()
             .flat_map(|entry| entry.descriptors.clone())
             .collect();
-        descriptors.sort_by(|a, b| a.node_type.cmp(&b.node_type));
+        descriptors.sort_by_key(|a| a.node_type.clone());
         descriptors
     }
 

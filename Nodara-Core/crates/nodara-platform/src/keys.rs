@@ -91,21 +91,13 @@ pub fn modifier_vk(name: &str) -> Option<u8> {
     }
 }
 
-/// Resolve a key name to a virtual key plus required shift state.
+/// Resolve a key *name* (chords, named keys, digits, symbols).
+///
+/// Letters are case-insensitive and do not hold Shift: `S` and `s` are the
+/// same key. That is what a chord such as `Ctrl+S` must mean — the extra
+/// Shift for a capital letter is only for typing literal text, via
+/// [`resolve_char`].
 pub fn resolve(name: &str) -> Option<KeyStroke> {
-    // An uppercase letter must keep `Shift` held; everything below is matched
-    // case-insensitively, so the raw name has to be inspected first.
-    let trimmed = name.trim();
-    if trimmed.len() == 1 {
-        if let Some(character) = trimmed.chars().next() {
-            if character.is_ascii_uppercase() {
-                return Some(KeyStroke {
-                    virtual_key: character as u8,
-                    shift: true,
-                });
-            }
-        }
-    }
     let normalised = normalise(name);
     if let Some(virtual_key) = named_key(&normalised) {
         return Some(KeyStroke {
@@ -114,6 +106,20 @@ pub fn resolve(name: &str) -> Option<KeyStroke> {
         });
     }
     resolve_shifted(&normalised)
+}
+
+/// Resolve a literal character for `windows.Input.Text`.
+///
+/// An ASCII uppercase letter holds Shift so it types as a capital; every
+/// other character matches [`resolve`].
+pub fn resolve_char(character: char) -> Option<KeyStroke> {
+    if character.is_ascii_uppercase() {
+        return Some(KeyStroke {
+            virtual_key: character as u8,
+            shift: true,
+        });
+    }
+    resolve(&character.to_string())
 }
 
 fn named_key(name: &str) -> Option<u8> {
@@ -261,13 +267,33 @@ mod tests {
     }
 
     #[test]
-    fn uppercase_letters_hold_shift() {
+    fn key_names_do_not_hold_shift_for_uppercase_letters() {
         let capital = resolve("A").unwrap();
         assert_eq!(capital.virtual_key, b'A');
-        assert!(capital.shift);
+        assert!(!capital.shift);
         let lower = resolve("a").unwrap();
         assert_eq!(lower.virtual_key, b'A');
         assert!(!lower.shift);
+    }
+
+    #[test]
+    fn typed_uppercase_letters_hold_shift() {
+        let capital = resolve_char('A').unwrap();
+        assert_eq!(capital.virtual_key, b'A');
+        assert!(capital.shift);
+        let lower = resolve_char('a').unwrap();
+        assert_eq!(lower.virtual_key, b'A');
+        assert!(!lower.shift);
+    }
+
+    #[test]
+    fn chord_last_key_is_case_insensitive() {
+        let (upper_mods, upper) = parse_chord("Ctrl+S").unwrap();
+        let (lower_mods, lower) = parse_chord("ctrl+s").unwrap();
+        assert_eq!(upper_mods, lower_mods);
+        assert_eq!(upper, lower);
+        assert!(!upper.shift);
+        assert_eq!(upper.virtual_key, b'S');
     }
 
     #[test]

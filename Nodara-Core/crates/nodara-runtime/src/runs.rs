@@ -329,7 +329,7 @@ impl RunManager {
     pub fn list(&self) -> Vec<RunSnapshot> {
         let runs = self.runs.lock();
         let mut snapshots: Vec<RunSnapshot> = runs.values().map(|run| run.snapshot()).collect();
-        snapshots.sort_by(|a, b| b.started_at_ms.cmp(&a.started_at_ms));
+        snapshots.sort_by_key(|a| std::cmp::Reverse(a.started_at_ms));
         snapshots
     }
 
