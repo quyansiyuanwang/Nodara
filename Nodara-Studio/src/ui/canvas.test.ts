@@ -259,12 +259,36 @@ describe("graph editing on the canvas", () => {
 
     const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
     node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
-    const toggle = document.querySelector<HTMLButtonElement>(".context-menu__item")!;
+    const toggle = document.querySelector<HTMLButtonElement>(".context-menu__item[data-action=\"toggle\"]")!;
     expect(toggle.textContent).toContain("Disable node");
     toggle.click();
 
     expect(workflow.nodes.find((candidate) => candidate.id === "log")?.enabled).toBe(false);
     expect(document.querySelector<SVGGElement>('[data-node-id="log"]')?.classList.contains("node--disabled")).toBe(true);
+  });
+
+  it("duplicates a configured node with Ctrl+D", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+    const source = workflow.nodes.find((node) => node.type === "core.Log")!;
+    source.config = { message: "copied" };
+    source.retry = 2;
+    source.delay_before_ms = 15;
+    canvas.select(source.id);
+    canvas.render();
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", ctrlKey: true }));
+
+    const logs = workflow.nodes.filter((node) => node.type === "core.Log");
+    expect(logs).toHaveLength(2);
+    const copy = logs[1];
+    expect(copy.id).not.toBe(source.id);
+    expect(copy.config).toEqual({ message: "copied" });
+    expect(copy.config).not.toBe(source.config);
+    expect(copy.retry).toBe(2);
+    expect(copy.delay_before_ms).toBe(15);
+    expect(copy.position).toEqual({ x: 252, y: 152 });
   });
 
   it("deletes a node from its context menu", () => {

@@ -310,8 +310,39 @@ export class Canvas {
   private onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
+      if (!this.selected) return;
+      event.preventDefault();
+      this.duplicateNode(this.selected);
+      return;
+    }
     if (event.key !== "Delete" && event.key !== "Backspace") return;
     this.deleteSelection();
+  }
+
+  private duplicateNode(id: string): void {
+    const source = this.workflow.nodes.find((node) => node.id === id);
+    if (!source) return;
+    const descriptor = this.handlers.descriptorFor(source.type);
+    if (!descriptor) {
+      this.handlers.onStatus(`cannot duplicate unknown node type \`${source.type}\``);
+      return;
+    }
+    const nextId = nextNodeId(descriptor, this.workflow.nodes);
+    const position = {
+      x: (source.position?.x ?? 0) + 28,
+      y: (source.position?.y ?? 0) + 28,
+    };
+    const copy: WorkflowNode = {
+      ...source,
+      id: nextId,
+      label: source.label ? `${source.label} copy` : descriptor.display_name,
+      config: structuredClone(source.config ?? {}),
+      position,
+    };
+    this.workflow.nodes.push(copy);
+    this.select(nextId);
+    this.handlers.onChange();
   }
 
   private deleteSelection(): void {
@@ -353,9 +384,26 @@ export class Canvas {
     if (target.kind === "node") {
       const node = this.workflow.nodes.find((candidate) => candidate.id === target.id);
       if (node) {
+        const duplicate = document.createElement("button");
+        duplicate.type = "button";
+        duplicate.className = "context-menu__item";
+        duplicate.dataset.action = "duplicate";
+        const duplicateLabel = document.createElement("span");
+        duplicateLabel.textContent = t("canvas.duplicateNode");
+        const duplicateShortcut = document.createElement("span");
+        duplicateShortcut.className = "context-menu__shortcut";
+        duplicateShortcut.textContent = "Ctrl+D";
+        duplicate.append(duplicateLabel, duplicateShortcut);
+        duplicate.addEventListener("click", () => {
+          this.contextMenu.hidden = true;
+          this.duplicateNode(target.id);
+        });
+        this.contextMenu.appendChild(duplicate);
+
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "context-menu__item";
+        toggle.dataset.action = "toggle";
         const toggleLabel = document.createElement("span");
         toggleLabel.textContent = node.enabled === false
           ? t("canvas.enableNode")
@@ -374,6 +422,7 @@ export class Canvas {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "context-menu__item context-menu__item--danger";
+    remove.dataset.action = "delete";
     const label = document.createElement("span");
     label.textContent = target.kind === "node"
       ? t("canvas.deleteNode")
