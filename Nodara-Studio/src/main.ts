@@ -15,6 +15,7 @@ import {
   t,
   toggleLocale,
 } from "./i18n";
+import { WorkflowHistory } from "./model/history";
 import {
   applyWorkflow,
   emptyWorkflow,
@@ -76,6 +77,8 @@ class Studio {
   private readonly agents: AgentPanel;
   private readonly audit: AuditPanel;
   private agentPoll: number | null = null;
+  private history!: WorkflowHistory;
+  private historyTimer: number | null = null;
 
   constructor() {
     const canvasElement = element<SVGSVGElement>("canvas");
@@ -108,9 +111,11 @@ class Studio {
       onOpenRun: (runId) => void this.openRun(runId),
     });
     this.audit = new AuditPanel(element("audit"));
+    this.history = new WorkflowHistory(JSON.stringify(this.workflow));
 
     this.bindToolbar();
     this.bindResizers();
+    this.updateHistoryControls();
     this.renderInspector();
     this.renderWorkspace();
     this.setStatus(null);
@@ -173,6 +178,12 @@ class Studio {
       this.replaceWorkflow(emptyWorkflow());
     });
 
+    element("btn-undo").addEventListener("click", () => {
+      this.flushHistory();
+      this.undo();
+    });
+    element("btn-redo").addEventListener("click", () => this.redo());
+
     element("btn-export").addEventListener("click", () => {
       const blob = new Blob([JSON.stringify(this.workflow, null, 2)], {
         type: "application/json",
@@ -214,6 +225,7 @@ class Studio {
     element<HTMLInputElement>("palette-filter").addEventListener("input", (event) => {
       this.palette.filter((event.target as HTMLInputElement).value);
     });
+    window.addEventListener("keydown", (event) => this.onHistoryKeyDown(event));
 
     for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
       tab.addEventListener("click", () => {
@@ -316,6 +328,74 @@ class Studio {
     element("canvas-zoom-level").textContent = `${Math.round(scale * 100)}%`;
   }
 
+  private scheduleHistoryCommit(): void {
+    if (this.historyTimer !== null) window.clearTimeout(this.historyTimer);
+    this.historyTimer = window.setTimeout(() => {
+      this.historyTimer = null;
+      this.commitHistory();
+    }, 250);
+  }
+
+  private flushHistory(): void {
+    if (this.historyTimer !== null) {
+      window.clearTimeout(this.historyTimer);
+      this.historyTimer = null;
+    }
+    this.commitHistory();
+  }
+
+  private commitHistory(): void {
+    this.history.push(JSON.stringify(this.workflow));
+    this.updateHistoryControls();
+  }
+
+  private updateHistoryControls(): void {
+    element<HTMLButtonElement>("btn-undo").disabled = !this.history.canUndo();
+    element<HTMLButtonElement>("btn-redo").disabled = !this.history.canRedo();
+  }
+
+  private undo(): void {
+    this.flushHistory();
+    const snapshot = this.history.undo();
+    if (snapshot !== null) this.restoreHistory(snapshot);
+    this.updateHistoryControls();
+  }
+
+  private redo(): void {
+    this.flushHistory();
+    const snapshot = this.history.redo();
+    if (snapshot !== null) this.restoreHistory(snapshot);
+    this.updateHistoryControls();
+  }
+
+  private restoreHistory(snapshot: string): void {
+    applyWorkflow(this.workflow, JSON.parse(snapshot) as Workflow);
+    this.diagnostics = [];
+    this.workflowRevision += 1;
+    this.canvas.select(null);
+    this.palette.refreshAvailability();
+    this.setValidationState("checking", t("validation.waiting"));
+    this.renderWorkspace();
+    this.scheduleValidation();
+  }
+
+  private onHistoryKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    if (key === "z") {
+      event.preventDefault();
+      this.flushHistory();
+      if (event.shiftKey) this.redo();
+      else this.undo();
+    } else if (key === "y") {
+      event.preventDefault();
+      this.flushHistory();
+      this.redo();
+    }
+  }
+
   private renderInspector(): void {
     this.inspector.render(
       this.canvas.selectedNodeId(),
@@ -343,6 +423,7 @@ class Studio {
     }
     this.setValidationState("checking", t("validation.waiting"));
     this.renderWorkspace();
+    this.scheduleHistoryCommit();
     this.scheduleValidation();
   }
 
