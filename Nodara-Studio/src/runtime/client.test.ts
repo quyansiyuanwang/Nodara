@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { RuntimeClient, RuntimeError } from "./client";
+import { defaultRuntimeBaseUrl, RuntimeClient, RuntimeError } from "./client";
 import { NodeDescriptor } from "./types";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -15,6 +15,14 @@ afterEach(() => {
 });
 
 describe("runtime client", () => {
+  it("uses the local runtime from the desktop shell", () => {
+    vi.stubGlobal("isTauri", false);
+    expect(defaultRuntimeBaseUrl()).toBe("");
+
+    vi.stubGlobal("isTauri", true);
+    expect(defaultRuntimeBaseUrl()).toBe("http://127.0.0.1:8710");
+  });
+
   it("maps the node-type payload onto descriptors", async () => {
     const descriptor: Partial<NodeDescriptor> = { node_type: "core.Log" };
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ node_types: [descriptor] }));

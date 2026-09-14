@@ -21,6 +21,9 @@ examples. When a document changes, change both.
 | Document | Contents |
 |---|---|
 | [project.md](project.md) · [中文](project.zh.md) | Detailed project guide: architecture, execution model, plugins, runtime, Studio, agent, security, extension points |
+| [user-manual.md](user-manual.md) · [中文](user-manual.zh.md) | Operating the packaged product: CLI, runtime, Studio, Agent, API, security and troubleshooting |
+| [testing.md](testing.md) · [中文](testing.zh.md) | Debug/release acceptance checklist, integrity checks and regression procedure |
+| [artifacts.md](artifacts.md) · [中文](artifacts.zh.md) | Artifact layout, checksums, debug/release differences and reproducible packaging |
 | [schema.md](schema.md) · [中文](schema.zh.md) | Every JSON Schema document, field by field, and how the workflow schema produces editor content hints |
 | [nodes.md](nodes.md) · [中文](nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
 
@@ -29,7 +32,7 @@ examples. When a document changes, change both.
 | Document | Contents |
 |---|---|
 | [../README.md](../README.md) | What the project is and how the pieces fit |
-| [../QUICKSTART.md](../QUICKSTART.md) | End-to-end walkthrough in five minutes |
+| [../QUICKSTART.md](../QUICKSTART.md) · [中文](../QUICKSTART.zh.md) | End-to-end walkthrough in five minutes |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Repository layout and dependency rules |
 | [../examples/README.md](../examples/README.md) | Runnable example workflows |
 

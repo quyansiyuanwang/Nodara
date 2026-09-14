@@ -1,5 +1,8 @@
 # Nodara
 
+> 中文: [README.zh.md](README.zh.md)
+
+
 A plugin-based desktop automation platform. Workflows are JSON graphs; every
 capability — keyboard, windows, OCR, or a third party's plugin — is a separate
 process described by a manifest. Editors and AI agents drive the same runtime
@@ -131,10 +134,13 @@ execution, and the decision appears in the event stream and the audit log.
 | Document | Contents |
 |----------|----------|
 | [docs/README.md](docs/README.md) · [中文](docs/README.zh.md) | Documentation index and the `name.md` / `name.zh.md` language convention |
+| [docs/user-manual.md](docs/user-manual.md) · [中文](docs/user-manual.zh.md) | Packaged-product operations, API usage, security and troubleshooting |
+| [docs/testing.md](docs/testing.md) · [中文](docs/testing.zh.md) | Debug/release acceptance checks and regression procedure |
+| [docs/artifacts.md](docs/artifacts.md) · [中文](docs/artifacts.zh.md) | Artifact layout, checksums and reproducible packaging |
 | [docs/project.md](docs/project.md) · [中文](docs/project.zh.md) | Detailed project guide: architecture, execution model, plugins, security, extension points |
 | [docs/schema.md](docs/schema.md) · [中文](docs/schema.zh.md) | Every JSON Schema document field by field, and how `$schema` produces editor content hints |
 | [docs/nodes.md](docs/nodes.md) · [中文](docs/nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
-| [QUICKSTART.md](QUICKSTART.md) | End-to-end walkthrough in five minutes |
+| [QUICKSTART.md](QUICKSTART.md) · [中文](QUICKSTART.zh.md) | End-to-end walkthrough in five minutes |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Repository layout and dependency rules |
 | [Nodara-Core/docs/architecture.md](Nodara-Core/docs/architecture.md) | Crate detail, execution model, policy path |
 | [Nodara-Core/protocol/](Nodara-Core/protocol) | Plugin protocol and runtime API |
@@ -143,13 +149,24 @@ execution, and the decision appears in the event stream and the audit log.
 | [examples/README.md](examples/README.md) | The example workflows |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
-## Testing
+## Build and test
 
-```bash
-cd Nodara-Core && cargo test --workspace
-cd ../Nodara-Agent && cargo test --workspace
-cd ../Nodara-Studio && npm run build
+The complete test suite:
+
+```powershell
+cd Nodara-Core; cargo test --workspace
+cd ../Nodara-Agent; cargo test --workspace
+cd ../Nodara-Studio; npm test; npm run build
 ```
+
+Build both runnable Windows x64 flavors, including NSIS/MSI and SHA-256 files:
+
+```powershell
+.\scripts\build-artifacts.ps1 -Configuration All
+```
+
+Results are written to the ignored `artifacts\debug\` and `artifacts\release\`
+directories. See [docs/artifacts.md](docs/artifacts.md) for the layout.
 
 ## License
 

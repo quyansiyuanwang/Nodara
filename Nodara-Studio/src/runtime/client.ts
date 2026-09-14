@@ -1,3 +1,5 @@
+import { isTauri } from "@tauri-apps/api/core";
+
 /**
  * The only place that knows how to talk to the runtime.
  *
@@ -54,6 +56,17 @@ export interface EventStreamHandlers {
   onEvent: (envelope: EventEnvelope) => void;
   onError?: (error: Event) => void;
   onClose?: () => void;
+}
+
+/**
+ * Resolve the runtime origin for the shell the Studio is running in.
+ *
+ * A browser build keeps requests relative so Vite or a reverse proxy can route
+ * `/api` to the runtime. A Tauri build has no such proxy, so it must talk to
+ * the local runtime directly.
+ */
+export function defaultRuntimeBaseUrl(): string {
+  return isTauri() ? "http://127.0.0.1:8710" : "";
 }
 
 export class RuntimeClient {

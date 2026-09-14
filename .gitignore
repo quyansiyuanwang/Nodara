@@ -66,3 +66,6 @@ audit/
 # --- Documentation builds ---------------------------------------------------
 docs/_build/
 site/
+
+# Local distributable packages
+artifacts/

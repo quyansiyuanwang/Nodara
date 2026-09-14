@@ -13,7 +13,7 @@ import {
   localProblems,
   WORKFLOW_SCHEMA_PATH,
 } from "./model/workflow";
-import { RuntimeClient, RuntimeError } from "./runtime/client";
+import { defaultRuntimeBaseUrl, RuntimeClient, RuntimeError } from "./runtime/client";
 import {
   Diagnostic,
   NodeDescriptor,
@@ -34,7 +34,7 @@ function element<T extends Element = HTMLElement>(id: string): T {
 }
 
 class Studio {
-  private readonly client = new RuntimeClient();
+  private readonly client = new RuntimeClient(defaultRuntimeBaseUrl());
 
   /**
    * The editor mutates this object in place rather than replacing it, because

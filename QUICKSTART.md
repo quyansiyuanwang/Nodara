@@ -1,9 +1,26 @@
 # Quick start
 
+> 中文: [QUICKSTART.zh.md](QUICKSTART.zh.md)
+
 Five minutes, from an empty checkout to a running workflow, an editor and a
 planning agent.
 
 ## 1. Build and run a workflow
+
+### Prebuilt package
+
+For an acceptance test without a Rust or Node toolchain, extract the release
+package and run from its root:
+
+```powershell
+.\nodara-cli.exe validate .\examples\hello-world.json
+.\nodara-cli.exe run .\examples\hello-world.json
+```
+
+See [docs/artifacts.md](docs/artifacts.md) for the package layout and integrity
+checks.
+
+### From source
 
 ```bash
 cd Nodara-Core

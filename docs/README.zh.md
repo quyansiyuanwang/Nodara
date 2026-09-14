@@ -20,6 +20,9 @@
 | 文档 | 内容 |
 |---|---|
 | [project.zh.md](project.zh.md) · [English](project.md) | 项目详细介绍：架构、执行模型、插件、运行时、Studio、Agent、安全、扩展点 |
+| [user-manual.zh.md](user-manual.zh.md) · [English](user-manual.md) | 预编译产物使用手册：CLI、runtime、Studio、Agent、API、安全与排障 |
+| [testing.zh.md](testing.zh.md) · [English](testing.md) | debug/release 验收、完整性检查与回归流程 |
+| [artifacts.zh.md](artifacts.zh.md) · [English](artifacts.md) | 产物目录、校验、debug/release 差异与可复现打包 |
 | [schema.zh.md](schema.zh.md) · [English](schema.md) | 逐个 JSON Schema 文档的逐字段说明，以及工作流 schema 如何产生编辑器内容提示 |
 | [nodes.zh.md](nodes.zh.md) · [English](nodes.md) | 节点目录：端口、权限与全部配置项 |
 
@@ -28,7 +31,7 @@
 | 文档 | 内容 |
 |---|---|
 | [../README.md](../README.md) | 项目是什么，各部分如何配合 |
-| [../QUICKSTART.md](../QUICKSTART.md) | 五分钟端到端演练 |
+| [../QUICKSTART.zh.md](../QUICKSTART.zh.md) · [English](../QUICKSTART.md) | 五分钟端到端演练 |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | 仓库布局与依赖规则 |
 | [../examples/README.md](../examples/README.md) | 可运行的示例工作流 |
 

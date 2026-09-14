@@ -24,11 +24,18 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- `scripts/build-artifacts.ps1` produces runnable Windows x64 debug and release
+  ZIPs with tests, plugins, examples, schemas, documentation, PDB files for
+  debug, NSIS/MSI for release, `build-info.json` and SHA-256 checksums.
+- The Studio now has a source SVG and generated multi-platform application
+  icons, allowing Tauri to create Windows resources and installers.
 
 ### Changed
 
 - The Rust `Workflow` model round-trips `$schema` (`Workflow::schema_url`), so
   migration, load and save preserve an editor's content hints.
+- The Tauri desktop build now connects directly to `http://127.0.0.1:8710`;
+  browser builds continue to use relative `/api` URLs for proxying.
 
 ### Documentation
 
@@ -40,6 +47,9 @@ All notable changes to this project are documented here. The format follows
 - `cargo test -p nodara-cli` now checks the node reference against the shipped
   catalogue: a node type, permission or configuration key that is not
   documented fails the build in both languages.
+- Added packaged-product quick starts, user manuals, acceptance test guides and
+  artifact guides in English and Chinese, linked from the root README files and
+  the documentation index.
 
 ### Fixed
 

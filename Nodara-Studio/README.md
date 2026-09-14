@@ -48,14 +48,25 @@ NODARA_RUNTIME_URL=http://192.168.1.10:8710 npm run dev
 npm run build        # type-check, then bundle into dist/
 ```
 
+The Tauri source icon is `src-tauri/app-icon.svg`; generated platform assets live
+under `src-tauri/icons/`. Regenerate them after changing the source icon:
+
+```bash
+npx tauri icon src-tauri/app-icon.svg
+```
+
 ## Desktop shell
 
 `src-tauri/` is a Tauri v2 shell around the same web app:
 
-```bash
-npm run tauri dev
-npm run tauri build
+```powershell
+.\node_modules\.bin\tauri.cmd dev
+.\node_modules\.bin\tauri.cmd build --debug --no-bundle
+.\node_modules\.bin\tauri.cmd build --bundles nsis msi
 ```
+
+The desktop build connects directly to `http://127.0.0.1:8710`. The browser
+build uses relative `/api` URLs so Vite or a reverse proxy can route them.
 
 The shell adds nothing to the editor logic — it exists so the Studio can be
 shipped as a desktop application instead of a browser tab.
