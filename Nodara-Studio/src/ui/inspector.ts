@@ -5,6 +5,7 @@
  * plugin's configuration UI appears the moment the plugin is installed.
  */
 
+import { localizeDiagnostic, t } from "../i18n";
 import { renderConfigForm } from "../schema/form";
 import { Diagnostic, NodeDescriptor, Workflow, WorkflowNode } from "../runtime/types";
 
@@ -24,13 +25,13 @@ export class Inspector {
   render(nodeId: string | null, diagnostics: Diagnostic[] = []): void {
     this.root.replaceChildren();
     if (!nodeId) {
-      this.root.appendChild(muted("Select a node to edit its configuration."));
+      this.root.appendChild(muted(t("inspector.selectNode")));
       this.renderVariables(diagnostics);
       return;
     }
     const node = this.workflow.nodes.find((candidate) => candidate.id === nodeId);
     if (!node) {
-      this.root.appendChild(muted("The selected node no longer exists."));
+      this.root.appendChild(muted(t("inspector.nodeMissing")));
       return;
     }
 
@@ -56,7 +57,7 @@ export class Inspector {
       const gate = document.createElement("p");
       gate.className = "gate";
       const permissions = descriptor?.permissions.join(", ") || "approval";
-      gate.textContent = `Gated capability — the runtime will ask policy before running this node (${permissions}).`;
+      gate.textContent = t("inspector.gated", { permissions });
       this.root.appendChild(gate);
     }
   }
@@ -67,7 +68,7 @@ export class Inspector {
 
     const idLabel = document.createElement("label");
     idLabel.className = "field__label";
-    idLabel.textContent = "Node id";
+    idLabel.textContent = t("inspector.nodeId");
     const idInput = document.createElement("input");
     idInput.className = "input";
     idInput.value = node.id;
@@ -90,7 +91,7 @@ export class Inspector {
 
     const labelLabel = document.createElement("label");
     labelLabel.className = "field__label";
-    labelLabel.textContent = "Label";
+    labelLabel.textContent = t("inspector.label");
     const labelInput = document.createElement("input");
     labelInput.className = "input";
     labelInput.value = node.label ?? "";
@@ -107,7 +108,7 @@ export class Inspector {
   private renderConfig(node: WorkflowNode, descriptor: NodeDescriptor | undefined): void {
     const heading = document.createElement("h4");
     heading.className = "inspector__section";
-    heading.textContent = "Configuration";
+    heading.textContent = t("inspector.configuration");
     this.root.appendChild(heading);
 
     node.config ??= {};
@@ -130,12 +131,12 @@ export class Inspector {
   private renderVariables(diagnostics: Diagnostic[]): void {
     const heading = document.createElement("h4");
     heading.className = "inspector__section";
-    heading.textContent = "Workflow variables";
+    heading.textContent = t("inspector.variables");
     this.root.appendChild(heading);
 
     const names = Object.keys(this.workflow.variables);
     if (names.length === 0) {
-      this.root.appendChild(muted("No variables declared."));
+      this.root.appendChild(muted(t("inspector.noVariables")));
     }
     for (const name of names) {
       const variable = this.workflow.variables[name];
@@ -169,9 +170,10 @@ export class Inspector {
     if (diagnostics.length === 0) return;
     const heading = document.createElement("h4");
     heading.className = "inspector__section";
-    heading.textContent = "Problems";
+    heading.textContent = t("inspector.problems");
     this.root.appendChild(heading);
-    for (const diagnostic of diagnostics) {
+    for (const raw of diagnostics) {
+      const diagnostic = localizeDiagnostic(raw);
       const item = document.createElement("p");
       item.className = `problem problem--${diagnostic.severity}`;
       item.textContent = `[${diagnostic.code}] ${diagnostic.message}`;

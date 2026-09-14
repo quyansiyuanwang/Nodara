@@ -6,6 +6,7 @@
  * Studio being rebuilt.
  */
 
+import { localizeProblem, t } from "../i18n";
 import { NodeTypeAdmission } from "../model/workflow";
 import { NodeDescriptor } from "../runtime/types";
 
@@ -86,8 +87,8 @@ export class Palette {
         item.disabled = !admission.allowed;
         item.dataset.nodeType = descriptor.node_type;
         item.title = admission.allowed
-          ? `${descriptor.node_type}\n${descriptor.description}\n\nClick to add, or drag onto the canvas.`
-          : `${descriptor.node_type}\n${descriptor.description}\n\n${admission.reason ?? "This node cannot be added."}`;
+          ? `${descriptor.node_type}\n${descriptor.description}\n\n${t("palette.addHint")}`
+          : `${descriptor.node_type}\n${descriptor.description}\n\n${localizeProblem(admission.reason ?? "")}`;
 
         const name = document.createElement("span");
         name.className = "palette__name";
@@ -97,8 +98,8 @@ export class Palette {
         if (descriptor.dangerous) {
           const badge = document.createElement("span");
           badge.className = "badge badge--warn";
-          badge.textContent = "gated";
-          badge.title = `Requires: ${descriptor.permissions.join(", ") || "approval"}`;
+          badge.textContent = t("palette.gated");
+          badge.title = t("palette.requires", { permissions: descriptor.permissions.join(", ") || "approval" });
           item.appendChild(badge);
         }
 
@@ -139,8 +140,8 @@ export class Palette {
       const empty = document.createElement("p");
       empty.className = "muted";
       empty.textContent = this.categories.size === 0
-        ? "No node types reported. Is the runtime running?"
-        : "No node types match that filter.";
+        ? t("palette.emptyRuntime")
+        : t("palette.emptyFilter");
       this.root.appendChild(empty);
     }
   }

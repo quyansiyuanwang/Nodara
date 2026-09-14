@@ -5,24 +5,25 @@
  * which is the point: one event contract, three consumers.
  */
 
+import { t } from "../i18n";
 import { Canvas } from "./canvas";
 import { EventEnvelope, ExecutionEvent, RunStatus } from "../runtime/types";
 
 const MAX_ROWS = 500;
 
-const LABELS: Record<string, string> = {
-  run_started: "run started",
-  node_started: "node started",
-  node_progress: "progress",
-  node_finished: "node finished",
-  node_failed: "node failed",
-  log: "log",
-  run_paused: "paused",
-  run_resumed: "resumed",
-  run_cancelled: "cancelled",
-  run_completed: "completed",
-  run_failed: "failed",
-  capability_decision: "policy",
+const LABEL_KEYS: Record<string, string> = {
+  run_started: "event.runStarted",
+  node_started: "event.nodeStarted",
+  node_progress: "event.progress",
+  node_finished: "event.nodeFinished",
+  node_failed: "event.nodeFailed",
+  log: "event.log",
+  run_paused: "event.paused",
+  run_resumed: "event.resumed",
+  run_cancelled: "event.cancelled",
+  run_completed: "event.completed",
+  run_failed: "event.failed",
+  capability_decision: "event.policy",
 };
 
 export class EventLog {
@@ -46,7 +47,7 @@ export class EventLog {
 
     const kind = document.createElement("span");
     kind.className = "event__kind";
-    kind.textContent = LABELS[event.type] ?? event.type;
+    kind.textContent = LABEL_KEYS[event.type] ? t(LABEL_KEYS[event.type]) : event.type;
 
     const body = document.createElement("span");
     body.className = "event__body";
@@ -100,17 +101,17 @@ function describe(envelope: EventEnvelope): string {
     case "node_progress":
       return `${event.node_id} ${event.progress !== undefined ? `${Math.round(event.progress * 100)}%` : ""} ${event.message ?? ""}`.trim();
     case "node_finished":
-      return `${event.node_id} in ${event.duration_ms}ms`;
+      return t("event.nodeFinishedBody", { node: event.node_id, duration: event.duration_ms });
     case "node_failed":
-      return `${event.node_id} [${event.code}] ${event.message}`;
+      return t("event.nodeFailedBody", { node: event.node_id, code: event.code, message: event.message });
     case "log":
       return `${event.level}: ${event.message}`;
     case "run_completed":
-      return `${event.nodes_executed} node(s) in ${event.duration_ms}ms`;
+      return t("event.completedBody", { nodes: event.nodes_executed, duration: event.duration_ms });
     case "run_failed":
       return `[${event.code}] ${event.message}`;
     case "run_cancelled":
-      return event.reason ?? "cancelled";
+      return event.reason ?? t("event.cancelled");
     case "capability_decision":
       return `${event.capability}: ${event.decision}`;
     default:

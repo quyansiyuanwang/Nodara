@@ -10,6 +10,7 @@
  * what releases it.
  */
 
+import { localizeAgentStatus, localizeDiagnostic, t } from "../i18n";
 import { AgentSession, ApprovalRequest, AgentSessionList } from "../runtime/types";
 
 export interface AgentPanelHandlers {
@@ -20,17 +21,6 @@ export interface AgentPanelHandlers {
   /** Open the run this session started. */
   onOpenRun: (runId: string) => void;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "draft",
-  planning: "planning",
-  awaiting_approval: "awaiting approval",
-  ready: "plan ready",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-};
 
 export class AgentPanel {
   private sessions: AgentSession[] = [];
@@ -71,7 +61,7 @@ export class AgentPanel {
     if (this.sessions.length === 0) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No agent sessions yet.";
+      empty.textContent = t("agent.empty");
       this.root.appendChild(empty);
       return;
     }
@@ -93,7 +83,7 @@ export class AgentPanel {
 
       const status = document.createElement("span");
       status.className = `session__status session__status--${session.status}`;
-      status.textContent = STATUS_LABELS[session.status] ?? session.status;
+      status.textContent = localizeAgentStatus(session.status);
 
       item.append(goal, status);
       item.addEventListener("click", () => {
@@ -116,7 +106,7 @@ export class AgentPanel {
 
     const meta = document.createElement("p");
     meta.className = "muted";
-    meta.textContent = `${session.provider || "agent"} · ${session.tokens_used} token(s)`;
+    meta.textContent = t("agent.tokens", { provider: session.provider || "agent", tokens: session.tokens_used });
     detail.appendChild(meta);
 
     for (const approval of session.approvals) {
@@ -131,7 +121,7 @@ export class AgentPanel {
       const runButton = document.createElement("button");
       runButton.type = "button";
       runButton.className = "btn btn--small";
-      runButton.textContent = `Open run ${session.run_id.slice(0, 8)}…`;
+      runButton.textContent = t("actions.openRun", { id: session.run_id.slice(0, 8) });
       runButton.addEventListener("click", () => this.handlers.onOpenRun(session.run_id!));
       detail.appendChild(runButton);
     }
@@ -139,7 +129,7 @@ export class AgentPanel {
     if (session.messages.length > 0) {
       const heading = document.createElement("h4");
       heading.className = "inspector__section";
-      heading.textContent = "Conversation";
+      heading.textContent = t("agent.conversation");
       detail.appendChild(heading);
 
       const conversation = document.createElement("div");
@@ -169,8 +159,10 @@ export class AgentPanel {
     const title = document.createElement("p");
     title.className = "approval__title";
     title.textContent = approval.decision
-      ? `${approval.decision === "approved" ? "Approved" : "Denied"} by ${approval.decided_by ?? "operator"}`
-      : "Approval required";
+      ? t(approval.decision === "approved" ? "agent.approved" : "agent.denied", {
+          by: approval.decided_by ?? "operator",
+        })
+      : t("agent.approvalRequired");
     card.appendChild(title);
 
     const body = document.createElement("p");
@@ -180,9 +172,11 @@ export class AgentPanel {
 
     const permissions = document.createElement("p");
     permissions.className = "approval__permissions";
-    permissions.textContent = `node \`${approval.node_id}\` (${approval.node_type}) · permissions: ${
-      approval.permissions.join(", ") || "none declared"
-    }`;
+    permissions.textContent = t("agent.permissions", {
+      node: approval.node_id,
+      type: approval.node_type,
+      permissions: approval.permissions.join(", ") || t("agent.noneDeclared"),
+    });
     card.appendChild(permissions);
 
     const input = document.createElement("pre");
@@ -197,7 +191,7 @@ export class AgentPanel {
       const approve = document.createElement("button");
       approve.type = "button";
       approve.className = "btn btn--primary btn--small";
-      approve.textContent = "Approve";
+      approve.textContent = t("actions.approve");
       approve.addEventListener("click", () =>
         this.handlers.onDecide(session.id, approval.id, true),
       );
@@ -205,7 +199,7 @@ export class AgentPanel {
       const deny = document.createElement("button");
       deny.type = "button";
       deny.className = "btn btn--small";
-      deny.textContent = "Deny";
+      deny.textContent = t("actions.deny");
       deny.addEventListener("click", () =>
         this.handlers.onDecide(session.id, approval.id, false),
       );
@@ -225,13 +219,17 @@ export class AgentPanel {
     const title = document.createElement("p");
     title.className = "plan__title";
     title.textContent = plan.valid
-      ? `Plan: ${plan.workflow.id}`
-      : `Plan rejected (${plan.errors} error(s))`;
+      ? t("agent.plan", { id: plan.workflow.id })
+      : t("agent.planRejected", { errors: plan.errors });
     card.appendChild(title);
 
     const summary = document.createElement("p");
     summary.className = "muted";
-    summary.textContent = `${plan.workflow.nodes.length} node(s), ${plan.workflow.edges.length} edge(s), ${plan.warnings} warning(s)`;
+    summary.textContent = t("agent.planSummary", {
+      nodes: plan.workflow.nodes.length,
+      edges: plan.workflow.edges.length,
+      warnings: plan.warnings,
+    });
     card.appendChild(summary);
 
     const nodes = document.createElement("ul");
@@ -246,14 +244,15 @@ export class AgentPanel {
     for (const diagnostic of plan.diagnostics) {
       const line = document.createElement("p");
       line.className = `problem problem--${diagnostic.severity}`;
-      line.textContent = `[${diagnostic.code}] ${diagnostic.message}`;
+      const localized = localizeDiagnostic(diagnostic);
+      line.textContent = `[${localized.code}] ${localized.message}`;
       card.appendChild(line);
     }
 
     const load = document.createElement("button");
     load.type = "button";
     load.className = "btn btn--small";
-    load.textContent = "Load into editor";
+    load.textContent = t("actions.loadPlan");
     load.addEventListener("click", () => this.handlers.onLoadPlan(session.id));
     card.appendChild(load);
 

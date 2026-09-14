@@ -7,6 +7,7 @@
  * pure function of the workflow plus a run-status overlay.
  */
 
+import { localizeProblem, t } from "../i18n";
 import {
   defaultConfig,
   edgeExists,
@@ -241,7 +242,7 @@ export class Canvas {
   addNode(descriptor: NodeDescriptor, x: number, y: number, stagger = true): void {
     const admission = nodeTypeAdmission(this.workflow, descriptor.node_type);
     if (!admission.allowed) {
-      this.handlers.onStatus(admission.reason ?? "that node cannot be added again");
+      this.handlers.onStatus(localizeProblem(admission.reason ?? ""));
       return;
     }
 
@@ -341,15 +342,17 @@ export class Canvas {
     const title = document.createElement("div");
     title.className = "context-menu__title";
     title.textContent = target.kind === "node"
-      ? `Node: ${target.id}`
-      : `Connection: ${target.id}`;
+      ? t("canvas.nodeTitle", { id: target.id })
+      : t("canvas.connectionTitle", { id: target.id });
     this.contextMenu.appendChild(title);
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "context-menu__item context-menu__item--danger";
     const label = document.createElement("span");
-    label.textContent = target.kind === "node" ? "Delete node" : "Delete connection";
+    label.textContent = target.kind === "node"
+      ? t("canvas.deleteNode")
+      : t("canvas.deleteConnection");
     const shortcut = document.createElement("span");
     shortcut.className = "context-menu__shortcut";
     shortcut.textContent = "Del";
@@ -477,11 +480,11 @@ export class Canvas {
 
   private connect(source: string, target: string, sourcePort: string, targetPort: string): void {
     if (source === target) {
-      this.handlers.onStatus("a node cannot connect to itself");
+      this.handlers.onStatus(t("canvas.selfConnection"));
       return;
     }
     if (edgeExists(this.workflow.edges, source, target, sourcePort, targetPort)) {
-      this.handlers.onStatus("that connection already exists");
+      this.handlers.onStatus(t("canvas.duplicateConnection"));
       return;
     }
     this.workflow.edges.push({
@@ -521,8 +524,12 @@ export class Canvas {
       path.setAttribute("d", pathData);
       path.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "title"));
       path.lastChild!.textContent = edge.condition
-        ? `${edge.source} → ${edge.target} when ${edge.condition}`
-        : `${edge.source} → ${edge.target}`;
+        ? t("canvas.edgeCondition", {
+            source: edge.source,
+            target: edge.target,
+            condition: edge.condition,
+          })
+        : t("canvas.edge", { source: edge.source, target: edge.target });
 
       group.append(hit, path);
       this.edgesLayer.appendChild(group);

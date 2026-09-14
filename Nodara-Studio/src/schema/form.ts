@@ -7,6 +7,7 @@
  * falls back to a JSON textarea rather than silently losing the value.
  */
 
+import { t } from "../i18n";
 import { JsonSchema } from "../runtime/types";
 
 export interface FieldOptions {
@@ -117,7 +118,7 @@ export function renderField(
         hint.textContent = "";
         options.onChange(parsed);
       } catch (error) {
-        hint.textContent = `invalid JSON: ${(error as Error).message}`;
+        hint.textContent = t("form.invalidJson", { message: (error as Error).message });
       }
     });
     wrapper.appendChild(textarea);
@@ -146,7 +147,7 @@ export function renderConfigForm(
   if (keys.length === 0) {
     const note = document.createElement("p");
     note.className = "muted";
-    note.textContent = "This node has no configuration.";
+    note.textContent = t("form.noConfiguration");
     parent.appendChild(note);
   }
   for (const key of keys) {

@@ -75,6 +75,14 @@ route them.
 Debug builds intentionally retain the console window for startup and runtime
 logs. The child runtime is launched without an additional console window.
 
+## Language
+
+Studio supports English and Simplified Chinese. Use the `中文` / `English`
+button in the toolbar to switch languages. The choice is stored locally and
+also localizes node names, categories, configuration labels and descriptions.
+Runtime-provided diagnostic text remains in its original language unless a
+known validation code has a Studio translation.
+
 ## Canvas controls
 
 * **Click** a node in the palette to add it near the canvas centre, or drag it to

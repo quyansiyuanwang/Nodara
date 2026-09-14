@@ -8,6 +8,14 @@
 import "./styles.css";
 
 import {
+  applyStaticTranslations,
+  localizeDescriptor,
+  localizeDiagnostic,
+  localizeProblem,
+  t,
+  toggleLocale,
+} from "./i18n";
+import {
   applyWorkflow,
   emptyWorkflow,
   localProblems,
@@ -35,6 +43,8 @@ function element<T extends Element = HTMLElement>(id: string): T {
   if (!found) throw new Error(`missing element #${id}`);
   return found as unknown as T;
 }
+
+applyStaticTranslations();
 
 class Studio {
   private readonly client = new RuntimeClient(defaultRuntimeBaseUrl());
@@ -100,6 +110,7 @@ class Studio {
 
     this.bindToolbar();
     this.bindResizers();
+    this.inspector.render(null);
     this.renderWorkspace();
     this.setStatus(null);
   }
@@ -118,11 +129,16 @@ class Studio {
       const descriptors = await this.client.nodeTypes();
       const firstConnection = !this.connected;
       this.connected = true;
-      this.descriptors = new Map(descriptors.map((descriptor) => [descriptor.node_type, descriptor]));
-      this.palette.setDescriptors(descriptors);
+      const localized = descriptors.map(localizeDescriptor);
+      this.descriptors = new Map(localized.map((descriptor) => [descriptor.node_type, descriptor]));
+      this.palette.setDescriptors(localized);
 
       const failed = plugins.failures.length;
-      badge.textContent = `${health.node_types} node types · ${plugins.plugins.length} plugin(s)${failed ? ` · ${failed} failed` : ""}`;
+      badge.textContent = t(failed ? "toolbar.nodeSummaryFailed" : "toolbar.nodeSummary", {
+        nodes: health.node_types,
+        plugins: plugins.plugins.length,
+        failed,
+      });
       badge.className = `connection connection--${failed ? "warn" : "ok"}`;
       badge.title = plugins.failures
         .map((failure) => `${failure.id}: ${failure.message}`)
@@ -135,19 +151,24 @@ class Studio {
       }
     } catch (error) {
       this.connected = false;
-      badge.textContent = "runtime unreachable";
+      badge.textContent = t("toolbar.runtimeUnreachable");
       badge.className = "connection connection--error";
       badge.title = (error as Error).message;
       this.setValidationState(
         "unavailable",
-        "The runtime is unreachable; automatic validation will retry after reconnection.",
+        t("validation.runtimeUnavailable"),
       );
     }
   }
 
   private bindToolbar(): void {
+    element("btn-language").addEventListener("click", () => {
+      toggleLocale();
+      window.location.reload();
+    });
+
     element("btn-new").addEventListener("click", () => {
-      if (!confirm("Discard the current workflow?")) return;
+      if (!confirm(t("dialog.discardWorkflow"))) return;
       this.replaceWorkflow(emptyWorkflow());
     });
 
@@ -171,7 +192,7 @@ class Studio {
       try {
         this.replaceWorkflow(JSON.parse(await file.text()) as Workflow);
       } catch (error) {
-        this.pushLocal(`could not import: ${(error as Error).message}`);
+        this.pushLocal(t("status.couldNotImport", { message: (error as Error).message }));
       } finally {
         fileInput.value = "";
       }
@@ -206,9 +227,9 @@ class Studio {
         this.replaceWorkflow(
           JSON.parse(element<HTMLTextAreaElement>("json-view").value) as Partial<Workflow>,
         );
-        this.pushLocal("workflow replaced from JSON");
+        this.pushLocal(t("status.workflowReplaced"));
       } catch (error) {
-        this.pushLocal(`invalid workflow JSON: ${(error as Error).message}`);
+        this.pushLocal(t("status.invalidWorkflowJson", { message: (error as Error).message }));
       }
     });
 
@@ -216,7 +237,7 @@ class Studio {
       this.workflow.$schema = this.runtimeSchemaUrl();
       this.workflowChanged();
       this.showTab("json");
-      this.pushLocal(`$schema now points at ${this.workflow.$schema}`);
+      this.pushLocal(t("status.schemaUpdated", { schema: this.workflow.$schema ?? "" }));
     });
   }
 
@@ -299,7 +320,7 @@ class Studio {
     this.diagnostics = [];
     this.workflowRevision += 1;
     this.palette.refreshAvailability();
-    this.setValidationState("checking", "Waiting for edits to settle before validating.");
+    this.setValidationState("checking", t("validation.waiting"));
     this.renderWorkspace();
     this.scheduleValidation();
   }
@@ -314,16 +335,22 @@ class Studio {
     }
     const hint = element("json-schema");
     const declared = this.workflow.$schema || WORKFLOW_SCHEMA_PATH;
-    const origin = declared === WORKFLOW_SCHEMA_PATH ? "the published schema" : declared;
-    hint.textContent = `$schema: ${origin} — ${this.descriptors.size || "no"} node type(s) available to complete`;
+    const origin = declared === WORKFLOW_SCHEMA_PATH ? t("schema.published") : declared;
+    hint.textContent = t("schema.hint", {
+      origin,
+      count: this.descriptors.size || "no",
+    });
   }
 
   private renderProblems(): void {
     const root = element("problems");
     root.replaceChildren();
     const problems = [
-      ...localProblems(this.workflow).map((text) => ({ severity: "error", text })),
-      ...this.diagnostics.map((diagnostic) => ({
+      ...localProblems(this.workflow).map((text) => ({
+        severity: "error",
+        text: localizeProblem(text),
+      })),
+      ...this.diagnostics.map(localizeDiagnostic).map((diagnostic) => ({
         severity: diagnostic.severity,
         text: `[${diagnostic.code}] ${diagnostic.message} (${diagnostic.path})${
           diagnostic.hint ? ` — ${diagnostic.hint}` : ""
@@ -338,7 +365,7 @@ class Studio {
     if (problems.length === 0) {
       const ok = document.createElement("p");
       ok.className = "muted";
-      ok.textContent = "No problems detected.";
+      ok.textContent = t("problems.none");
       root.appendChild(ok);
       return;
     }
@@ -359,11 +386,11 @@ class Studio {
     if (!this.connected) {
       this.setValidationState(
         "unavailable",
-        "The runtime is unreachable; automatic validation will retry after reconnection.",
+        t("validation.runtimeUnavailable"),
       );
       return;
     }
-    this.setValidationState("checking", "Validating the current workflow automatically.");
+    this.setValidationState("checking", t("validation.checkingDetail"));
     this.validationTimer = window.setTimeout(() => {
       this.validationTimer = null;
       void this.validate(false);
@@ -382,14 +409,14 @@ class Studio {
       this.validationTimer = null;
     }
     if (!this.connected) {
-      this.setValidationState("unavailable", "The runtime is unreachable.");
+      this.setValidationState("unavailable", t("toolbar.runtimeUnreachable"));
       if (showProblems) this.showTab("problems");
       return false;
     }
 
     const revision = this.workflowRevision;
     const token = ++this.validateToken;
-    this.setValidationState("checking", "Validating the current workflow automatically.");
+    this.setValidationState("checking", t("validation.checkingDetail"));
     try {
       const report = await this.client.validate(this.workflow);
       if (token !== this.validateToken || revision !== this.workflowRevision) return false;
@@ -415,8 +442,8 @@ class Studio {
       if (showProblems) {
         this.pushLocal(
           errors === 0
-            ? `valid — ${report.diagnostics.length} diagnostic(s)`
-            : `invalid — ${errors} error(s)`,
+            ? t("validation.manualValid", { count: report.diagnostics.length })
+            : t("validation.manualInvalid", { errors }),
         );
       }
       return errors === 0;
@@ -442,7 +469,7 @@ class Studio {
       const valid = await this.validate(false);
       if (!valid) {
         this.showTab("problems");
-        this.pushLocal("run blocked — fix the validation errors shown in Problems");
+        this.pushLocal(t("validation.runBlocked"));
         return;
       }
 
@@ -454,7 +481,7 @@ class Studio {
       this.runId = snapshot.id;
       this.setStatus(snapshot.status);
       this.showTab("events");
-      this.pushLocal(`run ${snapshot.id} accepted`);
+      this.pushLocal(t("status.runAccepted", { id: snapshot.id }));
 
       // The socket close event fires asynchronously; by then this.runId may
       // already point at a newer run, and the old stream must not touch it.
@@ -565,9 +592,11 @@ class Studio {
         approvalId,
         approve ? "approved" : "denied",
       );
-      this.pushLocal(
-        `${approve ? "approved" : "denied"} ${approvalId.slice(0, 8)}… in session ${sessionId.slice(0, 8)}…`,
-      );
+      this.pushLocal(t("status.approval", {
+        decision: approve ? t("actions.approve") : t("actions.deny"),
+        id: approvalId.slice(0, 8),
+        session: sessionId.slice(0, 8),
+      }));
       await this.pollAgentSessions();
     } catch (error) {
       this.reportError(error);
@@ -578,12 +607,12 @@ class Studio {
   private loadPlan(sessionId: string): void {
     const session = this.agents.selectedSession();
     if (!session || session.id !== sessionId || !session.plan) {
-      this.pushLocal("that session has no plan to load");
+      this.pushLocal(t("status.noPlan"));
       return;
     }
     this.replaceWorkflow(session.plan.workflow);
     this.showTab("json");
-    this.pushLocal(`loaded plan from session ${sessionId.slice(0, 8)}…`);
+    this.pushLocal(t("status.planLoaded", { id: sessionId.slice(0, 8) }));
   }
 
   /** Follow the run a session started. */
@@ -632,7 +661,10 @@ class Studio {
       const snapshot = await this.client.getRun(this.runId);
       this.setStatus(snapshot.status);
       if (snapshot.failure) {
-        this.pushLocal(`failure [${snapshot.failure.code}] ${snapshot.failure.message}`);
+        this.pushLocal(t("status.runFailure", {
+          code: snapshot.failure.code,
+          message: snapshot.failure.message,
+        }));
       }
     } catch {
       // The run may have been discarded; the viewer stays usable either way.
@@ -656,19 +688,19 @@ class Studio {
     badge.dataset.state = state;
     switch (state) {
       case "checking":
-        badge.textContent = "checking…";
+        badge.textContent = t("validation.checking");
         break;
       case "valid":
-        badge.textContent = warnings > 0 ? `valid · ${warnings} warning(s)` : "valid";
+        badge.textContent = warnings > 0 ? t("validation.validWarnings", { warnings }) : t("validation.valid");
         break;
       case "invalid":
-        badge.textContent = `${errors} error(s)${warnings > 0 ? ` · ${warnings} warning(s)` : ""}`;
+        badge.textContent = warnings > 0 ? t("validation.invalidWarnings", { errors, warnings }) : t("validation.invalid", { errors });
         break;
       case "unavailable":
-        badge.textContent = "validation unavailable";
+        badge.textContent = t("validation.unavailable");
         break;
       default:
-        badge.textContent = "not checked";
+        badge.textContent = t("validation.notChecked");
         break;
     }
     badge.title = detail;
@@ -708,7 +740,7 @@ class Studio {
     time.textContent = new Date().toLocaleTimeString();
     const kind = document.createElement("span");
     kind.className = "event__kind";
-    kind.textContent = "studio";
+    kind.textContent = t("event.studio");
     const body = document.createElement("span");
     body.className = "event__body";
     body.textContent = message;

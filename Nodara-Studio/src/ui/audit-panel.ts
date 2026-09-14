@@ -7,18 +7,8 @@
  * layer produces, so the two can never disagree.
  */
 
+import { localizeAuditCategory, t } from "../i18n";
 import { AuditRecord } from "../runtime/types";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  run_started: "run started",
-  run_finished: "run finished",
-  node_started: "node started",
-  node_finished: "node finished",
-  node_failed: "node failed",
-  capability_evaluated: "capability",
-  approval: "approval",
-  log: "log",
-};
 
 export class AuditPanel {
   constructor(private readonly root: HTMLElement) {}
@@ -28,7 +18,7 @@ export class AuditPanel {
     if (records.length === 0) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No audit records yet.";
+      empty.textContent = t("audit.empty");
       this.root.appendChild(empty);
       return;
     }
@@ -36,8 +26,22 @@ export class AuditPanel {
     const table = document.createElement("table");
     table.className = "audit__table";
     const head = document.createElement("thead");
-    head.innerHTML =
-      "<tr><th>time</th><th>run</th><th>category</th><th>node</th><th>capability</th><th>decision</th><th>message</th></tr>";
+    const headerKeys = [
+      "audit.time",
+      "audit.run",
+      "audit.category",
+      "audit.node",
+      "audit.capability",
+      "audit.decision",
+      "audit.message",
+    ];
+    const headerRow = document.createElement("tr");
+    for (const key of headerKeys) {
+      const cell = document.createElement("th");
+      cell.textContent = t(key);
+      headerRow.appendChild(cell);
+    }
+    head.appendChild(headerRow);
     table.appendChild(head);
 
     const body = document.createElement("tbody");
@@ -50,7 +54,7 @@ export class AuditPanel {
       const cells: (string | undefined)[] = [
         new Date(record.timestamp_ms).toLocaleTimeString(),
         record.run_id.slice(0, 8),
-        CATEGORY_LABELS[record.category] ?? record.category,
+        localizeAuditCategory(record.category),
         record.node_id,
         record.capability,
         record.decision,

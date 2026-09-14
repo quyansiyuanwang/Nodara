@@ -10,13 +10,14 @@
       <header class="toolbar">
         <div class="toolbar__group">
           <strong class="brand">Nodara</strong>
-          <span id="connection" class="connection connection--unknown">connecting…</span>
+          <span id="connection" class="connection connection--unknown" data-i18n="toolbar.connecting">connecting…</span>
+          <button id="btn-language" class="btn btn--small" type="button" data-i18n-title="language.title">中文</button>
         </div>
         <div class="toolbar__group">
-          <button id="btn-new" class="btn">New</button>
-          <button id="btn-import" class="btn">Import</button>
-          <button id="btn-export" class="btn">Export</button>
-          <button id="btn-validate" class="btn" disabled>Validate</button>
+          <button id="btn-new" class="btn" data-i18n="actions.new">New</button>
+          <button id="btn-import" class="btn" data-i18n="actions.import">Import</button>
+          <button id="btn-export" class="btn" data-i18n="actions.export">Export</button>
+          <button id="btn-validate" class="btn" data-i18n="actions.validate" disabled>Validate</button>
           <button
             id="validation-status"
             class="validation-status"
@@ -25,27 +26,27 @@
             aria-live="polite"
             title="Workflow has not been validated yet. Click to open Problems."
           >
-            not checked
+            <span data-i18n="validation.notChecked">not checked</span>
           </button>
         </div>
         <div class="toolbar__group">
-          <button id="btn-run" class="btn btn--primary" disabled>Run</button>
-          <button id="btn-pause" class="btn" disabled>Pause</button>
-          <button id="btn-resume" class="btn" disabled>Resume</button>
-          <button id="btn-step" class="btn" disabled>Step</button>
-          <button id="btn-cancel" class="btn" disabled>Cancel</button>
+          <button id="btn-run" class="btn btn--primary" data-i18n="actions.run" disabled>Run</button>
+          <button id="btn-pause" class="btn" data-i18n="actions.pause" disabled>Pause</button>
+          <button id="btn-resume" class="btn" data-i18n="actions.resume" disabled>Resume</button>
+          <button id="btn-step" class="btn" data-i18n="actions.step" disabled>Step</button>
+          <button id="btn-cancel" class="btn" data-i18n="actions.cancel" disabled>Cancel</button>
         </div>
         <input id="file-input" type="file" accept="application/json" hidden />
       </header>
 
       <main class="workspace">
         <aside class="panel panel--palette">
-          <h2 class="panel__title">Nodes</h2>
-          <input id="palette-filter" class="input" placeholder="Filter node types…" />
+          <h2 class="panel__title" data-i18n="palette.title">Nodes</h2>
+          <input id="palette-filter" class="input" placeholder="Filter node types…" data-i18n-placeholder="palette.filter" />
           <div id="palette" class="palette"></div>
         </aside>
 
-        <div id="resize-left" class="resizer resizer--vertical resizer--left" role="separator" aria-orientation="vertical" aria-label="Resize node palette" tabindex="0" title="Drag to resize. Double-click to reset."></div>
+        <div id="resize-left" class="resizer resizer--vertical resizer--left" role="separator" aria-orientation="vertical" aria-label="Resize node palette" data-i18n-aria-label="resizer.palette" tabindex="0" title="Drag to resize. Double-click to reset." data-i18n-title="resizer.title"></div>
 
         <section class="canvas-wrap">
           <svg id="canvas" class="canvas">
@@ -66,30 +67,30 @@
             <g id="nodes" class="nodes"></g>
             <path id="pending-edge" class="edge edge--pending is-hidden" />
           </svg>
-          <div id="canvas-hint" class="canvas-hint">
+          <div id="canvas-hint" class="canvas-hint" data-i18n="canvas.hint">
             Click to add at the centre, or drag a palette item to an exact canvas position. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
           </div>
         </section>
 
-        <div id="resize-right" class="resizer resizer--vertical resizer--right" role="separator" aria-orientation="vertical" aria-label="Resize properties panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
+        <div id="resize-right" class="resizer resizer--vertical resizer--right" role="separator" aria-orientation="vertical" aria-label="Resize properties panel" data-i18n-aria-label="resizer.properties" tabindex="0" title="Drag to resize. Double-click to reset." data-i18n-title="resizer.title"></div>
 
         <aside class="panel panel--inspector">
-          <h2 class="panel__title">Properties</h2>
+          <h2 class="panel__title" data-i18n="properties.title">Properties</h2>
           <div id="inspector" class="inspector">
             <p class="muted">Select a node to edit its configuration.</p>
           </div>
         </aside>
       </main>
 
-      <div id="resize-drawer" class="resizer resizer--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize bottom panel" tabindex="0" title="Drag to resize. Double-click to reset."></div>
+      <div id="resize-drawer" class="resizer resizer--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize bottom panel" data-i18n-aria-label="resizer.drawer" tabindex="0" title="Drag to resize. Double-click to reset." data-i18n-title="resizer.title"></div>
 
       <section class="drawer">
         <nav class="drawer__tabs">
-          <button class="tab tab--active" data-tab="events">Events</button>
-          <button class="tab" data-tab="agent">Agent</button>
-          <button class="tab" data-tab="audit">Audit</button>
-          <button class="tab" data-tab="problems">Problems</button>
-          <button class="tab" data-tab="json">Workflow JSON</button>
+          <button class="tab tab--active" data-tab="events" data-i18n="tabs.events">Events</button>
+          <button class="tab" data-tab="agent" data-i18n="tabs.agent">Agent</button>
+          <button class="tab" data-tab="audit" data-i18n="tabs.audit">Audit</button>
+          <button class="tab" data-tab="problems" data-i18n="tabs.problems">Problems</button>
+          <button class="tab" data-tab="json" data-i18n="tabs.json">Workflow JSON</button>
         </nav>
         <div id="panel-events" class="drawer__panel">
           <div id="events" class="events"></div>
@@ -100,9 +101,9 @@
         <div id="panel-audit" class="drawer__panel" hidden>
           <div class="audit-toolbar">
             <label class="muted">
-              <input id="audit-current-run" type="checkbox" /> this run only
+              <input id="audit-current-run" type="checkbox" /> <span data-i18n="audit.currentRun">this run only</span>
             </label>
-            <button id="audit-refresh" class="btn btn--small">Refresh</button>
+            <button id="audit-refresh" class="btn btn--small" data-i18n="actions.refresh">Refresh</button>
           </div>
           <div id="audit" class="audit"></div>
         </div>
@@ -112,10 +113,10 @@
         <div id="panel-json" class="drawer__panel" hidden>
           <div class="json-toolbar">
             <span id="json-schema" class="muted"></span>
-            <button id="btn-runtime-schema" class="btn btn--small">
+            <button id="btn-runtime-schema" class="btn btn--small" data-i18n="actions.runtimeSchema">
               Point $schema at the runtime
             </button>
-            <button id="btn-apply-json" class="btn">Apply JSON</button>
+            <button id="btn-apply-json" class="btn" data-i18n="actions.applyJson">Apply JSON</button>
           </div>
           <textarea id="json-view" class="json" spellcheck="false"></textarea>
         </div>

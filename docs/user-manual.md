@@ -65,6 +65,10 @@ If the badge still says `runtime unreachable`, verify that
 `nodara-runtime.exe` is beside Studio and that another program is not using port
 8710. Set `NODARA_RUNTIME_BIN` to select a different runtime executable.
 
+### Language
+
+Use the `中文` / `English` button in the toolbar. Studio persists the choice and localizes the editor UI and known node/configuration labels.
+
 ### Canvas controls
 
 | Action | Method |

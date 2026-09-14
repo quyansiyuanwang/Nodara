@@ -120,6 +120,10 @@ debug 版 Studio 会故意保留控制台窗口，用于显示 runtime 日志和
 Studio 每五秒自动重连。若不希望自动启动，可设置 `NODARA_RUNTIME_BIN` 指向其他
 runtime 可执行文件，或先手工运行 runtime。
 
+#### 界面语言
+
+点击工具栏中的 `中文` / `English` 按钮切换语言。Studio 会记住选择，并翻译界面、节点名称、分类以及已知的配置字段标题和说明。
+
 #### Studio 画布操作
 
 | 操作 | 方法 |
