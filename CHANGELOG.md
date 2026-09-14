@@ -41,6 +41,87 @@ All notable changes to this project are documented here. The format follows
   catalogue: a node type, permission or configuration key that is not
   documented fails the build in both languages.
 
+### Fixed
+
+**Core**
+
+- `windows.Input.Text` now holds `Shift` for uppercase letters; previously
+  every capital was typed as lowercase.
+- Secret variables no longer leave the engine: run snapshots, `run --json` and
+  the variable scope shipped to plugin processes all carry masked values.
+- Policies and approval requests now see the resolved node configuration, as
+  the `CapabilityRequest::input` contract always documented.
+- A malformed window selector is a configuration error instead of silently
+  falling back to the foreground window.
+- The expression evaluator rejects expressions nested beyond 128 levels
+  (`E_TOO_COMPLEX`) instead of overflowing the stack.
+- Desktop capture rejects non-positive or oversized width/height instead of
+  casting them into huge allocations.
+- `PluginHost::cancel_run`/`shutdown` no longer hold the plugin mutex across
+  blocking RPCs.
+- `core.Calculate` documentation now matches the grammar (`^`, comparisons,
+  `&&`/`||` — not `**`/`sqrt`).
+
+**Agent**
+
+- A run the agent stops watching (timeout, lost contact) is cancelled instead
+  of being left running unattended.
+- Every error after a session is published marks the session failed, so the
+  Studio no longer sees sessions stuck in `planning`.
+- A missing API key fails the command immediately instead of degrading to an
+  empty scripted provider.
+
+**Studio**
+
+- The periodic health poll no longer overwrites JSON the user is editing, and
+  keeps the palette filter.
+- Local validation detects directed cycles (the runtime rejects them later; the
+  editor now says so immediately).
+- Non-JSON HTTP responses surface a structured error instead of a raw
+  `SyntaxError`.
+- Newly added nodes start from their schema defaults.
+
+### Fixed (continued)
+
+**Core**
+
+- `JsonlAuditLog` continues the sequence after reopening the same file instead
+  of restarting at 0, and a failed write reports to stderr instead of being
+  dropped silently.
+- The WebSocket event stream no longer duplicates an event published between
+  subscribing and replaying the history (replay and live stream are
+  de-duplicated by sequence number).
+- `windows.Input.Keyboard` accepts the `+` key in a chord (`ctrl++`), which
+  previously produced a confusing "unknown key chord".
+- `nodara-cli serve` builds the policy once (from `RuntimeConfig.policy`);
+  the second, overriding copy of the same decision was removed.
+- A failed run-thread spawn surfaces as `E_THREAD` on the run instead of
+  aborting the process (engine and runtime).
+
+**Agent**
+
+- The step budget is charged *before* every model call, so `max_steps` caps
+  the round trips it counts instead of detecting overspend afterwards.
+- `--offline` is implemented: no capability discovery, no session publication,
+  structure-only local validation — planning works with the runtime down.
+- Provider HTTP errors include the provider's diagnostic body (rate limits,
+  quota) instead of the bare status line.
+- Ids passed on the command line are percent-encoded in URL paths and query
+  values.
+
+**Studio**
+
+- A stale event-stream close no longer refreshes a newer run's state.
+- The Agent panel reports the transition into a poll failure once instead of
+  spamming the event log every 1.5 seconds.
+- Concurrent validate/audit requests are sequenced so a slow earlier response
+  cannot overwrite newer results.
+
+### Changed (engineering)
+
+- CI runs clippy for the agent workspace alongside core, and explains why the
+  plugin-dependent and legacy examples are not part of plain validation.
+
 ## [2.0.0] — plugin-ecosystem rearchitecture
 
 The repository was rebuilt around the contracts described in `.tmp/PLAN.md`:

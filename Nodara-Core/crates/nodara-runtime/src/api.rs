@@ -521,7 +521,7 @@ async fn list_audit_records(
 
 /// Replay the buffered events, then forward live ones until the client leaves.
 async fn pump(mut socket: WebSocket, handle: Arc<crate::runs::RunHandle>) {
-    let (replay, mut receiver) = handle.subscribe();
+    let (replay, last_replayed_seq, mut receiver) = handle.subscribe();
     for envelope in replay {
         if send_event(&mut socket, &envelope).await.is_err() {
             return;
@@ -531,6 +531,12 @@ async fn pump(mut socket: WebSocket, handle: Arc<crate::runs::RunHandle>) {
         tokio::select! {
             event = receiver.recv() => match event {
                 Ok(envelope) => {
+                    // An event published between subscribing and snapshotting
+                    // the history is in both the replay and the stream; skip
+                    // the part of the overlap that was already sent.
+                    if last_replayed_seq.is_some_and(|last| envelope.seq <= last) {
+                        continue;
+                    }
                     if send_event(&mut socket, &envelope).await.is_err() {
                         return;
                     }

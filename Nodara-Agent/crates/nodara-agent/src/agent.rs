@@ -26,7 +26,7 @@ use nodara_schema::{
 use serde_json::Value;
 
 use crate::audit::{AuditTrace, TraceEntry, TraceStep};
-use crate::error::AgentResult;
+use crate::error::{AgentError, AgentResult};
 use crate::planner::{PlanRequest, Planner};
 use crate::policy::{Budget, BudgetTracker, GuardrailPolicy};
 use crate::provider::LlmProvider;
@@ -59,6 +59,9 @@ pub struct AgentConfig {
     /// Publish the session and plan preview to the runtime so the Studio can
     /// watch the work.
     pub publish_session: bool,
+    /// Plan without contacting the runtime: no capability discovery, no
+    /// session publication, structure-only local validation.
+    pub offline: bool,
     /// How the tool catalogue is narrowed before prompting.
     pub tool_selector: ToolSelector,
     /// When present, `plan` and `plan_and_run` modify this document instead of
@@ -78,6 +81,7 @@ impl Default for AgentConfig {
             run_timeout: Duration::from_secs(300),
             variables: Value::Object(serde_json::Map::new()),
             publish_session: true,
+            offline: false,
             tool_selector: ToolSelector::default(),
             base_workflow: None,
         }
@@ -277,23 +281,41 @@ impl<'a> Agent<'a> {
 
         // Publish the session first: the Studio can then watch from the start,
         // and a gated node later has somewhere to ask for approval.
-        let session_id = self.publish_session(goal, &mut trace);
+        let session_id = if self.config.offline {
+            trace.record(
+                TraceStep::Note,
+                "offline planning: the runtime is not contacted".to_string(),
+                serde_json::json!({ "offline": true }),
+            );
+            None
+        } else {
+            self.publish_session(goal, &mut trace)
+        };
 
         // Capability discovery is the agent's only source of truth about what it
         // may plan with, so it always asks the runtime rather than assuming.
-        let descriptors = self.client.node_types()?;
-        let selected = self.config.tool_selector.select(goal, &descriptors);
-        trace.record(
-            TraceStep::Note,
-            format!(
-                "selected {} of {} node types",
-                selected.len(),
-                descriptors.len()
-            ),
-            serde_json::json!({
-                "selected": selected.iter().map(|d| &d.node_type).collect::<Vec<_>>()
-            }),
-        );
+        // Offline planning deliberately skips it and validates structure only.
+        let (descriptors, selected) = if self.config.offline {
+            (Vec::new(), Vec::new())
+        } else {
+            let descriptors = match self.client.node_types() {
+                Ok(descriptors) => descriptors,
+                Err(error) => return self.fail_session(&session_id, error),
+            };
+            let selected = self.config.tool_selector.select(goal, &descriptors);
+            trace.record(
+                TraceStep::Note,
+                format!(
+                    "selected {} of {} node types",
+                    selected.len(),
+                    descriptors.len()
+                ),
+                serde_json::json!({
+                    "selected": selected.iter().map(|d| &d.node_type).collect::<Vec<_>>()
+                }),
+            );
+            (descriptors, selected)
+        };
 
         let mut tokens_used = 0u64;
         let mut attempts = 0u32;
@@ -301,7 +323,11 @@ impl<'a> Agent<'a> {
 
         loop {
             attempts += 1;
-            let planner = Planner::new(self.provider, selected.clone());
+            // The planner charges the budget before each model call, so the
+            // step cap prevents the round trips it counts instead of
+            // reporting overspend afterwards.
+            let mut planner =
+                Planner::new(self.provider, selected.clone()).with_budget(&mut budget);
             let mut request = PlanRequest {
                 goal: goal.to_string(),
                 constraints: constraints.to_vec(),
@@ -314,12 +340,13 @@ impl<'a> Agent<'a> {
                     .push(format!("A previous attempt failed: {feedback}"));
             }
 
-            let outcome = planner.plan(&request)?;
-            budget.charge_step()?;
-            for _ in 0..outcome.repairs {
-                budget.charge_step()?;
+            let outcome = match planner.plan(&request) {
+                Ok(outcome) => outcome,
+                Err(error) => return self.fail_session(&session_id, error),
+            };
+            if let Err(error) = budget.charge_tokens(outcome.tokens_used) {
+                return self.fail_session(&session_id, error);
             }
-            budget.charge_tokens(outcome.tokens_used)?;
             tokens_used += outcome.tokens_used;
 
             trace.record(
@@ -331,6 +358,10 @@ impl<'a> Agent<'a> {
                 ),
                 serde_json::json!({ "raw": outcome.raw }),
             );
+            let report_json = match serde_json::to_value(&outcome.report) {
+                Ok(value) => value,
+                Err(error) => return self.fail_session(&session_id, error.into()),
+            };
             trace.record(
                 TraceStep::Validation,
                 if outcome.accepted {
@@ -341,7 +372,7 @@ impl<'a> Agent<'a> {
                         outcome.report.error_count()
                     )
                 },
-                serde_json::to_value(&outcome.report)?,
+                report_json,
             );
 
             let Some(workflow) = outcome.workflow.clone() else {
@@ -593,6 +624,16 @@ impl<'a> Agent<'a> {
         }
     }
 
+    /// Fail a published session and return the error.
+    ///
+    /// Every fallible step after [`Self::publish_session`] must go through
+    /// here: a bare `?` would leave the session stuck in `planning` forever,
+    /// and the Studio would keep showing it as in progress.
+    fn fail_session<T>(&self, session_id: &Option<String>, error: AgentError) -> AgentResult<T> {
+        self.finish_session(session_id, SessionStatus::Failed);
+        Err(error)
+    }
+
     /// Start the run, then watch it to completion.
     fn run_once(
         &self,
@@ -651,6 +692,9 @@ impl<'a> Agent<'a> {
                     format!("lost contact with run {run_id}: {error}"),
                     Value::Null,
                 );
+                // Contact is gone but the run may still be executing: cancel
+                // it best-effort so it cannot run on unattended.
+                let _ = self.client.cancel(&run_id);
                 return RunAttempt::Terminal {
                     snapshot: Value::Null,
                     events: Vec::new(),

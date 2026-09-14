@@ -15,12 +15,12 @@ use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::Arc;
 use std::time::Duration;
 
-use parking_lot::Mutex;
 use nodara_core::policy::CapabilityRequest;
 use nodara_schema::{
     AgentSession, ApprovalDecision, ApprovalRequest, MessageRole, PlanPreview, SessionMessage,
     SessionStatus,
 };
+use parking_lot::Mutex;
 
 /// How long a run waits for an operator decision by default.
 pub const DEFAULT_APPROVAL_TIMEOUT: Duration = Duration::from_secs(300);

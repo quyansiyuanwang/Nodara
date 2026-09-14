@@ -3,8 +3,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use nodara_schema::{EventEnvelope, ExecutionEvent};
+use parking_lot::Mutex;
 
 /// Destination for execution events.
 pub trait EventSink: Send + Sync {

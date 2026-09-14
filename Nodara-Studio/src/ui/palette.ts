@@ -14,6 +14,8 @@ export interface PaletteHandlers {
 
 export class Palette {
   private readonly categories = new Map<string, NodeDescriptor[]>();
+  /** The active filter; kept so a background refresh does not reset it. */
+  private query = "";
 
   constructor(
     private readonly root: HTMLElement,
@@ -30,12 +32,13 @@ export class Palette {
     for (const bucket of this.categories.values()) {
       bucket.sort((a, b) => a.display_name.localeCompare(b.display_name));
     }
-    this.render("");
+    this.render(this.query);
   }
 
   /** Case-insensitive filter across node type, display name and description. */
   filter(query: string): void {
-    this.render(query.trim().toLowerCase());
+    this.query = query.trim().toLowerCase();
+    this.render(this.query);
   }
 
   private render(query: string): void {

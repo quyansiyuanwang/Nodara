@@ -21,11 +21,20 @@ type StaticDocument = (&'static str, fn() -> serde_json::Value);
 
 /// Documents published from the Rust types alone, in a stable order.
 const STATIC_DOCUMENTS: &[StaticDocument] = &[
-    ("plugin-manifest.schema.json", nodara_schema::manifest_schema),
-    ("node-descriptor.schema.json", nodara_schema::descriptor_schema),
+    (
+        "plugin-manifest.schema.json",
+        nodara_schema::manifest_schema,
+    ),
+    (
+        "node-descriptor.schema.json",
+        nodara_schema::descriptor_schema,
+    ),
     ("execution-event.schema.json", nodara_schema::event_schema),
     ("agent-session.schema.json", nodara_schema::session_schema),
-    ("agent-tool-call.schema.json", nodara_schema::tool_call_schema),
+    (
+        "agent-tool-call.schema.json",
+        nodara_schema::tool_call_schema,
+    ),
 ];
 
 /// Arguments accepted by `schema`.

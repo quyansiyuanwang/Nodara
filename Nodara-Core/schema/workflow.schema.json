@@ -537,7 +537,7 @@
       "description": "Evaluates a numeric expression",
       "properties": {
         "expression": {
-          "description": "Arithmetic expression evaluated against the run scope. Supports `+`, `-`, `*`, `/`, `%`, `**` and `sqrt`.",
+          "description": "Arithmetic and comparison expression evaluated against the run scope. Supports `+`, `-`, `*`, `/`, `%`, `^`, comparisons and `&&`/`||`.",
           "examples": [
             "2 + 2 * 3",
             "{{price}} * {{quantity}}"

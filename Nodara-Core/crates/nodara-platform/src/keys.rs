@@ -93,6 +93,19 @@ pub fn modifier_vk(name: &str) -> Option<u8> {
 
 /// Resolve a key name to a virtual key plus required shift state.
 pub fn resolve(name: &str) -> Option<KeyStroke> {
+    // An uppercase letter must keep `Shift` held; everything below is matched
+    // case-insensitively, so the raw name has to be inspected first.
+    let trimmed = name.trim();
+    if trimmed.len() == 1 {
+        if let Some(character) = trimmed.chars().next() {
+            if character.is_ascii_uppercase() {
+                return Some(KeyStroke {
+                    virtual_key: character as u8,
+                    shift: true,
+                });
+            }
+        }
+    }
     let normalised = normalise(name);
     if let Some(virtual_key) = named_key(&normalised) {
         return Some(KeyStroke {
@@ -196,12 +209,22 @@ fn resolve_shifted(name: &str) -> Option<KeyStroke> {
 }
 
 /// Parse a chord such as `ctrl+shift+s` into an ordered key sequence.
+///
+/// A trailing `++` means the `+` key itself: `ctrl++` is `ctrl` and `+`, not a
+/// malformed chord.
 pub fn parse_chord(chord: &str) -> Option<(Vec<u8>, KeyStroke)> {
-    let parts: Vec<&str> = chord
+    let (chord, plus_key) = match chord.strip_suffix("++") {
+        Some(head) => (head, true),
+        None => (chord, false),
+    };
+    let mut parts: Vec<&str> = chord
         .split('+')
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .collect();
+    if plus_key {
+        parts.push("+");
+    }
     if parts.is_empty() {
         return None;
     }
@@ -238,6 +261,16 @@ mod tests {
     }
 
     #[test]
+    fn uppercase_letters_hold_shift() {
+        let capital = resolve("A").unwrap();
+        assert_eq!(capital.virtual_key, b'A');
+        assert!(capital.shift);
+        let lower = resolve("a").unwrap();
+        assert_eq!(lower.virtual_key, b'A');
+        assert!(!lower.shift);
+    }
+
+    #[test]
     fn shifted_symbols_set_the_shift_flag() {
         let bang = resolve("!").unwrap();
         assert_eq!(bang.virtual_key, b'1');
@@ -260,5 +293,16 @@ mod tests {
     #[test]
     fn rejects_chords_with_unknown_modifiers() {
         assert!(parse_chord("hyper+x").is_none());
+    }
+
+    #[test]
+    fn parses_a_trailing_plus_key() {
+        let (modifiers, stroke) = parse_chord("ctrl++").unwrap();
+        assert_eq!(modifiers, vec![vk::CONTROL]);
+        assert_eq!(stroke.virtual_key, vk::OEM_PLUS);
+        assert!(stroke.shift);
+
+        let (_, plus) = parse_chord("++").unwrap();
+        assert_eq!(plus.virtual_key, vk::OEM_PLUS);
     }
 }

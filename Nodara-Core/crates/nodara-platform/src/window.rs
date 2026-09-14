@@ -93,13 +93,25 @@ pub struct WindowSelector {
 
 impl WindowSelector {
     /// Parse a selector out of a node configuration.
-    pub fn from_config(config: &serde_json::Value) -> Self {
-        serde_json::from_value(config.clone()).unwrap_or(Self {
-            title: None,
-            class: None,
-            exact: false,
-            foreground: true,
-        })
+    ///
+    /// A malformed selector is a hard error: falling back to the foreground
+    /// window would silently aim focus and capture actions at whatever window
+    /// happens to be active. `output_var` is a node-level key that travels in
+    /// the same configuration object, so it is tolerated here.
+    pub fn from_config(config: &serde_json::Value) -> Result<Self, NodeError> {
+        const SELECTOR_KEYS: &[&str] = &["title", "class", "exact", "foreground", "output_var"];
+        let object = config.as_object().ok_or_else(|| {
+            NodeError::InvalidConfig("window selector must be an object".to_string())
+        })?;
+        for key in object.keys() {
+            if !SELECTOR_KEYS.contains(&key.as_str()) {
+                return Err(NodeError::InvalidConfig(format!(
+                    "unknown window selector field `{key}`"
+                )));
+            }
+        }
+        serde_json::from_value(config.clone())
+            .map_err(|error| NodeError::InvalidConfig(format!("invalid window selector: {error}")))
     }
 
     /// Human-readable description used in error messages.
@@ -181,7 +193,7 @@ impl NodeExecutor for FindExecutor {
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let output_var = input.require_str("output_var")?;
-        let selector = WindowSelector::from_config(&input.resolved_config);
+        let selector = WindowSelector::from_config(&input.resolved_config)?;
         let record = find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
         let value = serde_json::json!({
             "handle": record.id,
@@ -222,7 +234,7 @@ impl NodeExecutor for FocusExecutor {
     }
 
     fn execute(&self, input: NodeInput, _context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
-        let selector = WindowSelector::from_config(&input.resolved_config);
+        let selector = WindowSelector::from_config(&input.resolved_config)?;
         let record = find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
         native::focus(record.id).map_err(|error| NodeError::Execution(error.to_string()))?;
         Ok(NodeOutput::new().with_output(
@@ -264,7 +276,7 @@ impl NodeExecutor for CaptureExecutor {
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let output_var = input.require_str("output_var")?;
-        let selector = WindowSelector::from_config(&input.resolved_config);
+        let selector = WindowSelector::from_config(&input.resolved_config)?;
         let record = find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
         let meta = crate::capture::capture_region(
             context,
@@ -277,5 +289,34 @@ impl NodeExecutor for CaptureExecutor {
         context.set_variable(output_var, serde_json::to_value(&meta).unwrap_or_default());
         Ok(NodeOutput::new()
             .with_output("artifact", serde_json::to_value(meta).unwrap_or_default()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_well_formed_selector_parses() {
+        let selector = WindowSelector::from_config(&serde_json::json!({
+            "title": "Notepad", "exact": true
+        }))
+        .unwrap();
+        assert_eq!(selector.title.as_deref(), Some("Notepad"));
+        assert!(selector.exact);
+        assert!(!selector.foreground);
+    }
+
+    #[test]
+    fn a_malformed_selector_is_an_error_not_a_fallback() {
+        // A typo must not silently redirect focus/capture at the foreground
+        // window.
+        let error = WindowSelector::from_config(&serde_json::json!({ "tittle": "Notepad" }))
+            .expect_err("unknown fields must be rejected");
+        assert_eq!(error.code(), "E_INVALID_CONFIG");
+
+        let error = WindowSelector::from_config(&serde_json::json!({ "exact": "yes" }))
+            .expect_err("wrong types must be rejected");
+        assert_eq!(error.code(), "E_INVALID_CONFIG");
     }
 }

@@ -39,6 +39,10 @@ pub enum ExprError {
     UnknownVariable(String),
     /// Division or remainder by zero.
     DivisionByZero,
+    /// The expression nests operators or parentheses beyond the supported
+    /// depth. Deep nesting has no legitimate use and would otherwise exhaust
+    /// the stack.
+    TooComplex,
 }
 
 impl fmt::Display for ExprError {
@@ -49,6 +53,7 @@ impl fmt::Display for ExprError {
             Self::UnexpectedEnd => write!(f, "unexpected end of expression"),
             Self::UnknownVariable(name) => write!(f, "unknown variable `{name}`"),
             Self::DivisionByZero => write!(f, "division by zero"),
+            Self::TooComplex => write!(f, "expression is nested too deeply"),
         }
     }
 }
@@ -157,7 +162,14 @@ struct Parser<'a> {
     tokens: &'a [Token],
     pos: usize,
     variables: &'a BTreeMap<String, serde_json::Value>,
+    /// Current recursion depth, guarded so hostile input cannot exhaust the
+    /// stack. Every unbounded recursion path goes through `parse_unary`.
+    depth: usize,
 }
+
+/// Bound on parser recursion. Real expressions stay far below this; each level
+/// costs roughly a dozen stack frames.
+const MAX_DEPTH: usize = 128;
 
 impl Parser<'_> {
     fn peek(&self) -> Option<&Token> {
@@ -275,17 +287,22 @@ impl Parser<'_> {
     }
 
     fn parse_unary(&mut self) -> Result<f64, ExprError> {
-        if self.eat_op(Op::Sub) {
-            return Ok(-self.parse_unary()?);
+        if self.depth >= MAX_DEPTH {
+            return Err(ExprError::TooComplex);
         }
-        if self.eat_op(Op::Add) {
-            return self.parse_unary();
-        }
-        if self.eat_op(Op::Not) {
+        self.depth += 1;
+        let result = if self.eat_op(Op::Sub) {
+            Ok(-self.parse_unary()?)
+        } else if self.eat_op(Op::Add) {
+            self.parse_unary()
+        } else if self.eat_op(Op::Not) {
             let value = self.parse_unary()?;
-            return Ok(bool_to_number(!truthy(value)));
-        }
-        self.parse_power()
+            Ok(bool_to_number(!truthy(value)))
+        } else {
+            self.parse_power()
+        };
+        self.depth -= 1;
+        result
     }
 
     fn parse_power(&mut self) -> Result<f64, ExprError> {
@@ -370,6 +387,7 @@ pub fn evaluate_expression(
         tokens: &tokens,
         pos: 0,
         variables,
+        depth: 0,
     };
     let value = parser.parse_expression()?;
     if parser.pos != tokens.len() {
@@ -474,6 +492,22 @@ mod tests {
         assert_eq!(
             evaluate_expression("1 2", &vars()),
             Err(ExprError::UnexpectedToken("Number(2.0)".to_string()))
+        );
+    }
+
+    #[test]
+    fn rejects_pathologically_nested_expressions() {
+        // Each of these previously overflowed the stack and aborted the
+        // process; now they must fail with a normal error.
+        let parens = "(".repeat(10_000) + &")".repeat(10_000);
+        assert_eq!(
+            evaluate_expression(&parens, &vars()),
+            Err(ExprError::TooComplex)
+        );
+        let nots = "!".repeat(10_000) + "1";
+        assert_eq!(
+            evaluate_expression(&nots, &vars()),
+            Err(ExprError::TooComplex)
         );
     }
 }

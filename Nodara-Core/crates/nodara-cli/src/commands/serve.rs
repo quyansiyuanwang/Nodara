@@ -1,10 +1,8 @@
 //! `nodara-cli serve`
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
-use nodara_core::{AllowAllPolicy, AllowlistPolicy, CapabilityPolicy, DefaultPolicy};
 use nodara_runtime::{PolicyMode, RuntimeBuilder, RuntimeConfig};
 
 use crate::error::CliResult;
@@ -35,13 +33,15 @@ pub struct ServeArgs {
 pub fn execute(args: ServeArgs) -> CliResult<()> {
     nodara_plugin::tracing_init();
 
-    let policy = policy_mode(&args);
-    let explicit = explicit_policy(&args);
+    // The policy decision lives in one place: `config.policy`. The builder
+    // turns the `PolicyMode` into the actual policy object, so it must not be
+    // re-derived here — that was a second copy of the same decision waiting to
+    // drift.
     let mut config = RuntimeConfig {
         host: args.host.clone(),
         port: args.port,
         autoload_plugins: !args.in_process,
-        policy,
+        policy: policy_mode(&args),
         auto_approve: !args.require_approval,
         approval_timeout: args.approval_timeout,
         audit_path: args.audit.clone(),
@@ -57,9 +57,6 @@ pub fn execute(args: ServeArgs) -> CliResult<()> {
     if args.in_process {
         builder.register_set(nodara_platform::register_platform);
         builder.register_set(nodara_vision::register_vision);
-    }
-    if let Some(policy) = explicit {
-        builder = builder.with_policy(policy);
     }
 
     let state = builder.build()?;
@@ -88,15 +85,4 @@ fn policy_mode(args: &ServeArgs) -> PolicyMode {
     } else {
         PolicyMode::Default
     }
-}
-
-fn explicit_policy(args: &ServeArgs) -> Option<Arc<dyn CapabilityPolicy>> {
-    if args.allow_all {
-        return Some(Arc::new(AllowAllPolicy));
-    }
-    if !args.allow.is_empty() {
-        return Some(Arc::new(AllowlistPolicy::new(args.allow.clone())));
-    }
-    let _ = DefaultPolicy;
-    None
 }

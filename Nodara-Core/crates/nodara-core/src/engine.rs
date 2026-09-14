@@ -138,6 +138,9 @@ pub struct RunningRun {
     run_id: String,
     control: RunControl,
     join: Option<std::thread::JoinHandle<RunOutcome>>,
+    /// Set when the thread could not be created at all; `join` reports it as
+    /// a failed run instead of the process aborting at spawn time.
+    spawn_error: Option<String>,
 }
 
 impl std::fmt::Debug for RunningRun {
@@ -161,6 +164,19 @@ impl RunningRun {
 
     /// Block until the run finishes and return its outcome.
     pub fn join(mut self) -> RunOutcome {
+        if let Some(error) = self.spawn_error.take() {
+            return RunOutcome {
+                run_id: self.run_id.clone(),
+                status: RunStatus::Failed,
+                nodes_executed: 0,
+                variables: BTreeMap::new(),
+                duration_ms: 0,
+                failure: Some(RunFailure {
+                    code: "E_THREAD".to_string(),
+                    message: format!("could not spawn the run thread: {error}"),
+                }),
+            };
+        }
         match self.join.take() {
             Some(handle) => handle.join().unwrap_or_else(|_| RunOutcome {
                 run_id: self.run_id.clone(),
@@ -268,14 +284,14 @@ impl WorkflowEngine {
         let engine = self.clone();
         let thread_control = control.clone();
         let thread_run_id = run_id.clone();
-        let join = std::thread::Builder::new()
+        let spawned = std::thread::Builder::new()
             .name(format!("nodara-run-{thread_run_id}"))
-            .spawn(move || engine.run(request, &thread_control))
-            .expect("spawning a run thread");
+            .spawn(move || engine.run(request, &thread_control));
         RunningRun {
             run_id,
             control,
-            join: Some(join),
+            spawn_error: spawned.as_ref().err().map(|error| error.to_string()),
+            join: spawned.ok(),
         }
     }
 
@@ -422,11 +438,15 @@ impl WorkflowEngine {
             let descriptor = executor.descriptor();
             context.set_node(Some(node.id.clone()));
 
+            // Policies see the resolved configuration, matching the
+            // `CapabilityRequest::input` contract: context-sensitive rules
+            // must observe the values the node will actually run with.
+            let resolved_config = context.resolve_value(&node.config);
             if let Err(error) = context.authorize(
                 &node.node_type,
                 &descriptor.permissions,
                 descriptor.dangerous,
-                &node.config,
+                &resolved_config,
             ) {
                 let message = error.to_string();
                 bus.emit(ExecutionEvent::NodeFailed {
@@ -451,7 +471,6 @@ impl WorkflowEngine {
                 break;
             }
 
-            let resolved_config = context.resolve_value(&node.config);
             let mut inputs = BTreeMap::new();
             for edge in graph.edges_to(&node.id) {
                 let port = edge.source_port.as_deref().unwrap_or("out");
@@ -550,7 +569,9 @@ impl WorkflowEngine {
         }
 
         context.set_node(None);
-        let variables = context.variables().clone();
+        // The outcome feeds run snapshots and CLI reports, so it carries the
+        // redacted scope; raw secret values never leave the execution context.
+        let variables = context.redacted_variables();
         let duration_ms = started.elapsed().as_millis() as u64;
 
         match status {

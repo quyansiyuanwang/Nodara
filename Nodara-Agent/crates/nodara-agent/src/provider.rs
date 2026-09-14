@@ -154,7 +154,21 @@ impl LlmProvider for OpenAiProvider {
         let response = call
             .set("content-type", "application/json")
             .send_json(body)
-            .map_err(|error| AgentError::Provider(error.to_string()))?;
+            .map_err(|error| match error {
+                // A status error carries the provider's diagnostic body (rate
+                // limits, quota, model errors); surface it instead of the bare
+                // status line.
+                ureq::Error::Status(status, response) => {
+                    let detail = response.into_string().unwrap_or_default();
+                    let detail = detail.trim();
+                    if detail.is_empty() {
+                        AgentError::Provider(format!("provider returned HTTP {status}"))
+                    } else {
+                        AgentError::Provider(format!("provider returned HTTP {status}: {detail}"))
+                    }
+                }
+                other => AgentError::Provider(other.to_string()),
+            })?;
 
         let payload: serde_json::Value = response
             .into_json()

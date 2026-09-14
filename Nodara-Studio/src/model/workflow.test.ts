@@ -116,4 +116,48 @@ describe("workflow model", () => {
     expect(problems.some((line) => line.includes("missing target"))).toBe(true);
     expect(problems.some((line) => line.includes("no core.End"))).toBe(true);
   });
+
+  it("flags a directed cycle instead of waiting for the runtime", () => {
+    const workflow: Workflow = {
+      schema_version: "2.0",
+      id: "wf.cycle",
+      metadata: { name: "cycle", tags: [] },
+      nodes: [
+        { id: "start", type: "core.Start", config: {} },
+        { id: "a", type: "core.Log", config: {} },
+        { id: "b", type: "core.Log", config: {} },
+        { id: "end", type: "core.End", config: {} },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "a" },
+        { id: "e2", source: "a", target: "b" },
+        { id: "e3", source: "b", target: "a" },
+      ],
+      variables: {},
+    };
+    const problems = localProblems(workflow);
+    expect(problems.some((line) => line.includes("cycle") && line.includes("`a`"))).toBe(true);
+  });
+
+  it("accepts a diamond-shaped acyclic graph", () => {
+    const workflow: Workflow = {
+      schema_version: "2.0",
+      id: "wf.diamond",
+      metadata: { name: "diamond", tags: [] },
+      nodes: [
+        { id: "start", type: "core.Start", config: {} },
+        { id: "a", type: "core.Log", config: {} },
+        { id: "b", type: "core.Log", config: {} },
+        { id: "end", type: "core.End", config: {} },
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "a" },
+        { id: "e2", source: "start", target: "b" },
+        { id: "e3", source: "a", target: "end" },
+        { id: "e4", source: "b", target: "end" },
+      ],
+      variables: {},
+    };
+    expect(localProblems(workflow)).toEqual([]);
+  });
 });

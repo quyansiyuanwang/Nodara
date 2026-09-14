@@ -8,8 +8,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use nodara_schema::{ExecutionEvent, LogLevel};
+use parking_lot::Mutex;
 
 use crate::audit::{AuditCategory, AuditLog, AuditRecord};
 use crate::control::RunControl;
@@ -180,6 +180,24 @@ impl ExecutionContext {
     /// All current variables.
     pub fn variables(&self) -> &BTreeMap<String, serde_json::Value> {
         &self.variables
+    }
+
+    /// All current variables with secret values masked.
+    ///
+    /// Anything crossing a trust boundary — a plugin process, a run snapshot,
+    /// a CLI report — must use this view; the raw scope is for node execution
+    /// only.
+    pub fn redacted_variables(&self) -> BTreeMap<String, serde_json::Value> {
+        self.variables
+            .iter()
+            .map(|(name, value)| {
+                if self.secrets.contains(name) {
+                    (name.clone(), serde_json::Value::String("***".into()))
+                } else {
+                    (name.clone(), value.clone())
+                }
+            })
+            .collect()
     }
 
     /// Read a variable.

@@ -38,6 +38,10 @@ pub enum AgentError {
     #[error("budget exhausted: {0}")]
     BudgetExhausted(String),
 
+    /// The environment is missing something the command requires.
+    #[error("configuration error: {0}")]
+    Configuration(String),
+
     /// JSON handling failed.
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),

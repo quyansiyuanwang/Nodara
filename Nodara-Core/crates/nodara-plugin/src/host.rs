@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use nodara_core::{CapabilityRegistry, EventSink};
 use nodara_schema::{EventEnvelope, ExecutionEvent, LogLevel, NodeDescriptor, PluginManifest};
+use parking_lot::Mutex;
 
 use crate::client::PluginClient;
 use crate::discovery::DiscoveryOutcome;
@@ -242,25 +242,37 @@ impl PluginHost {
     }
 
     /// Ask every plugin to abandon a run.
+    ///
+    /// The RPCs run outside the plugins lock: each call can block for up to a
+    /// control timeout, and holding the mutex that long would stall every
+    /// other host operation. The client handles are owned `Arc`s, so they stay
+    /// valid after the lock is released.
     pub fn cancel_run(&self, run_id: &str) {
-        let plugins = self.plugins.lock();
-        for entry in plugins.iter() {
-            if let Some(client) = &entry.client {
-                let _ = client.cancel(crate::protocol::CancelParams {
-                    run_id: run_id.to_string(),
-                    node_id: None,
-                });
-            }
+        let clients: Vec<_> = self
+            .plugins
+            .lock()
+            .iter()
+            .filter_map(|entry| entry.client.clone())
+            .collect();
+        for client in clients {
+            let _ = client.cancel(crate::protocol::CancelParams {
+                run_id: run_id.to_string(),
+                node_id: None,
+            });
         }
     }
 
     /// Gracefully shut every plugin down.
     pub fn shutdown(&self) {
-        let mut plugins = self.plugins.lock();
-        for entry in plugins.iter_mut() {
-            if let Some(client) = entry.client.take() {
-                let _ = client.shutdown();
-            }
+        let clients: Vec<_> = {
+            let mut plugins = self.plugins.lock();
+            plugins
+                .iter_mut()
+                .filter_map(|entry| entry.client.take())
+                .collect()
+        };
+        for client in clients {
+            let _ = client.shutdown();
         }
     }
 

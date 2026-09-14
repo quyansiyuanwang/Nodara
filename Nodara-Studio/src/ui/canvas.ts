@@ -7,7 +7,12 @@
  * pure function of the workflow plus a run-status overlay.
  */
 
-import { edgeExists, nextEdgeId } from "../model/workflow";
+import {
+  defaultConfig,
+  edgeExists,
+  nextEdgeId,
+  nextNodeId,
+} from "../model/workflow";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
 const NODE_WIDTH = 168;
@@ -126,12 +131,14 @@ export class Canvas {
 
   /** Add a node programmatically (used by double-click in the palette). */
   addNode(descriptor: NodeDescriptor, x: number, y: number): void {
-    const id = uniqueId(descriptor.node_type, this.workflow.nodes);
+    const id = nextNodeId(descriptor, this.workflow.nodes);
     const node: WorkflowNode = {
       id,
       type: descriptor.node_type,
       label: descriptor.display_name,
-      config: {},
+      // Schema defaults apply to a new node, exactly as they would when the
+      // document is completed in a text editor.
+      config: defaultConfig(descriptor),
       position: {
         x: Math.round(x + this.workflow.nodes.length * 12) % 1400,
         y: Math.round(y + this.workflow.nodes.length * 12) % 800,
@@ -370,20 +377,4 @@ export class Canvas {
     const rect = this.svg.getBoundingClientRect();
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
-}
-
-function uniqueId(nodeType: string, nodes: WorkflowNode[]): string {
-  const stem =
-    nodeType
-      .split(".")
-      .pop()!
-      .replace(/[^A-Za-z0-9]/g, "")
-      .toLowerCase() || "node";
-  let candidate = stem;
-  let counter = 1;
-  while (nodes.some((node) => node.id === candidate)) {
-    counter += 1;
-    candidate = `${stem}${counter}`;
-  }
-  return candidate;
 }

@@ -85,7 +85,9 @@ impl NodeExecutor for PluginExecutor {
             node_type: input.node_type.clone(),
             config: input.resolved_config.clone(),
             inputs: input.inputs.clone(),
-            variables: context.variables().clone(),
+            // Crosses a process boundary, so secrets stay masked; a plugin
+            // receives resolved config values through `config`, not the scope.
+            variables: context.redacted_variables(),
             timeout_ms: None,
         };
         match self.client.execute(params) {

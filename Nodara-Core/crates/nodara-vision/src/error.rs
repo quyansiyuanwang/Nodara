@@ -35,7 +35,9 @@ pub enum VisionError {
     },
 
     /// No OCR backend has been installed.
-    #[error("no OCR backend is configured; install one with `set_ocr_backend` or NODARA_OCR_COMMAND")]
+    #[error(
+        "no OCR backend is configured; install one with `set_ocr_backend` or NODARA_OCR_COMMAND"
+    )]
     NoOcrBackend,
 
     /// The OCR backend failed.

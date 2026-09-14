@@ -10,7 +10,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use nodara_core::{
     CapabilityRegistry, ExecutionContext, NodeError, NodeExecutor, NodeInput, NodeOutput,
     NodeResult,
@@ -22,6 +21,7 @@ use nodara_schema::{
     Edge, Node, NodeDescriptor, NodeTypeIndex, PluginManifest, PortDescriptor, PortKind, ValueType,
     Workflow, SCHEMA_VERSION,
 };
+use parking_lot::Mutex;
 
 /// Fluent builder for workflow documents.
 #[derive(Debug, Clone)]

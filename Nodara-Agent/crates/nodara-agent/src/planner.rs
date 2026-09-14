@@ -11,6 +11,7 @@ use serde_json::Value;
 
 use crate::error::AgentResult;
 use crate::model::{ChatMessage, ChatRequest};
+use crate::policy::BudgetTracker;
 use crate::prompt::{modify_prompt, repair_prompt, system_prompt, user_prompt};
 use crate::provider::LlmProvider;
 
@@ -75,6 +76,10 @@ pub struct PlanOutcome {
 pub struct Planner<'a> {
     provider: &'a dyn LlmProvider,
     descriptors: Vec<NodeDescriptor>,
+    /// Optional budget charged *before* each provider call, so `max_steps`
+    /// actually caps model round trips instead of detecting overspend after
+    /// the fact.
+    budget: Option<&'a mut BudgetTracker>,
 }
 
 impl std::fmt::Debug for Planner<'_> {
@@ -92,11 +97,25 @@ impl<'a> Planner<'a> {
         Self {
             provider,
             descriptors,
+            budget: None,
+        }
+    }
+
+    /// Charge `budget` before every model call the planner makes.
+    pub fn with_budget(mut self, budget: &'a mut BudgetTracker) -> Self {
+        self.budget = Some(budget);
+        self
+    }
+
+    fn charge_step(&mut self) -> AgentResult<()> {
+        match &mut self.budget {
+            Some(budget) => budget.charge_step(),
+            None => Ok(()),
         }
     }
 
     /// Plan a workflow, repairing until the runtime accepts it.
-    pub fn plan(&self, request: &PlanRequest) -> AgentResult<PlanOutcome> {
+    pub fn plan(&mut self, request: &PlanRequest) -> AgentResult<PlanOutcome> {
         let system = system_prompt(&self.descriptors);
         let opening = match &request.base {
             Some(base) => {
@@ -107,6 +126,7 @@ impl<'a> Planner<'a> {
         };
         let mut messages = vec![ChatMessage::system(system), ChatMessage::user(opening)];
 
+        self.charge_step()?;
         let first = self
             .provider
             .complete(&ChatRequest::new(messages.clone()))?;
@@ -141,6 +161,7 @@ impl<'a> Planner<'a> {
             let diagnostics = serde_json::to_value(&report)?;
             messages.push(ChatMessage::assistant(raw.clone()));
             messages.push(ChatMessage::user(repair_prompt(&raw, &diagnostics)));
+            self.charge_step()?;
             let response = self
                 .provider
                 .complete(&ChatRequest::new(messages.clone()))?;
@@ -152,12 +173,17 @@ impl<'a> Planner<'a> {
     /// Parse and validate one draft.
     ///
     /// Parsing first, then validating with the *same* function the runtime uses,
-    /// means a draft that passes here passes there.
+    /// means a draft that passes here passes there. Without a catalogue
+    /// (offline planning) only structure, graph and variable rules apply.
     fn evaluate(&self, raw: &str) -> (Option<Workflow>, ValidationReport) {
         match extract_workflow(raw) {
             Ok(workflow) => {
-                let index = DescriptorIndex(&self.descriptors);
-                let report = validate_with(&workflow, &index, &Default::default());
+                let report = if self.descriptors.is_empty() {
+                    nodara_schema::validate(&workflow)
+                } else {
+                    let index = DescriptorIndex(&self.descriptors);
+                    validate_with(&workflow, &index, &Default::default())
+                };
                 (Some(workflow), report)
             }
             Err(error) => {
@@ -232,6 +258,8 @@ impl ReportPayloadError for ValidationReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::AgentError;
+    use crate::policy::{Budget, BudgetTracker};
     use crate::provider::MockProvider;
     use nodara_schema::NodeDescriptor;
 
@@ -281,7 +309,7 @@ mod tests {
         })
         .to_string();
         let provider = MockProvider::new([draft]);
-        let planner = Planner::new(&provider, descriptors());
+        let mut planner = Planner::new(&provider, descriptors());
         let outcome = planner.plan(&PlanRequest::new("log something")).unwrap();
         assert!(outcome.accepted);
         assert_eq!(outcome.repairs, 0);
@@ -319,7 +347,7 @@ mod tests {
         .to_string();
 
         let provider = MockProvider::new([broken, fixed]);
-        let planner = Planner::new(&provider, descriptors());
+        let mut planner = Planner::new(&provider, descriptors());
         let outcome = planner.plan(&PlanRequest::new("log something")).unwrap();
 
         assert!(outcome.accepted);
@@ -332,6 +360,33 @@ mod tests {
     }
 
     #[test]
+    fn the_budget_is_charged_before_each_model_call() {
+        let broken = serde_json::json!({
+            "schema_version": "2.0",
+            "id": "wf.broken",
+            "nodes": [{ "id": "start", "type": "core.Start" }],
+            "edges": []
+        })
+        .to_string();
+        let provider = MockProvider::new([broken.clone(), broken.clone(), broken]);
+        let mut budget = BudgetTracker::new(Budget {
+            max_steps: 1,
+            ..Budget::default()
+        });
+        let mut planner = Planner::new(&provider, descriptors()).with_budget(&mut budget);
+        let mut request = PlanRequest::new("impossible");
+        request.max_repairs = 2;
+
+        let error = planner.plan(&request).expect_err("budget must be refused");
+        assert!(matches!(error, AgentError::BudgetExhausted(_)));
+        assert_eq!(
+            provider.calls().len(),
+            1,
+            "the second model call must be refused before it happens"
+        );
+    }
+
+    #[test]
     fn gives_up_after_the_repair_budget() {
         let broken = serde_json::json!({
             "schema_version": "2.0",
@@ -341,7 +396,7 @@ mod tests {
         })
         .to_string();
         let provider = MockProvider::new([broken.clone(), broken.clone(), broken]);
-        let planner = Planner::new(&provider, descriptors());
+        let mut planner = Planner::new(&provider, descriptors());
         let mut request = PlanRequest::new("impossible");
         request.max_repairs = 2;
         let outcome = planner.plan(&request).unwrap();
@@ -353,7 +408,7 @@ mod tests {
     #[test]
     fn reports_prose_instead_of_json_as_a_diagnostic() {
         let provider = MockProvider::new(["I am sorry, I cannot do that."]);
-        let planner = Planner::new(&provider, descriptors());
+        let mut planner = Planner::new(&provider, descriptors());
         let outcome = planner
             .plan(&PlanRequest {
                 goal: "x".into(),
@@ -392,7 +447,7 @@ mod tests {
         })
         .to_string()]);
 
-        let planner = Planner::new(&provider, descriptors());
+        let mut planner = Planner::new(&provider, descriptors());
         let outcome = planner
             .plan(&PlanRequest::new("add a log line").with_base(base))
             .unwrap();

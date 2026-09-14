@@ -147,5 +147,43 @@ export function localProblems(workflow: Workflow): string[] {
   if (!workflow.nodes.some((node) => node.type === "core.End")) {
     problems.push("no core.End node");
   }
+  problems.push(...cycleProblems(workflow));
   return problems;
+}
+
+/**
+ * Detect directed cycles with Kahn's algorithm.
+ *
+ * A workflow must be a DAG; the runtime rejects cycles on validate, but the
+ * editor can say so the moment an edge is drawn instead of after a round trip.
+ */
+function cycleProblems(workflow: Workflow): string[] {
+  const indegree = new Map<string, number>();
+  const adjacency = new Map<string, string[]>();
+  for (const node of workflow.nodes) {
+    indegree.set(node.id, 0);
+    adjacency.set(node.id, []);
+  }
+  for (const edge of workflow.edges) {
+    if (!indegree.has(edge.source) || !indegree.has(edge.target)) continue;
+    adjacency.get(edge.source)!.push(edge.target);
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+  }
+  const ready = [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
+  let visited = 0;
+  while (ready.length > 0) {
+    const id = ready.pop()!;
+    visited += 1;
+    for (const next of adjacency.get(id) ?? []) {
+      const degree = indegree.get(next)! - 1;
+      indegree.set(next, degree);
+      if (degree === 0) ready.push(next);
+    }
+  }
+  if (visited === indegree.size) return [];
+  const stuck = [...indegree.entries()]
+    .filter(([, degree]) => degree > 0)
+    .map(([id]) => `\`${id}\``)
+    .join(", ");
+  return [`the workflow contains a cycle involving ${stuck}`];
 }

@@ -69,9 +69,29 @@ export class RuntimeClient {
       ...init,
     });
     const text = await response.text();
-    const payload = text ? JSON.parse(text) : null;
+    let payload: unknown = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        // A proxy or antivirus can answer with an HTML error page; surface a
+        // structured error instead of a raw SyntaxError from the JSON parser.
+        if (!response.ok) {
+          throw new RuntimeError(response.status, {
+            code: `HTTP_${response.status}`,
+            message: response.statusText || "request failed",
+            detail: text.slice(0, 200),
+          });
+        }
+        throw new RuntimeError(200, {
+          code: "E_RESPONSE",
+          message: "the runtime returned a response that is not JSON",
+          detail: text.slice(0, 200),
+        });
+      }
+    }
     if (!response.ok) {
-      const body: ApiErrorBody = payload ?? {
+      const body: ApiErrorBody = (payload as ApiErrorBody) ?? {
         code: `HTTP_${response.status}`,
         message: response.statusText || "request failed",
       };

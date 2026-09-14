@@ -60,6 +60,9 @@ jobs:
           cargo run -q -p nodara-cli -- validate ../examples/hello-world.json
           cargo run -q -p nodara-cli -- validate ../examples/delayed-log.json
           cargo run -q -p nodara-cli -- validate ../examples/branching.json
+        # `examples/window-find.json` needs the platform plugin's node types,
+        # and `examples/legacy/` is kept to exercise the migrator; neither is
+        # valid against the plugin-less validation registry.
 
       - name: Build release artefacts
         working-directory: Nodara-Core
@@ -124,6 +127,10 @@ jobs:
       - name: Formatting
         working-directory: Nodara-Agent
         run: cargo fmt --all -- --check
+
+      - name: Clippy
+        working-directory: Nodara-Agent
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Tests
         working-directory: Nodara-Agent

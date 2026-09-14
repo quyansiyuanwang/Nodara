@@ -6,8 +6,8 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use nodara_agent::{
     audit::{self, AuditTrace},
-    Agent, AgentConfig, AgentResult, ExplainTarget, GuardrailPolicy, LlmProvider, MockProvider,
-    OpenAiProvider, RuntimeClient, ToolPolicy,
+    Agent, AgentConfig, AgentError, AgentResult, ExplainTarget, GuardrailPolicy, LlmProvider,
+    MockProvider, OpenAiProvider, RuntimeClient, ToolPolicy,
 };
 
 #[derive(Parser)]
@@ -232,9 +232,11 @@ fn run() -> AgentResult<()> {
             let mut config = config;
             config.base_workflow = read_base(&from)?;
             if offline {
-                // Offline planning still validates locally against the shipped
-                // schema rules, it just cannot consult the runtime's catalogue.
-                config.runtime_url = cli.runtime.clone();
+                // Offline planning validates against the shipped schema rules
+                // only: no capability discovery, no session publication, no
+                // runtime round trip of any kind.
+                config.offline = true;
+                config.publish_session = false;
             }
             let agent = Agent::new(provider.as_ref(), config);
             let outcome = agent.plan(&goal, &constraints)?;
@@ -447,13 +449,12 @@ fn build_provider(mock: &[String]) -> AgentResult<Box<dyn LlmProvider>> {
     if !mock.is_empty() {
         return Ok(Box::new(MockProvider::new(mock.to_vec())));
     }
-    match OpenAiProvider::from_env() {
-        Ok(provider) => Ok(Box::new(provider)),
-        Err(error) => {
-            eprintln!("warning: {error}; falling back to an empty scripted provider");
-            Ok(Box::new(MockProvider::new([""])))
-        }
-    }
+    // A missing key must fail loudly: silently falling back to an empty
+    // scripted provider turned a configuration problem into a confusing
+    // "the model did not produce a workflow" failure.
+    OpenAiProvider::from_env()
+        .map_err(|error| AgentError::Configuration(error.to_string()))
+        .map(|provider| Box::new(provider) as Box<dyn LlmProvider>)
 }
 
 fn offline_provider() -> MockProvider {
@@ -517,7 +518,10 @@ fn write_workflow(
 
 /// The document as it should be written: the planned workflow with the
 /// runtime's schema URL filled in when the plan did not carry one.
-fn document_for_disk(workflow: &nodara_schema::Workflow, runtime_url: &str) -> nodara_schema::Workflow {
+fn document_for_disk(
+    workflow: &nodara_schema::Workflow,
+    runtime_url: &str,
+) -> nodara_schema::Workflow {
     let mut document = workflow.clone();
     if document.schema_url.is_none() {
         let base = runtime_url.trim_end_matches('/');

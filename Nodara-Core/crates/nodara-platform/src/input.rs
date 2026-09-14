@@ -82,7 +82,10 @@ impl NodeExecutor for KeyboardExecutor {
         for modifier in modifiers.iter().rev() {
             native::key(*modifier, true);
         }
-        context.log(nodara_schema::LogLevel::Info, format!("sent keys `{chord}`"));
+        context.log(
+            nodara_schema::LogLevel::Info,
+            format!("sent keys `{chord}`"),
+        );
         Ok(NodeOutput::new().with_output("out", serde_json::json!(chord)))
     }
 }

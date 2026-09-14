@@ -113,18 +113,36 @@ impl NodeExecutor for DesktopCaptureExecutor {
         let (screen_width, screen_height) = native::screen_size();
         let x = input.config_i64("x").unwrap_or(0) as i32;
         let y = input.config_i64("y").unwrap_or(0) as i32;
-        let width = input
-            .config_i64("width")
-            .map_or(screen_width.max(0) as u32, |value| value as u32);
-        let height = input
-            .config_i64("height")
-            .map_or(screen_height.max(0) as u32, |value| value as u32);
+        let width = dimension(input.config_i64("width"), screen_width, "width")?;
+        let height = dimension(input.config_i64("height"), screen_height, "height")?;
 
         let meta = capture_region(context, x, y, width, height, "desktop")?;
         context.set_variable(output_var, serde_json::to_value(&meta).unwrap_or_default());
         Ok(NodeOutput::new()
             .with_output("artifact", serde_json::to_value(meta).unwrap_or_default()))
     }
+}
+
+/// Resolve a capture dimension, rejecting values that would wrap around or
+/// attempt an absurd allocation.
+///
+/// A negative width cast straight to `u32` becomes ~4 billion pixels; the
+/// buffer for that aborts the process before any error can be reported.
+fn dimension(value: Option<i64>, screen: i32, name: &str) -> NodeResult<u32> {
+    const MAX_DIMENSION: i64 = 100_000;
+
+    let raw = value.unwrap_or(screen.max(0) as i64);
+    if raw < 1 {
+        return Err(NodeError::InvalidConfig(format!(
+            "`{name}` must be a positive number of pixels, got {raw}"
+        )));
+    }
+    if raw > MAX_DIMENSION {
+        return Err(NodeError::InvalidConfig(format!(
+            "`{name}` may be at most {MAX_DIMENSION} pixels, got {raw}"
+        )));
+    }
+    Ok(raw as u32)
 }
 
 #[cfg(test)]
@@ -146,5 +164,33 @@ mod tests {
     #[test]
     fn rejects_short_buffers() {
         assert!(encode_png(&[0, 0, 0], 2, 2).is_err());
+    }
+}
+
+#[cfg(test)]
+mod dimension_tests {
+    use super::*;
+
+    #[test]
+    fn defaults_to_the_screen_size() {
+        assert_eq!(dimension(None, 1920, "width").unwrap(), 1920);
+    }
+
+    #[test]
+    fn rejects_non_positive_and_oversized_values() {
+        assert_eq!(
+            dimension(Some(-1), 1920, "width").unwrap_err().code(),
+            "E_INVALID_CONFIG"
+        );
+        assert_eq!(
+            dimension(Some(0), 1920, "height").unwrap_err().code(),
+            "E_INVALID_CONFIG"
+        );
+        assert_eq!(
+            dimension(Some(10_000_000), 1920, "width")
+                .unwrap_err()
+                .code(),
+            "E_INVALID_CONFIG"
+        );
     }
 }

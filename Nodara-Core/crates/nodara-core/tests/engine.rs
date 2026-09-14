@@ -296,3 +296,37 @@ fn delay_node_honours_cancellation() {
         "cancellation should interrupt the delay promptly"
     );
 }
+
+#[test]
+fn secret_variables_are_redacted_in_the_outcome() {
+    let mut workflow = linear_workflow();
+    workflow.variables.insert(
+        "api_key".to_string(),
+        Variable {
+            value: serde_json::json!("hunter2"),
+            secret: true,
+            ..Variable::default()
+        },
+    );
+
+    let mut overrides = BTreeMap::new();
+    overrides.insert("api_key".to_string(), serde_json::json!("s3cr3t"));
+
+    let engine = WorkflowEngine::new(registry());
+    let outcome = engine.run(
+        RunRequest::new(workflow).with_variables(overrides),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(
+        outcome.variables.get("api_key"),
+        Some(&serde_json::json!("***")),
+        "a secret variable must never reach run snapshots or reports"
+    );
+    assert_eq!(
+        outcome.variables.get("result"),
+        Some(&serde_json::json!(8)),
+        "non-secret variables are unaffected"
+    );
+}

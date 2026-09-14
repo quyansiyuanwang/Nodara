@@ -165,8 +165,9 @@ impl NodeExecutor for CalculateExecutor {
                     "expression": {
                         "type": "string",
                         "title": "Expression",
-                        "description": "Arithmetic expression evaluated against the run scope. \
-                                        Supports `+`, `-`, `*`, `/`, `%`, `**` and `sqrt`.",
+                        "description": "Arithmetic and comparison expression evaluated against \
+                                        the run scope. Supports `+`, `-`, `*`, `/`, `%`, `^`, \
+                                        comparisons and `&&`/`||`.",
                         "examples": ["2 + 2 * 3", "{{price}} * {{quantity}}"]
                     },
                     "output_var": {

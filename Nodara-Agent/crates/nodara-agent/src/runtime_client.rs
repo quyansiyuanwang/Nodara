@@ -14,6 +14,24 @@ use serde_json::Value;
 
 use crate::error::{AgentError, AgentResult};
 
+/// Percent-encode a caller-supplied id for use in a URL path segment or query
+/// value.
+///
+/// Ids come from argv and from runtime responses; a stray `/`, `?` or `#`
+/// would otherwise retarget the request at a different resource.
+fn segment(id: &str) -> String {
+    let mut out = String::with_capacity(id.len());
+    for byte in id.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char);
+            }
+            other => out.push_str(&format!("%{other:02X}")),
+        }
+    }
+    out
+}
+
 /// A REST client for one runtime instance.
 #[derive(Debug, Clone)]
 pub struct RuntimeClient {
@@ -33,7 +51,8 @@ impl RuntimeClient {
     /// Read the base URL from `NODARA_RUNTIME_URL`, defaulting to localhost.
     pub fn from_env() -> Self {
         Self::new(
-            std::env::var("NODARA_RUNTIME_URL").unwrap_or_else(|_| "http://127.0.0.1:8710".to_string()),
+            std::env::var("NODARA_RUNTIME_URL")
+                .unwrap_or_else(|_| "http://127.0.0.1:8710".to_string()),
         )
     }
 
@@ -117,7 +136,7 @@ impl RuntimeClient {
 
     /// Read a run snapshot.
     pub fn get_run(&self, run_id: &str) -> AgentResult<Value> {
-        self.get(&format!("/api/v1/runs/{run_id}"))
+        self.get(&format!("/api/v1/runs/{}", segment(run_id)))
     }
 
     /// The buffered event sequence for a run.
@@ -126,7 +145,7 @@ impl RuntimeClient {
     /// here. Observing a run therefore does not require carrying a WebSocket
     /// stack in a command-line tool whose other calls are already REST.
     pub fn event_log(&self, run_id: &str) -> AgentResult<Vec<EventEnvelope>> {
-        let payload = self.get(&format!("/api/v1/runs/{run_id}/event-log"))?;
+        let payload = self.get(&format!("/api/v1/runs/{}/event-log", segment(run_id)))?;
         Ok(serde_json::from_value(payload)?)
     }
 
@@ -141,7 +160,7 @@ impl RuntimeClient {
 
     /// Read a session.
     pub fn get_session(&self, session_id: &str) -> AgentResult<AgentSession> {
-        let payload = self.get(&format!("/api/v1/agent/sessions/{session_id}"))?;
+        let payload = self.get(&format!("/api/v1/agent/sessions/{}", segment(session_id)))?;
         Ok(serde_json::from_value(payload)?)
     }
 
@@ -153,7 +172,7 @@ impl RuntimeClient {
         text: &str,
     ) -> AgentResult<AgentSession> {
         let payload = self.post(
-            &format!("/api/v1/agent/sessions/{session_id}/messages"),
+            &format!("/api/v1/agent/sessions/{}/messages", segment(session_id)),
             serde_json::json!({ "role": role, "text": text }),
         )?;
         Ok(serde_json::from_value(payload)?)
@@ -166,7 +185,7 @@ impl RuntimeClient {
         preview: &PlanPreview,
     ) -> AgentResult<AgentSession> {
         let payload = self.post(
-            &format!("/api/v1/agent/sessions/{session_id}/plan"),
+            &format!("/api/v1/agent/sessions/{}/plan", segment(session_id)),
             serde_json::to_value(preview)?,
         )?;
         Ok(serde_json::from_value(payload)?)
@@ -179,7 +198,7 @@ impl RuntimeClient {
         status: SessionStatus,
     ) -> AgentResult<AgentSession> {
         let payload = self.post(
-            &format!("/api/v1/agent/sessions/{session_id}/status"),
+            &format!("/api/v1/agent/sessions/{}/status", segment(session_id)),
             serde_json::json!({ "status": status }),
         )?;
         Ok(serde_json::from_value(payload)?)
@@ -204,7 +223,11 @@ impl RuntimeClient {
         decided_by: &str,
     ) -> AgentResult<AgentSession> {
         let payload = self.post(
-            &format!("/api/v1/agent/sessions/{session_id}/approvals/{approval_id}"),
+            &format!(
+                "/api/v1/agent/sessions/{}/approvals/{}",
+                segment(session_id),
+                segment(approval_id)
+            ),
             serde_json::json!({ "decision": decision, "decided_by": decided_by }),
         )?;
         Ok(serde_json::from_value(payload)?)
@@ -219,7 +242,7 @@ impl RuntimeClient {
     pub fn audit(&self, run_id: Option<&str>, limit: Option<usize>) -> AgentResult<Vec<Value>> {
         let mut query = Vec::new();
         if let Some(run_id) = run_id {
-            query.push(format!("run_id={run_id}"));
+            query.push(format!("run_id={}", segment(run_id)));
         }
         if let Some(limit) = limit {
             query.push(format!("limit={limit}"));
@@ -253,7 +276,7 @@ impl RuntimeClient {
     /// Pause a run.
     pub fn pause(&self, run_id: &str) -> AgentResult<Value> {
         self.post(
-            &format!("/api/v1/runs/{run_id}/pause"),
+            &format!("/api/v1/runs/{}/pause", segment(run_id)),
             serde_json::json!({}),
         )
     }
@@ -261,7 +284,7 @@ impl RuntimeClient {
     /// Resume a run.
     pub fn resume(&self, run_id: &str) -> AgentResult<Value> {
         self.post(
-            &format!("/api/v1/runs/{run_id}/resume"),
+            &format!("/api/v1/runs/{}/resume", segment(run_id)),
             serde_json::json!({}),
         )
     }
@@ -269,27 +292,51 @@ impl RuntimeClient {
     /// Cancel a run.
     pub fn cancel(&self, run_id: &str) -> AgentResult<Value> {
         self.post(
-            &format!("/api/v1/runs/{run_id}/cancel"),
+            &format!("/api/v1/runs/{}/cancel", segment(run_id)),
             serde_json::json!({}),
         )
     }
 
     /// Poll a run until it reaches a terminal state, or the deadline passes.
+    ///
+    /// On deadline the run is cancelled instead of abandoned: the agent is
+    /// about to stop watching, and an unwatched run would keep executing its
+    /// side effects unattended. A short grace period lets the runtime reach
+    /// the cancelled state so the returned snapshot is terminal when possible.
     pub fn wait_for_run(&self, run_id: &str, timeout: Duration) -> AgentResult<Value> {
         let deadline = std::time::Instant::now() + timeout;
         loop {
             let snapshot = self.get_run(run_id)?;
-            let status = snapshot
-                .get("status")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown");
-            if matches!(status, "completed" | "failed" | "cancelled") {
+            let status = run_status(&snapshot);
+            if is_terminal(status) {
                 return Ok(snapshot);
             }
             if std::time::Instant::now() >= deadline {
-                return Ok(snapshot);
+                let _ = self.cancel(run_id);
+                let grace = std::time::Instant::now() + Duration::from_secs(5);
+                loop {
+                    let snapshot = self.get_run(run_id)?;
+                    if is_terminal(run_status(&snapshot)) {
+                        return Ok(snapshot);
+                    }
+                    if std::time::Instant::now() >= grace {
+                        return Ok(snapshot);
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
             }
             std::thread::sleep(Duration::from_millis(100));
         }
     }
+}
+
+fn run_status(snapshot: &Value) -> &str {
+    snapshot
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+}
+
+fn is_terminal(status: &str) -> bool {
+    matches!(status, "completed" | "failed" | "cancelled")
 }

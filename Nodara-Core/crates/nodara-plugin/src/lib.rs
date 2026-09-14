@@ -42,12 +42,12 @@ pub use error::{PluginError, PluginResult};
 pub use executor::PluginExecutor;
 pub use host::{PluginHost, PluginSummary};
 pub use jsonrpc::{codes, ErrorObject, Incoming, Notification, Request, Response, JSONRPC_VERSION};
+pub use nodara_schema::PluginManifest;
 pub use protocol::{
     methods, CancelParams, DescribeParams, DescribeResult, ExecuteParams, ExecuteResult,
     InitializeParams, InitializeResult, LogNotification, PluginInfo, ProgressNotification,
     PROTOCOL_VERSION,
 };
-pub use nodara_schema::PluginManifest;
 pub use server::{serve_stdio, InProcessTransport, PluginServer, PluginServerInfo};
 pub use transport::{
     transport_error, JsonRpcTransport, NotificationSink, NullNotificationSink, StdioTransport,

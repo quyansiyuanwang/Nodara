@@ -4,9 +4,9 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use nodara_core::{EventSink, RunControl, RunFailure, RunOutcome, RunRequest, WorkflowEngine};
 use nodara_schema::{EventEnvelope, ExecutionEvent, RunStatus, Workflow};
+use parking_lot::Mutex;
 use tokio::sync::broadcast;
 
 use crate::error::ApiError;
@@ -124,10 +124,25 @@ impl RunHandle {
         self.history.lock().clone()
     }
 
-    /// Subscribe to future events. Returns the replay buffer and a live receiver.
-    pub fn subscribe(&self) -> (Vec<EventEnvelope>, broadcast::Receiver<EventEnvelope>) {
+    /// Subscribe to future events. Returns the replay buffer, the highest
+    /// sequence number it contains, and a live receiver.
+    ///
+    /// The receiver is created *before* the history is snapshotted, so no
+    /// event can fall into the gap between the two. The overlap is on the
+    /// caller instead: live events up to `last_replayed_seq` must be skipped,
+    /// otherwise an event published between subscribe and snapshot would be
+    /// delivered twice.
+    pub fn subscribe(
+        &self,
+    ) -> (
+        Vec<EventEnvelope>,
+        Option<u64>,
+        broadcast::Receiver<EventEnvelope>,
+    ) {
         let receiver = self.broadcaster.subscribe();
-        (self.history(), receiver)
+        let history = self.history.lock().clone();
+        let last_replayed_seq = history.last().map(|envelope| envelope.seq);
+        (history, last_replayed_seq, receiver)
     }
 
     /// Re-sequence and publish one event.
@@ -280,13 +295,27 @@ impl RunManager {
 
         let engine = self.engine.clone();
         let completion = handle.clone();
-        std::thread::Builder::new()
+        if let Err(error) = std::thread::Builder::new()
             .name(format!("nodara-run-{}", handle.id()))
             .spawn(move || {
                 let outcome = engine.run(request, &control);
                 completion.complete(&outcome);
             })
-            .expect("spawning a runtime run thread");
+        {
+            // Thread creation failed (resource exhaustion): fail the run
+            // through the normal path instead of aborting the API process.
+            handle.complete(&RunOutcome {
+                run_id: handle.id().to_string(),
+                status: RunStatus::Failed,
+                nodes_executed: 0,
+                duration_ms: 0,
+                variables: BTreeMap::new(),
+                failure: Some(RunFailure {
+                    code: "E_THREAD".to_string(),
+                    message: format!("could not spawn the run thread: {error}"),
+                }),
+            });
+        }
 
         handle
     }

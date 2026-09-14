@@ -171,6 +171,9 @@ pub struct JsonlAuditLog {
 
 impl JsonlAuditLog {
     /// Open (creating if necessary) an audit file for appending.
+    ///
+    /// The sequence continues where the file left off: reopening the same file
+    /// after a restart must not produce duplicate sequence numbers.
     pub fn open(path: impl Into<PathBuf>) -> std::io::Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent() {
@@ -180,10 +183,21 @@ impl JsonlAuditLog {
             .create(true)
             .append(true)
             .open(&path)?;
+        let last_seq = std::fs::read_to_string(&path)
+            .map(|content| {
+                content
+                    .lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .filter_map(|line| serde_json::from_str::<AuditRecord>(line).ok())
+                    .map(|record| record.seq + 1)
+                    .max()
+                    .unwrap_or(0)
+            })
+            .unwrap_or(0);
         Ok(Self {
             path,
             file: Mutex::new(file),
-            seq: AtomicU64::new(0),
+            seq: AtomicU64::new(last_seq),
         })
     }
 
@@ -196,10 +210,26 @@ impl JsonlAuditLog {
 impl AuditLog for JsonlAuditLog {
     fn record(&self, mut record: AuditRecord) {
         record.seq = self.seq.fetch_add(1, Ordering::SeqCst);
-        if let Ok(line) = serde_json::to_string(&record) {
-            let mut file = self.file.lock();
-            let _ = writeln!(file, "{line}");
-            let _ = file.flush();
+        // A record that cannot be written is an audit gap, not noise: say so
+        // on stderr instead of dropping it silently.
+        let line = match serde_json::to_string(&record) {
+            Ok(line) => line,
+            Err(error) => {
+                eprintln!("nodara audit: serializing record failed: {error}");
+                return;
+            }
+        };
+        let mut file = self.file.lock();
+        if let Err(error) = writeln!(file, "{line}") {
+            eprintln!(
+                "nodara audit: writing to {} failed: {error}",
+                self.path.display()
+            );
+        } else if let Err(error) = file.flush() {
+            eprintln!(
+                "nodara audit: flushing {} failed: {error}",
+                self.path.display()
+            );
         }
     }
 
@@ -247,6 +277,26 @@ mod tests {
         let records = log.records();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].decision.as_deref(), Some("require_approval"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn jsonl_log_continues_the_sequence_after_reopening() {
+        let dir = std::env::temp_dir().join(format!("nodara-audit-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("audit.jsonl");
+        {
+            let log = JsonlAuditLog::open(&path).expect("open");
+            log.record(AuditRecord::new("run", AuditCategory::RunStarted, "one"));
+            log.record(AuditRecord::new("run", AuditCategory::RunStarted, "two"));
+        }
+        let reopened = JsonlAuditLog::open(&path).expect("reopen");
+        reopened.record(AuditRecord::new("run", AuditCategory::RunStarted, "three"));
+        let seqs: Vec<u64> = reopened.records().iter().map(|record| record.seq).collect();
+        assert_eq!(
+            seqs,
+            vec![0, 1, 2],
+            "a reopened log must not reuse seq numbers"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

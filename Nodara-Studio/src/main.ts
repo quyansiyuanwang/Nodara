@@ -46,6 +46,9 @@ class Studio {
   private diagnostics: Diagnostic[] = [];
   private runId: string | null = null;
   private closeStream: (() => void) | null = null;
+  private validateToken = 0;
+  private auditToken = 0;
+  private lastAgentPollError: string | null = null;
 
   private readonly palette: Palette;
   private readonly canvas: Canvas;
@@ -229,7 +232,13 @@ class Studio {
   }
 
   private renderJson(): void {
-    element<HTMLTextAreaElement>("json-view").value = JSON.stringify(this.workflow, null, 2);
+    const view = element<HTMLTextAreaElement>("json-view");
+    // The periodic health poll also re-renders; while the user is editing the
+    // JSON that overwrite would wipe their in-progress edits, so it waits
+    // until the textarea loses focus.
+    if (document.activeElement !== view) {
+      view.value = JSON.stringify(this.workflow, null, 2);
+    }
     const hint = element("json-schema");
     const declared = this.workflow.$schema || WORKFLOW_SCHEMA_PATH;
     const origin = declared === WORKFLOW_SCHEMA_PATH ? "the published schema" : declared;
@@ -264,8 +273,12 @@ class Studio {
   }
 
   private async validate(): Promise<void> {
+    // Sequence requests: a slow earlier response must not overwrite the
+    // diagnostics of a later one.
+    const token = ++this.validateToken;
     try {
       const report = await this.client.validate(this.workflow);
+      if (token !== this.validateToken) return;
       this.diagnostics = report.diagnostics;
       this.showTab("problems");
       this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
@@ -293,12 +306,16 @@ class Studio {
       this.showTab("events");
       this.pushLocal(`run ${snapshot.id} accepted`);
 
+      // The socket close event fires asynchronously; by then this.runId may
+      // already point at a newer run, and the old stream must not touch it.
       this.closeStream = this.client.streamRunEvents(snapshot.id, {
         onEvent: (envelope) => {
           this.log.append(envelope);
           this.applyEvent(envelope.event);
         },
-        onClose: () => void this.refreshRun(),
+        onClose: () => {
+          if (this.runId === snapshot.id) void this.refreshRun();
+        },
       });
     } catch (error) {
       this.reportError(error);
@@ -353,11 +370,18 @@ class Studio {
     try {
       const list = await this.client.agentSessions();
       this.agents.setSessions(list);
+      this.lastAgentPollError = null;
       if (AgentPanel.needsAttention(list)) {
         this.pulseAgentTab(true);
       }
     } catch (error) {
-      this.reportError(error);
+      // While the runtime is down this fires every tick; only report the
+      // transition into failure, not every repeat of the same error.
+      const message = error instanceof RuntimeError ? `${error.code}: ${error.message}` : String(error);
+      if (message !== this.lastAgentPollError) {
+        this.lastAgentPollError = message;
+        this.reportError(error);
+      }
     } finally {
       // Keep polling only while the tab is visible; a hidden tab costs nothing.
       const visible = !element("panel-agent").hidden;
@@ -365,6 +389,7 @@ class Studio {
         this.agentPoll = window.setTimeout(() => void this.pollAgentSessions(), 1500);
       } else {
         this.agentPoll = null;
+        this.lastAgentPollError = null;
       }
     }
   }
@@ -421,7 +446,9 @@ class Studio {
           this.log.append(envelope);
           this.applyEvent(envelope.event);
         },
-        onClose: () => void this.refreshRun(),
+        onClose: () => {
+          if (this.runId === runId) void this.refreshRun();
+        },
       });
     } catch (error) {
       this.reportError(error);
@@ -431,11 +458,14 @@ class Studio {
   /** Load the audit log, optionally narrowed to the run being watched. */
   private async refreshAudit(): Promise<void> {
     const onlyCurrent = element<HTMLInputElement>("audit-current-run").checked;
+    // Sequence requests so an out-of-order response cannot show stale records.
+    const token = ++this.auditToken;
     try {
       const records = await this.client.audit({
         runId: onlyCurrent && this.runId ? this.runId : undefined,
         limit: 500,
       });
+      if (token !== this.auditToken) return;
       this.audit.setRecords(records);
     } catch (error) {
       this.reportError(error);

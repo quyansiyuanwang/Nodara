@@ -108,8 +108,9 @@ published on the `out` port, which makes it useful for chaining.
 
 ### `core.Calculate` — Calculate
 
-Evaluates an arithmetic expression against the run scope and publishes the
-result as a variable. Supports `+`, `-`, `*`, `/`, `%`, `**` and `sqrt`.
+Evaluates an arithmetic and comparison expression against the run scope and
+publishes the result as a variable. Supports `+`, `-`, `*`, `/`, `%`, `^`,
+comparisons and `&&`/`||`.
 
 * Ports: in `in` (any) → out `result` (number)
 * Policy: always allowed
