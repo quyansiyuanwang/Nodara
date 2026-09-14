@@ -16,10 +16,20 @@
           <button id="btn-new" class="btn">New</button>
           <button id="btn-import" class="btn">Import</button>
           <button id="btn-export" class="btn">Export</button>
-          <button id="btn-validate" class="btn">Validate</button>
+          <button id="btn-validate" class="btn" disabled>Validate</button>
+          <button
+            id="validation-status"
+            class="validation-status"
+            type="button"
+            data-state="unknown"
+            aria-live="polite"
+            title="Workflow has not been validated yet. Click to open Problems."
+          >
+            not checked
+          </button>
         </div>
         <div class="toolbar__group">
-          <button id="btn-run" class="btn btn--primary">Run</button>
+          <button id="btn-run" class="btn btn--primary" disabled>Run</button>
           <button id="btn-pause" class="btn" disabled>Pause</button>
           <button id="btn-resume" class="btn" disabled>Resume</button>
           <button id="btn-step" class="btn" disabled>Step</button>

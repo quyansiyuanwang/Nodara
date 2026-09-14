@@ -88,6 +88,39 @@ body {
   border-color: #6d2f2f;
 }
 
+.validation-status {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.validation-status:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.validation-status[data-state="checking"] {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.validation-status[data-state="valid"] {
+  color: var(--ok);
+  border-color: #245c46;
+}
+
+.validation-status[data-state="invalid"],
+.validation-status[data-state="unavailable"] {
+  color: var(--error);
+  border-color: #6d2f2f;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: var(--left-panel) 6px minmax(0, 1fr) 6px var(--right-panel);

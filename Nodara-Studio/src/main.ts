@@ -27,6 +27,7 @@ import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
 import { installResizer } from "./ui/resizer";
+import { deriveRunControls, ValidationState } from "./ui/run-controls";
 
 function element<T extends Element = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -48,8 +49,14 @@ class Studio {
   private runId: string | null = null;
   private closeStream: (() => void) | null = null;
   private validateToken = 0;
+  private validationTimer: number | null = null;
+  private validationState: ValidationState = "unknown";
+  private workflowRevision = 0;
   private auditToken = 0;
   private lastAgentPollError: string | null = null;
+  private connected = false;
+  private currentRunStatus: RunStatus | null = null;
+  private runStarting = false;
 
   private readonly palette: Palette;
   private readonly canvas: Canvas;
@@ -63,7 +70,7 @@ class Studio {
     const canvasElement = element<SVGSVGElement>("canvas");
 
     this.canvas = new Canvas(canvasElement, this.workflow, {
-      onChange: () => this.refresh(),
+      onChange: () => this.workflowChanged(),
       onSelect: (nodeId) => this.inspector.render(nodeId, this.diagnostics),
       onStatus: (message) => this.pushLocal(message),
       descriptorFor: (nodeType) => this.descriptors.get(nodeType),
@@ -78,7 +85,7 @@ class Studio {
       element("inspector"),
       this.workflow,
       (nodeType) => this.descriptors.get(nodeType),
-      { onChange: () => this.refresh() },
+      { onChange: () => this.workflowChanged() },
     );
     this.log = new EventLog(element("events"), this.canvas);
     this.agents = new AgentPanel(element("agent"), {
@@ -91,8 +98,8 @@ class Studio {
 
     this.bindToolbar();
     this.bindResizers();
-    this.refresh();
-    this.setStatus("pending");
+    this.renderWorkspace();
+    this.setStatus(null);
   }
 
   async start(): Promise<void> {
@@ -107,6 +114,8 @@ class Studio {
       const health = await this.client.health();
       const plugins = await this.client.plugins();
       const descriptors = await this.client.nodeTypes();
+      const firstConnection = !this.connected;
+      this.connected = true;
       this.descriptors = new Map(descriptors.map((descriptor) => [descriptor.node_type, descriptor]));
       this.palette.setDescriptors(descriptors);
 
@@ -116,11 +125,21 @@ class Studio {
       badge.title = plugins.failures
         .map((failure) => `${failure.id}: ${failure.message}`)
         .join("\n");
-      if (quiet) this.refresh();
+      this.renderWorkspace();
+      if (firstConnection) {
+        this.scheduleValidation(0);
+      } else if (!quiet) {
+        this.scheduleValidation(350);
+      }
     } catch (error) {
+      this.connected = false;
       badge.textContent = "runtime unreachable";
       badge.className = "connection connection--error";
       badge.title = (error as Error).message;
+      this.setValidationState(
+        "unavailable",
+        "The runtime is unreachable; automatic validation will retry after reconnection.",
+      );
     }
   }
 
@@ -156,7 +175,8 @@ class Studio {
       }
     });
 
-    element("btn-validate").addEventListener("click", () => void this.validate());
+    element("btn-validate").addEventListener("click", () => void this.validate(true));
+    element("validation-status").addEventListener("click", () => this.showTab("problems"));
     element("btn-run").addEventListener("click", () => void this.run());
     element("btn-pause").addEventListener("click", () => void this.control("pause"));
     element("btn-resume").addEventListener("click", () => void this.control("resume"));
@@ -192,7 +212,7 @@ class Studio {
 
     element("btn-runtime-schema").addEventListener("click", () => {
       this.workflow.$schema = this.runtimeSchemaUrl();
-      this.refresh();
+      this.workflowChanged();
       this.showTab("json");
       this.pushLocal(`$schema now points at ${this.workflow.$schema}`);
     });
@@ -250,9 +270,8 @@ class Studio {
 
   private replaceWorkflow(next: Partial<Workflow> | null): void {
     applyWorkflow(this.workflow, next);
-    this.diagnostics = [];
     this.canvas.select(null);
-    this.refresh();
+    this.workflowChanged();
   }
 
   private showTab(name: string): void {
@@ -265,10 +284,21 @@ class Studio {
     if (name === "json") this.renderJson();
   }
 
-  private refresh(): void {
+  /** Render without treating a health poll as a document mutation. */
+  private renderWorkspace(): void {
     this.canvas.render();
     this.renderJson();
     this.renderProblems();
+    this.updateRunControls();
+  }
+
+  /** Called after every real workflow edit. */
+  private workflowChanged(): void {
+    this.diagnostics = [];
+    this.workflowRevision += 1;
+    this.setValidationState("checking", "Waiting for edits to settle before validating.");
+    this.renderWorkspace();
+    this.scheduleValidation();
   }
 
   private renderJson(): void {
@@ -297,6 +327,11 @@ class Studio {
         }`,
       })),
     ];
+    const problemsTab = document.querySelector<HTMLButtonElement>('.tab[data-tab="problems"]');
+    problemsTab?.classList.toggle(
+      "tab--attention",
+      problems.some((problem) => problem.severity === "error"),
+    );
     if (problems.length === 0) {
       const ok = document.createElement("p");
       ok.className = "muted";
@@ -312,30 +347,102 @@ class Studio {
     }
   }
 
-  private async validate(): Promise<void> {
-    // Sequence requests: a slow earlier response must not overwrite the
-    // diagnostics of a later one.
+  /** Debounce automatic validation so typing does not send a request per key. */
+  private scheduleValidation(delay = 350): void {
+    if (this.validationTimer !== null) {
+      window.clearTimeout(this.validationTimer);
+      this.validationTimer = null;
+    }
+    if (!this.connected) {
+      this.setValidationState(
+        "unavailable",
+        "The runtime is unreachable; automatic validation will retry after reconnection.",
+      );
+      return;
+    }
+    this.setValidationState("checking", "Validating the current workflow automatically.");
+    this.validationTimer = window.setTimeout(() => {
+      this.validationTimer = null;
+      void this.validate(false);
+    }, delay);
+  }
+
+  /**
+   * Validate the workflow against the live runtime.
+   *
+   * Automatic passes stay quiet and update the toolbar badge; a manual pass or
+   * a pre-run pass can also reveal the Problems tab and log the outcome.
+   */
+  private async validate(showProblems = false): Promise<boolean> {
+    if (this.validationTimer !== null) {
+      window.clearTimeout(this.validationTimer);
+      this.validationTimer = null;
+    }
+    if (!this.connected) {
+      this.setValidationState("unavailable", "The runtime is unreachable.");
+      if (showProblems) this.showTab("problems");
+      return false;
+    }
+
+    const revision = this.workflowRevision;
     const token = ++this.validateToken;
+    this.setValidationState("checking", "Validating the current workflow automatically.");
     try {
       const report = await this.client.validate(this.workflow);
-      if (token !== this.validateToken) return;
+      if (token !== this.validateToken || revision !== this.workflowRevision) return false;
+
       this.diagnostics = report.diagnostics;
-      this.showTab("problems");
-      this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
-      this.renderProblems();
       const errors = report.diagnostics.filter((item) => item.severity === "error").length;
-      this.pushLocal(
-        errors === 0
-          ? `valid — ${report.diagnostics.length} diagnostic(s)`
-          : `invalid — ${errors} error(s)`,
+      const warnings = report.diagnostics.filter((item) => item.severity === "warning").length;
+      this.setValidationState(
+        errors > 0 ? "invalid" : "valid",
+        errors > 0
+          ? `${errors} validation error(s), ${warnings} warning(s).`
+          : `${warnings} validation warning(s).`,
+        errors,
+        warnings,
       );
+      // Re-rendering the inspector while a field is focused would discard the
+      // caret after the debounce; Problems still receives every diagnostic.
+      if (!element("inspector").contains(document.activeElement)) {
+        this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics);
+      }
+      this.renderProblems();
+      if (showProblems) this.showTab("problems");
+      if (showProblems) {
+        this.pushLocal(
+          errors === 0
+            ? `valid — ${report.diagnostics.length} diagnostic(s)`
+            : `invalid — ${errors} error(s)`,
+        );
+      }
+      return errors === 0;
     } catch (error) {
-      this.reportError(error);
+      if (token !== this.validateToken || revision !== this.workflowRevision) return false;
+      if (!(error instanceof RuntimeError)) this.connected = false;
+      this.diagnostics = [];
+      this.setValidationState(
+        "unavailable",
+        error instanceof RuntimeError ? `${error.code}: ${error.message}` : String(error),
+      );
+      this.renderProblems();
+      if (showProblems) this.reportError(error);
+      return false;
     }
   }
 
   private async run(): Promise<void> {
+    if (this.runStarting) return;
+    this.runStarting = true;
+    this.updateRunControls();
     try {
+      const valid = await this.validate(false);
+      if (!valid) {
+        this.showTab("problems");
+        this.pushLocal("run blocked — fix the validation errors shown in Problems");
+        return;
+      }
+
       this.closeStream?.();
       this.log.clear();
       this.canvas.clearStates();
@@ -358,7 +465,11 @@ class Studio {
         },
       });
     } catch (error) {
+      this.setStatus(null);
       this.reportError(error);
+    } finally {
+      this.runStarting = false;
+      this.updateRunControls();
     }
   }
 
@@ -525,15 +636,57 @@ class Studio {
     }
   }
 
-  private setStatus(status: RunStatus): void {
-    const inFlight = status === "running" || status === "paused" || status === "pending";
-    const paused = status === "paused";
-    element<HTMLButtonElement>("btn-run").disabled = inFlight;
-    element<HTMLButtonElement>("btn-pause").disabled = !inFlight || paused;
-    element<HTMLButtonElement>("btn-resume").disabled = !paused;
-    element<HTMLButtonElement>("btn-step").disabled = !paused;
-    element<HTMLButtonElement>("btn-cancel").disabled = !inFlight;
+  private setStatus(status: RunStatus | null): void {
+    this.currentRunStatus = status;
     this.log.setRunStatus(status);
+    this.updateRunControls();
+  }
+
+  private setValidationState(
+    state: ValidationState,
+    detail: string,
+    errors = 0,
+    warnings = 0,
+  ): void {
+    this.validationState = state;
+    const badge = element<HTMLButtonElement>("validation-status");
+    badge.dataset.state = state;
+    switch (state) {
+      case "checking":
+        badge.textContent = "checking…";
+        break;
+      case "valid":
+        badge.textContent = warnings > 0 ? `valid · ${warnings} warning(s)` : "valid";
+        break;
+      case "invalid":
+        badge.textContent = `${errors} error(s)${warnings > 0 ? ` · ${warnings} warning(s)` : ""}`;
+        break;
+      case "unavailable":
+        badge.textContent = "validation unavailable";
+        break;
+      default:
+        badge.textContent = "not checked";
+        break;
+    }
+    badge.title = detail;
+    this.updateRunControls();
+  }
+
+  private updateRunControls(): void {
+    const localErrorCount = localProblems(this.workflow).length;
+    const controls = deriveRunControls(
+      this.currentRunStatus,
+      this.connected,
+      this.validationState,
+      localErrorCount,
+      this.runStarting,
+    );
+    element<HTMLButtonElement>("btn-run").disabled = controls.runDisabled;
+    element<HTMLButtonElement>("btn-pause").disabled = controls.pauseDisabled;
+    element<HTMLButtonElement>("btn-resume").disabled = controls.resumeDisabled;
+    element<HTMLButtonElement>("btn-step").disabled = controls.stepDisabled;
+    element<HTMLButtonElement>("btn-cancel").disabled = controls.cancelDisabled;
+    element<HTMLButtonElement>("btn-validate").disabled = !this.connected;
   }
 
   private reportError(error: unknown): void {

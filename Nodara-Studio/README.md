@@ -84,6 +84,11 @@ logs. The child runtime is launched without an additional console window.
   the delete command. Connections have a wide invisible hit target.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
+* Every edit is validated automatically after a short debounce. The status
+  beside **Validate** shows `checking`, `valid`, or the error count; errors
+  disable **Run** until they are fixed and are listed in **Problems**.
+* **Run** validates once more immediately before submitting the workflow, so a
+  stale automatic result cannot start an invalid graph.
 
 ## Layout
 

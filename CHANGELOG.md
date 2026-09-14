@@ -102,6 +102,11 @@ All notable changes to this project are documented here. The format follows
 - Connection arrowheads use a small fixed user-space size. Tall links bend
   their final tangent so the arrow follows the visible approach instead of
   remaining horizontal.
+- Studio no longer starts in a false `pending` state, which previously left the
+  Run button disabled even when no run was active.
+- Studio validates automatically after every workflow edit (debounced while
+  typing), displays the result beside Validate, disables Run on errors, and
+  validates again immediately before starting a run.
 
 ### Fixed (continued)
 

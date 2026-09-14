@@ -97,8 +97,10 @@ should see Core, System, Input, Window, Desktop and Vision categories.
 Then:
 
 1. drag **Log** onto the canvas and connect `Start → Log → End`;
-2. select the Log node and set its message;
-3. press **Validate** — problems appear in the drawer, from the runtime;
+2. select the Log node and set its message; the workflow validates
+   automatically after the edit settles;
+3. check the status beside **Validate**; any errors are listed in **Problems**
+   and disable **Run**;
 4. press **Run** and watch the Events tab; nodes light up as they execute.
 
 If you install a plugin and restart the runtime, reload the page: the new node

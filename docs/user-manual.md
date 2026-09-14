@@ -73,6 +73,7 @@ If the badge still says `runtime unreachable`, verify that
 | Move a node | Drag the node body |
 | Create a connection | Drag from an output port to an input port |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
+| Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 
 ## CLI
