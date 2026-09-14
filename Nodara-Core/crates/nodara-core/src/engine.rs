@@ -438,6 +438,44 @@ impl WorkflowEngine {
                 continue;
             }
 
+            if let Some(condition) = &node.condition {
+                match evaluate_expression(condition, context.variables()) {
+                    Ok(value) if value == 0.0 || value.is_nan() => {
+                        context.log(
+                            nodara_schema::LogLevel::Info,
+                            format!("node `{}` skipped because condition is false", node.id),
+                        );
+                        continue;
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        let error = NodeError::InvalidConfig(format!(
+                            "invalid node condition `{condition}`: {error}"
+                        ));
+                        bus.emit(ExecutionEvent::NodeFailed {
+                            node_id: node.id.clone(),
+                            code: error.code().to_string(),
+                            message: error.to_string(),
+                            retryable: false,
+                        });
+                        self.audit.record(
+                            AuditRecord::new(
+                                run_id.clone(),
+                                AuditCategory::NodeFailed,
+                                error.to_string(),
+                            )
+                            .node(node.id.clone(), node.node_type.clone()),
+                        );
+                        status = RunStatus::Failed;
+                        failure = Some(RunFailure {
+                            code: error.code().to_string(),
+                            message: error.to_string(),
+                        });
+                        break;
+                    }
+                }
+            }
+
             let Some(executor) = self.registry.get(&node.node_type) else {
                 let error = ExecutionError::UnknownNodeType {
                     node_id: node.id.clone(),

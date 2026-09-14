@@ -33,7 +33,7 @@ All notable changes to this project are documented here. The format follows
 - Studio now shows connection properties when an edge is selected, allowing
   edge labels and guard expressions to be edited directly and validated
   automatically.
-- Workflow nodes now support common execution controls: `enabled`,
+- Workflow nodes now support common execution controls: `enabled`, `condition`,
   `delay_before_ms`, `delay_after_ms`, `continue_on_error`, `retry` and
   `retry_delay_ms`. The engine
   skips disabled nodes as pass-throughs, applies cancellation-aware delays and

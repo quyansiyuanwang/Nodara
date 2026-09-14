@@ -103,10 +103,20 @@ describe("node execution settings", () => {
     );
     inspector.render("log");
 
-    const checkbox = root.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event("change"));
+    const checkboxes = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    checkboxes[0].checked = false;
+    checkboxes[0].dispatchEvent(new Event("change"));
+    checkboxes[1].checked = true;
+    checkboxes[1].dispatchEvent(new Event("change"));
     expect(workflow.nodes.find((node) => node.id === "log")?.enabled).toBe(false);
+    expect(workflow.nodes.find((node) => node.id === "log")?.continue_on_error).toBe(true);
+
+    const labels = [...root.querySelectorAll<HTMLLabelElement>(".field__label")];
+    const conditionLabel = labels.find((label) => label.textContent === "Run condition")!;
+    const condition = conditionLabel.closest(".field")!.querySelector("textarea")!;
+    condition.value = "allow";
+    condition.dispatchEvent(new Event("input"));
+    expect(workflow.nodes.find((node) => node.id === "log")?.condition).toBe("allow");
 
     const numbers = root.querySelectorAll<HTMLInputElement>('input[type="number"]');
     numbers[2].value = "3";
@@ -116,6 +126,6 @@ describe("node execution settings", () => {
 
     expect(workflow.nodes.find((node) => node.id === "log")?.retry).toBe(3);
     expect(workflow.nodes.find((node) => node.id === "log")?.retry_delay_ms).toBe(25);
-    expect(changes).toBe(3);
+    expect(changes).toBe(5);
   });
 });

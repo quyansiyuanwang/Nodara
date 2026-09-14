@@ -93,6 +93,7 @@ of the workflow document and are honored by the runtime:
 | Setting | Purpose |
 |---|---|
 | Enabled | Disable a node to skip it while passing its incoming branch through to its outgoing edges |
+| Run condition | Optional expression; a false result skips the node and prunes its outgoing branches |
 | Delay before (ms) | Wait before executing the node |
 | Delay after (ms) | Wait after successful execution before activating outgoing branches |
 | Continue on error | After retries are exhausted, continue through outgoing branches instead of failing the run |

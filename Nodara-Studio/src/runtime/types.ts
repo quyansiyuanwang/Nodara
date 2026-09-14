@@ -58,6 +58,7 @@ export interface WorkflowNode {
   position?: { x: number; y: number };
   /** Disabled nodes act as transparent pass-throughs during execution. */
   enabled?: boolean;
+  condition?: string;
   delay_before_ms?: number;
   delay_after_ms?: number;
   /** Continue through outgoing branches after all retries fail. */

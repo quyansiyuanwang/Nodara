@@ -79,6 +79,7 @@
 | `config` | object | 否 | 该节点类型的配置，按描述符校验（`WF141`–`WF143`）。默认 `{}`。 |
 | `position` | `{ "x": number, "y": number }` | 否 | 画布坐标，供编辑器往返使用；运行时忽略。 |
 | `enabled` | boolean | 否 | 默认 `true`。禁用节点会被跳过，并作为透明节点将入站分支透传。 |
+| `condition` | string | 否 | 执行前计算的可选表达式；结果为假时跳过节点并剪除后续分支。 |
 | `delay_before_ms` | integer | 否 | 默认 `0`。执行节点前等待，期间仍可响应取消。 |
 | `delay_after_ms` | integer | 否 | 默认 `0`。节点成功后再等待指定时间，然后激活后续分支。 |
 | `continue_on_error` | boolean | 否 | 默认 `false`。重试耗尽后仍激活后续分支，而不是终止运行；策略拒绝和校验错误仍会阻止执行。 |

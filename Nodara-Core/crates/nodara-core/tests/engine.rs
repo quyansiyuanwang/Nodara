@@ -171,6 +171,57 @@ fn continue_on_error_takes_outgoing_branches() {
 }
 
 #[test]
+fn a_false_node_condition_prunes_the_branch() {
+    let mut workflow = Workflow::new("wf.condition");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut log = Node::new("log", "core.Log");
+    log.condition = Some("allow".to_string());
+    log.config = serde_json::json!({ "message": "must not run" });
+    workflow.add_node(log);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "log"));
+    workflow.add_edge(Edge::new("e2", "log", "end"));
+    workflow.variables.insert(
+        "allow".to_string(),
+        Variable {
+            value: serde_json::json!(false),
+            ..Variable::default()
+        },
+    );
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(registry()).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.nodes_executed, 1);
+    assert!(!sink.snapshot().iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::Log { message, .. } if message == "must not run"
+    )));
+}
+
+#[test]
+fn an_invalid_node_condition_fails_with_config_error() {
+    let mut workflow = Workflow::new("wf.bad-condition");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut log = Node::new("log", "core.Log");
+    log.condition = Some("1 +".to_string());
+    log.config = serde_json::json!({ "message": "conditional" });
+    workflow.add_node(log);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "log"));
+    workflow.add_edge(Edge::new("e2", "log", "end"));
+
+    let outcome =
+        WorkflowEngine::new(registry()).run(RunRequest::new(workflow), &RunControl::new());
+    assert_eq!(outcome.status, RunStatus::Failed);
+    assert_eq!(outcome.failure.unwrap().code, "E_INVALID_CONFIG");
+}
+
+#[test]
 fn node_level_delays_are_applied() {
     let mut workflow = Workflow::new("wf.node-delay");
     workflow.add_node(Node::new("start", "core.Start"));

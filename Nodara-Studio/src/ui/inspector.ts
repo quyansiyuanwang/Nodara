@@ -262,6 +262,11 @@ export class Inspector {
             description: t("execution.enabledDetail"),
             default: true,
           },
+          condition: {
+            type: "string",
+            title: t("execution.condition"),
+            description: t("execution.conditionDetail"),
+          },
           delay_before_ms: {
             type: "integer",
             title: t("execution.delayBefore"),
@@ -300,6 +305,7 @@ export class Inspector {
       },
       {
         enabled: node.enabled ?? true,
+        condition: node.condition ?? "",
         delay_before_ms: node.delay_before_ms ?? 0,
         delay_after_ms: node.delay_after_ms ?? 0,
         continue_on_error: node.continue_on_error ?? false,
@@ -317,6 +323,12 @@ export class Inspector {
         if (value === false) node.enabled = false;
         else delete node.enabled;
         break;
+      case "condition": {
+        const next = typeof value === "string" ? value.trim() : "";
+        if (next) node.condition = next;
+        else delete node.condition;
+        break;
+      }
       case "delay_before_ms":
         if (number > 0) node.delay_before_ms = number;
         else delete node.delay_before_ms;

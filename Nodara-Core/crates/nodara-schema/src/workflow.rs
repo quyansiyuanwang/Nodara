@@ -110,6 +110,12 @@ pub struct Node {
     /// as transparent pass-throughs, so their outgoing branches remain usable.
     #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub enabled: bool,
+    /// Optional expression evaluated before this node is executed.
+    ///
+    /// A false result skips the node and does not activate its outgoing
+    /// branches. The expression can read the current run scope.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<String>,
     /// Delay before the executor is invoked, in milliseconds.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub delay_before_ms: u64,
@@ -142,6 +148,7 @@ impl Node {
             config: default_object(),
             position: None,
             enabled: true,
+            condition: None,
             delay_before_ms: 0,
             delay_after_ms: 0,
             continue_on_error: false,
@@ -325,6 +332,7 @@ mod tests {
     fn execution_settings_round_trip_through_json() {
         let mut node = Node::new("log", "core.Log");
         node.enabled = false;
+        node.condition = Some("enabled > 0".to_string());
         node.delay_before_ms = 25;
         node.delay_after_ms = 50;
         node.continue_on_error = true;
@@ -334,6 +342,7 @@ mod tests {
         let json = serde_json::to_string(&node).unwrap();
         let back: Node = serde_json::from_str(&json).unwrap();
         assert!(!back.enabled);
+        assert_eq!(back.condition.as_deref(), Some("enabled > 0"));
         assert_eq!(back.delay_before_ms, 25);
         assert_eq!(back.delay_after_ms, 50);
         assert!(back.continue_on_error);

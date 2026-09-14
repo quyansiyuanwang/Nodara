@@ -491,6 +491,7 @@ export class Canvas {
 
       const executionDetails: string[] = [];
       if (node.enabled === false) executionDetails.push(t("canvas.nodeDisabled"));
+      if (node.condition) executionDetails.push(`${t("execution.condition")}: ${node.condition}`);
       if ((node.delay_before_ms ?? 0) > 0) {
         executionDetails.push(`${t("execution.delayBefore")}: ${node.delay_before_ms}`);
       }

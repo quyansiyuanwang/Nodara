@@ -83,6 +83,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | `config` | object | no | Node-type specific configuration, validated against that node's descriptor (`WF141`–`WF143`). Defaults to `{}`. |
 | `position` | `{ "x": number, "y": number }` | no | Canvas position, for editor round-tripping; ignored by the runtime. |
 | `enabled` | boolean | no | Defaults to `true`. A disabled node is skipped and acts as a transparent pass-through. |
+| `condition` | string | no | Optional expression evaluated before the node. A false result skips the node and prunes its outgoing branches. |
 | `delay_before_ms` | integer | no | Defaults to `0`. Wait before invoking the node; cancellation remains responsive. |
 | `delay_after_ms` | integer | no | Defaults to `0`. Wait after successful execution before activating outgoing branches. |
 | `continue_on_error` | boolean | no | Defaults to `false`. After retries are exhausted, activate outgoing branches instead of failing the run. Policy denials and validation errors still stop execution. |
