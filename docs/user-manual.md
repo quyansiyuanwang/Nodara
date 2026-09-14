@@ -80,6 +80,7 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Edit a connection | Select it and edit its label or guard condition in Properties |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
+| Navigate the canvas | Wheel to zoom, middle-drag or Space-drag to pan, and use Fit / 100% controls in the canvas toolbar |
 
 ### Workflow settings and variables
 

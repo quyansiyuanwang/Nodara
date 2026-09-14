@@ -36,9 +36,11 @@ interface Harness {
 function harness(): Harness {
   document.body.innerHTML = `
     <svg id="canvas">
-      <g id="edges"></g>
-      <g id="nodes"></g>
-      <path id="pending-edge"></path>
+      <g id="viewport">
+        <g id="edges"></g>
+        <g id="nodes"></g>
+        <path id="pending-edge"></path>
+      </g>
     </svg>`;
   const workflow = emptyWorkflow();
   let changes = 0;
@@ -159,6 +161,33 @@ describe("graph editing on the canvas", () => {
     const control2Y = numbers[5];
     const targetY = numbers[7];
     expect(control2Y).not.toBe(targetY);
+  });
+
+  it("zooms, resets and fits the canvas view", () => {
+    const { canvas, workflow } = harness();
+    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
+    svg.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 600,
+      width: 800,
+      height: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    workflow.nodes[0].position = { x: 50, y: 50 };
+    workflow.nodes[1].position = { x: 900, y: 700 };
+    canvas.render();
+
+    canvas.zoomIn();
+    expect(canvas.currentScale()).toBeGreaterThan(1);
+    canvas.resetView();
+    expect(canvas.currentScale()).toBe(1);
+    canvas.fitToContent();
+    expect(canvas.currentScale()).toBeLessThan(1);
+    expect(canvas.currentScale()).toBeGreaterThanOrEqual(0.2);
   });
 
   it("connects an output port to an input port", () => {

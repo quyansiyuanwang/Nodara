@@ -34,7 +34,7 @@ describe("run status visualisation", () => {
 
   beforeEach(() => {
     document.body.innerHTML = `
-      <svg id="canvas"><g id="edges"></g><g id="nodes"></g><path id="pending-edge"></path></svg>
+      <svg id="canvas"><g id="viewport"><g id="edges"></g><g id="nodes"></g><path id="pending-edge"></path></g></svg>
       <div id="events"></div>`;
     const workflow = emptyWorkflow();
     workflow.nodes.push({ id: "log", type: "core.Log", config: {} });

@@ -312,6 +312,45 @@ body {
   display: none;
 }
 
+.canvas-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgb(22 25 35 / 92%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+}
+
+.canvas-tool {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.canvas-tool--wide {
+  min-width: 48px;
+}
+
+.canvas-tool:hover {
+  border-color: var(--accent-dim);
+  background: var(--surface-2);
+}
+
+.canvas--panning {
+  cursor: grabbing;
+}
+
 .canvas-hint {
   position: absolute;
   left: 12px;

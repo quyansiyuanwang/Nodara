@@ -63,10 +63,18 @@
                 <path d="M0,0 L7,3 L0,6 z" fill="#8b93a7" />
               </marker>
             </defs>
-            <g id="edges" class="edges"></g>
-            <g id="nodes" class="nodes"></g>
-            <path id="pending-edge" class="edge edge--pending is-hidden" />
+            <g id="viewport">
+              <g id="edges" class="edges"></g>
+              <g id="nodes" class="nodes"></g>
+              <path id="pending-edge" class="edge edge--pending is-hidden" />
+            </g>
           </svg>
+          <div class="canvas-tools">
+            <button id="canvas-zoom-out" class="canvas-tool" type="button" data-i18n-title="canvas.zoomOut">−</button>
+            <button id="canvas-zoom-level" class="canvas-tool canvas-tool--wide" type="button" data-i18n-title="canvas.zoomReset">100%</button>
+            <button id="canvas-zoom-in" class="canvas-tool" type="button" data-i18n-title="canvas.zoomIn">+</button>
+            <button id="canvas-fit" class="canvas-tool canvas-tool--wide" type="button" data-i18n="canvas.fit">Fit</button>
+          </div>
           <div id="canvas-hint" class="canvas-hint" data-i18n="canvas.hint">
             Click to add at the centre, or drag a palette item to an exact canvas position. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
           </div>

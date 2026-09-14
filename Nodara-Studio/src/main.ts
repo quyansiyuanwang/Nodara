@@ -85,6 +85,7 @@ class Studio {
       onSelect: () => this.renderInspector(),
       onStatus: (message) => this.pushLocal(message),
       descriptorFor: (nodeType) => this.descriptors.get(nodeType),
+      onViewChange: (scale) => this.updateZoomLabel(scale),
     });
     // The canvas must exist before the palette can call back into it, so the
     // palette is constructed with a lazy reference rather than a captured value.
@@ -205,6 +206,10 @@ class Studio {
     element("btn-resume").addEventListener("click", () => void this.control("resume"));
     element("btn-step").addEventListener("click", () => void this.control("step"));
     element("btn-cancel").addEventListener("click", () => void this.control("cancel"));
+    element("canvas-zoom-out").addEventListener("click", () => this.canvas.zoomOut());
+    element("canvas-zoom-in").addEventListener("click", () => this.canvas.zoomIn());
+    element("canvas-zoom-level").addEventListener("click", () => this.canvas.resetView());
+    element("canvas-fit").addEventListener("click", () => this.canvas.fitToContent());
 
     element<HTMLInputElement>("palette-filter").addEventListener("input", (event) => {
       this.palette.filter((event.target as HTMLInputElement).value);
@@ -305,6 +310,10 @@ class Studio {
       panel.hidden = panel.id !== `panel-${name}`;
     }
     if (name === "json") this.renderJson();
+  }
+
+  private updateZoomLabel(scale: number): void {
+    element("canvas-zoom-level").textContent = `${Math.round(scale * 100)}%`;
   }
 
   private renderInspector(): void {

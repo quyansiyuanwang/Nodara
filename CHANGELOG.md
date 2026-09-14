@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- The Studio canvas now supports wheel zoom, middle/space-drag panning,
+  fit-to-content and reset-to-100% controls, with the current zoom shown in the
+  canvas toolbar.
 - Studio’s schema-driven configuration forms now mark required fields, show
   inline descriptions, use schema examples as placeholders, apply common string
   constraints, render nested object schemas as editable groups instead of raw

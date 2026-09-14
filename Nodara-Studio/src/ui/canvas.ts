@@ -29,6 +29,8 @@ export interface CanvasHandlers {
   onStatus: (message: string) => void;
   /** Resolve a node type to its descriptor, for port rendering. */
   descriptorFor: (nodeType: string) => NodeDescriptor | undefined;
+  /** Notify the shell when the view transform changes. */
+  onViewChange?: (scale: number) => void;
 }
 
 interface PendingConnection {
@@ -51,6 +53,7 @@ type ContextTarget =
   | { kind: "edge"; id: string };
 
 export class Canvas {
+  private readonly viewport: SVGGElement;
   private readonly nodesLayer: SVGGElement;
   private readonly edgesLayer: SVGGElement;
   private readonly pendingEdge: SVGPathElement;
@@ -61,12 +64,18 @@ export class Canvas {
   private paletteDragCleanup: (() => void) | null = null;
   private status: RunStatus | null = null;
   private readonly contextMenu: HTMLDivElement;
+  private viewScale = 1;
+  private viewX = 0;
+  private viewY = 0;
+  private pan: { clientX: number; clientY: number; viewX: number; viewY: number } | null = null;
+  private spaceDown = false;
 
   constructor(
     private readonly svg: SVGSVGElement,
     private readonly workflow: Workflow,
     private readonly handlers: CanvasHandlers,
   ) {
+    this.viewport = svg.querySelector("#viewport")!;
     this.nodesLayer = svg.querySelector("#nodes")!;
     this.edgesLayer = svg.querySelector("#edges")!;
     this.pendingEdge = svg.querySelector("#pending-edge")!;
@@ -90,9 +99,37 @@ export class Canvas {
     window.addEventListener("pointerup", () => this.endInteraction());
     window.addEventListener("pointercancel", () => this.endInteraction());
     svg.addEventListener("pointerdown", (event) => {
-      if (event.target === svg) this.select(null);
+      if (event.target !== svg) return;
+      if (event.button === 1 || this.spaceDown) {
+        event.preventDefault();
+        this.pan = {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          viewX: this.viewX,
+          viewY: this.viewY,
+        };
+        svg.classList.add("canvas--panning");
+        return;
+      }
+      this.select(null);
     });
+    svg.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        const rect = svg.getBoundingClientRect();
+        this.zoomBy(Math.exp(-event.deltaY * 0.001), {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        });
+      },
+      { passive: false },
+    );
     window.addEventListener("keydown", (event) => this.onKeyDown(event));
+    window.addEventListener("keyup", (event) => {
+      if (event.key === " ") this.spaceDown = false;
+    });
+    this.applyView();
   }
 
   /** Update the run-status overlay used to highlight nodes. */
@@ -142,6 +179,50 @@ export class Canvas {
 
   selectedEdgeId(): string | null {
     return this.selectedEdge;
+  }
+
+  /** Current canvas scale, useful to the shell and tests. */
+  currentScale(): number {
+    return this.viewScale;
+  }
+
+  zoomIn(): void {
+    this.zoomBy(1.2);
+  }
+
+  zoomOut(): void {
+    this.zoomBy(1 / 1.2);
+  }
+
+  resetView(): void {
+    this.viewScale = 1;
+    this.viewX = 0;
+    this.viewY = 0;
+    this.applyView();
+  }
+
+  fitToContent(): void {
+    if (this.workflow.nodes.length === 0) {
+      this.resetView();
+      return;
+    }
+    const rect = this.svg.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const xs = this.workflow.nodes.map((node) => node.position?.x ?? 0);
+    const ys = this.workflow.nodes.map((node) => node.position?.y ?? 0);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs.map((x) => x + NODE_WIDTH));
+    const maxY = Math.max(...ys.map((y) => y + NODE_HEIGHT));
+    const contentWidth = Math.max(1, maxX - minX);
+    const contentHeight = Math.max(1, maxY - minY);
+    this.viewScale = Math.max(
+      0.2,
+      Math.min(2, (rect.width - 80) / contentWidth, (rect.height - 80) / contentHeight),
+    );
+    this.viewX = rect.width / 2 - ((minX + maxX) / 2) * this.viewScale;
+    this.viewY = rect.height / 2 - ((minY + maxY) / 2) * this.viewScale;
+    this.applyView();
   }
 
   /** Re-render everything. Called after any document mutation. */
@@ -234,11 +315,12 @@ export class Canvas {
   /** Add a node near the centre of the visible canvas (used by palette clicks). */
   addNodeAtViewportCenter(descriptor: NodeDescriptor): void {
     const rect = this.svg.getBoundingClientRect();
+    const center = this.toCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
     const index = this.workflow.nodes.length;
     const jitter = ((index % 5) - 2) * 18;
     const stagger = Math.min(index, 6) * 12;
-    const x = Math.max(24, rect.width / 2 - NODE_WIDTH / 2 + jitter - stagger);
-    const y = Math.max(24, rect.height / 2 - NODE_HEIGHT / 2 + jitter - stagger);
+    const x = Math.max(24, center.x - NODE_WIDTH / 2 + jitter - stagger);
+    const y = Math.max(24, center.y - NODE_HEIGHT / 2 + jitter - stagger);
     this.addNode(descriptor, x, y);
   }
 
@@ -270,6 +352,12 @@ export class Canvas {
   }
 
   private onPointerMove(event: PointerEvent): void {
+    if (this.pan) {
+      this.viewX = this.pan.viewX + event.clientX - this.pan.clientX;
+      this.viewY = this.pan.viewY + event.clientY - this.pan.clientY;
+      this.applyView();
+      return;
+    }
     if (this.drag) {
       const point = this.toCanvas(event.clientX, event.clientY);
       const node = this.workflow.nodes.find((candidate) => candidate.id === this.drag!.nodeId);
@@ -294,6 +382,10 @@ export class Canvas {
   }
 
   private endInteraction(): void {
+    if (this.pan) {
+      this.pan = null;
+      this.svg.classList.remove("canvas--panning");
+    }
     if (this.pending) {
       this.pending = null;
       this.pendingEdge.classList.add("is-hidden");
@@ -310,6 +402,26 @@ export class Canvas {
   private onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+    if (event.key === " ") {
+      this.spaceDown = true;
+      event.preventDefault();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "0") {
+      event.preventDefault();
+      this.resetView();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && (event.key === "+" || event.key === "=")) {
+      event.preventDefault();
+      this.zoomIn();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "-") {
+      event.preventDefault();
+      this.zoomOut();
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
       if (!this.selected) return;
       event.preventDefault();
@@ -523,6 +635,7 @@ export class Canvas {
       });
 
       group.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || this.spaceDown) return;
         if ((event.target as Element).classList.contains("port")) return;
         event.preventDefault();
         event.stopPropagation();
@@ -565,6 +678,7 @@ export class Canvas {
 
     if (kind === "output") {
       circle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || this.spaceDown) return;
         event.stopPropagation();
         const point = this.toCanvas(event.clientX, event.clientY);
         this.pending = { sourceId: nodeId, sourcePort: portName, x: point.x, y: point.y };
@@ -573,7 +687,7 @@ export class Canvas {
       });
     } else {
       circle.addEventListener("pointerup", (event) => {
-        if (!this.pending) return;
+        if (event.button !== 0 || !this.pending) return;
         event.stopPropagation();
         this.connect(this.pending.sourceId, nodeId, this.pending.sourcePort, portName);
         this.pending = null;
@@ -677,6 +791,28 @@ export class Canvas {
 
   private toCanvas(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.svg.getBoundingClientRect();
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return {
+      x: (clientX - rect.left - this.viewX) / this.viewScale,
+      y: (clientY - rect.top - this.viewY) / this.viewScale,
+    };
+  }
+
+  private zoomBy(factor: number, anchor?: { x: number; y: number }): void {
+    const rect = this.svg.getBoundingClientRect();
+    const point = anchor ?? { x: rect.width / 2, y: rect.height / 2 };
+    const world = this.toCanvas(rect.left + point.x, rect.top + point.y);
+    const next = Math.max(0.2, Math.min(3, this.viewScale * factor));
+    this.viewScale = next;
+    this.viewX = point.x - world.x * next;
+    this.viewY = point.y - world.y * next;
+    this.applyView();
+  }
+
+  private applyView(): void {
+    this.viewport.setAttribute(
+      "transform",
+      `translate(${this.viewX} ${this.viewY}) scale(${this.viewScale})`,
+    );
+    this.handlers.onViewChange?.(this.viewScale);
   }
 }

@@ -89,6 +89,8 @@ known validation code has a Studio translation.
   an exact position. A workflow can contain exactly one `core.Start`; the
   palette disables Start after one is present.
 * Drag a node to move it. Drag from an output port to an input port to connect.
+* Use the mouse wheel to zoom, middle-drag (or hold Space and drag) to pan, and
+  the canvas toolbar to zoom in/out, reset to 100% or fit all nodes.
 * Select a node or connection and press `Delete`, or right-click it and choose
   the delete command. Connections have a wide invisible hit target.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
