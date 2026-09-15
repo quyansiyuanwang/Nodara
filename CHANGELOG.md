@@ -146,6 +146,8 @@ All notable changes to this project are documented here. The format follows
 - Added `windows.Window.Wait`, a cancellable polling node with configurable
   timeout and interval. It reuses the shared title/class/process/visibility
   selector and publishes the same window record as `windows.Window.Find`.
+- Problems rows that reference a node or connection are now clickable and centre
+  the target on the canvas for immediate correction.
 
 ### Changed
 

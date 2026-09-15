@@ -173,6 +173,33 @@ export class Canvas {
     this.handlers.onSelect(nodeId);
   }
 
+  /** Select a node or edge and centre it in the visible canvas. */
+  focus(nodeId: string | null, edgeId: string | null = null): void {
+    this.select(nodeId, edgeId);
+    let center: { x: number; y: number } | null = null;
+    if (nodeId) {
+      const node = this.workflow.nodes.find((candidate) => candidate.id === nodeId);
+      if (node) {
+        center = {
+          x: (node.position?.x ?? 0) + NODE_WIDTH / 2,
+          y: (node.position?.y ?? 0) + NODE_HEIGHT / 2,
+        };
+      }
+    } else if (edgeId) {
+      const edge = this.workflow.edges.find((candidate) => candidate.id === edgeId);
+      if (edge) {
+        const source = this.nodeCenter(edge.source, "output");
+        const target = this.nodeCenter(edge.target, "input");
+        center = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
+      }
+    }
+    if (!center) return;
+    const rect = this.svg.getBoundingClientRect();
+    this.viewX = rect.width / 2 - center.x * this.viewScale;
+    this.viewY = rect.height / 2 - center.y * this.viewScale;
+    this.applyView();
+  }
+
   selectedNodeId(): string | null {
     return this.selected;
   }

@@ -556,9 +556,14 @@ class Studio {
   private renderProblems(): void {
     const root = element("problems");
     root.replaceChildren();
-    const problems = [
+    const problems: Array<{
+      severity: "info" | "warning" | "error";
+      text: string;
+      nodeId?: string;
+      edgeId?: string;
+    }> = [
       ...localProblems(this.workflow).map((text) => ({
-        severity: "error",
+        severity: "error" as const,
         text: localizeProblem(text),
       })),
       ...this.diagnostics.map(localizeDiagnostic).map((diagnostic) => ({
@@ -566,6 +571,8 @@ class Studio {
         text: `[${diagnostic.code}] ${diagnostic.message} (${diagnostic.path})${
           diagnostic.hint ? ` — ${diagnostic.hint}` : ""
         }`,
+        nodeId: diagnostic.node_id,
+        edgeId: diagnostic.edge_id,
       })),
     ];
     const problemsTab = document.querySelector<HTMLButtonElement>('.tab[data-tab="problems"]');
@@ -581,8 +588,17 @@ class Studio {
       return;
     }
     for (const problem of problems) {
-      const row = document.createElement("p");
+      const target = problem.nodeId || problem.edgeId;
+      const row = document.createElement(target ? "button" : "p");
       row.className = `problem problem--${problem.severity}`;
+      if (row instanceof HTMLButtonElement) {
+        row.type = "button";
+        row.classList.add("problem--clickable");
+        row.title = t("problems.locate");
+        row.addEventListener("click", () => {
+          this.canvas.focus(problem.nodeId ?? null, problem.edgeId ?? null);
+        });
+      }
       row.textContent = problem.text;
       root.appendChild(row);
     }

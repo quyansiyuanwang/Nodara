@@ -1092,6 +1092,27 @@ body.is-resizing-y * {
   margin: 2px 0;
 }
 
+button.problem {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
+
+.problem--clickable {
+  cursor: pointer;
+}
+
+.problem--clickable:hover,
+.problem--clickable:focus-visible {
+  border-color: var(--line);
+  background: var(--surface-2);
+  outline: none;
+}
+
 .problem--error {
   color: var(--error);
 }

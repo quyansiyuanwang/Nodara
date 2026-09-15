@@ -131,6 +131,9 @@ known validation code has a Studio translation.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors
   disable **Run** until they are fixed and are listed in **Problems**.
+* Problems that resolve to a node or connection are clickable: selecting one
+  centres the target on the canvas and opens its Properties for immediate
+  correction.
 * **Run** validates once more immediately before submitting the workflow, so a
   stale automatic result cannot start an invalid graph.
 * **Step** remains available while idle, paused or terminal. It starts a paused

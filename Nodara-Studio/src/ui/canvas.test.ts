@@ -385,4 +385,29 @@ describe("graph editing on the canvas", () => {
 
     expect(workflow.nodes.some((candidate) => candidate.id === "log")).toBe(false);
   });
+
+  it("focus selects and centres a node on the canvas", () => {
+    const { canvas } = harness();
+    canvas.addNode(descriptor("core.Log"), 600, 400);
+    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
+    svg.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 600,
+      width: 800,
+      height: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    canvas.focus("log");
+
+    expect(canvas.selectedNodeId()).toBe("log");
+    expect(document.querySelector('[data-node-id="log"]')?.classList.contains("node--selected")).toBe(true);
+    expect(document.getElementById("viewport")?.getAttribute("transform")).not.toBe(
+      "translate(0 0) scale(1)",
+    );
+  });
 });
