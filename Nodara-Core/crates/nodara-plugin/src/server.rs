@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::sync::Arc;
 
+use base64::Engine;
 use nodara_core::{
     AllowAllPolicy, ArtifactStore, AutoApprove, CapabilityRegistry, EventBus, EventSink, NodeError,
     NullAuditLog, RunControl,
@@ -22,8 +23,8 @@ use crate::jsonrpc::{
     self, codes, ErrorObject, Incoming, Notification, Request, Response, JSONRPC_VERSION,
 };
 use crate::protocol::{
-    methods, CancelParams, DescribeParams, DescribeResult, ExecuteParams, ExecuteResult,
-    InitializeParams, InitializeResult, PluginInfo, PROTOCOL_VERSION,
+    methods, ArtifactPayload, CancelParams, DescribeParams, DescribeResult, ExecuteParams,
+    ExecuteResult, InitializeParams, InitializeResult, PluginInfo, PROTOCOL_VERSION,
 };
 use crate::transport::NotificationSink;
 
@@ -230,6 +231,13 @@ impl PluginServer {
                 sink: self.sink.clone(),
             }),
         );
+        let artifacts = Arc::new(ArtifactStore::new());
+        for payload in params.artifacts {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(payload.data_base64)
+                .map_err(|error| ErrorObject::new(codes::INVALID_PARAMS, error.to_string()))?;
+            artifacts.insert(payload.meta, bytes);
+        }
         let mut context = nodara_core::ExecutionContext::new(
             params.run_id.clone(),
             params.run_id.clone(),
@@ -240,7 +248,7 @@ impl PluginServer {
             Arc::new(AllowAllPolicy),
             Arc::new(AutoApprove),
             Arc::new(NullAuditLog),
-            Arc::new(ArtifactStore::new()),
+            artifacts.clone(),
         );
         context.set_node(Some(params.node_id.clone()));
 
@@ -253,14 +261,29 @@ impl PluginServer {
             timeout_ms: params.timeout_ms,
         };
 
+        let initial_variables = params.variables.clone();
         let outcome = executor.execute(input, &mut context);
         self.runs.lock().remove(&params.run_id);
 
         match outcome {
             Ok(output) => {
+                let artifacts = artifacts
+                    .list()
+                    .into_iter()
+                    .filter_map(|meta| {
+                        artifacts.get(&meta.id).map(|bytes| ArtifactPayload {
+                            meta,
+                            data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+                        })
+                    })
+                    .collect();
+                let mut variables = context.variables().clone();
+                variables.retain(|name, value| initial_variables.get(name) != Some(value));
+                variables.extend(output.variables);
                 let result = ExecuteResult {
                     outputs: output.outputs,
-                    variables: output.variables,
+                    variables,
+                    artifacts,
                 };
                 serde_json::to_value(result).map_err(internal_error)
             }

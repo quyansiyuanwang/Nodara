@@ -85,11 +85,12 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 5. Runs lists the execution and **Open** reloads its event stream.
 6. **Variables…** accepts a temporary value, does not alter the workflow default, and rejects invalid JSON before Run.
 7. **Extensions** lists the built-in registration and any loaded/discovered plugins with node counts and status.
-8. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
-9. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
-10. Pause, Resume, and Cancel work with a delayed workflow.
-11. The Audit tab shows capability and node records.
-12. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+8. `examples/capture-preview.json` displays the PNG artifact inline under its Capture event and exposes it through the run artifact API.
+9. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
+10. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
+11. Pause, Resume, and Cancel work with a delayed workflow.
+12. The Audit tab shows capability and node records.
+13. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

@@ -48,6 +48,12 @@ All notable changes to this project are documented here. The format follows
 - Plugin manifests can now declare multiple `features`, including
   `integration`, `ui` and `policy` contributions. Each feature is validated and
   registered as its own extension with a stable `plugin/feature` id.
+- Plugin artifacts now cross the process boundary instead of being trapped in
+  the plugin's temporary store. Screenshots remain available after the run and
+  are previewed inline under the producing node in the Studio Events tab.
+- Configuration forms now show an accessible `?` tooltip for every documented
+  field, and the bottom drawer starts at 300px, expands to 640px and remembers
+  the user-selected height.
 - `nodara-cli extensions` now lists the same unified built-in, in-process and
   plugin registrations as `GET /api/v1/extensions`, with JSON output for
   automation.

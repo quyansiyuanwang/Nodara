@@ -437,14 +437,29 @@ pub fn validate_with_options(
             {
                 declared.insert(name);
             }
+            if let Some(name) = node
+                .config
+                .get("output_var")
+                .and_then(serde_json::Value::as_str)
+                .filter(|name| !name.trim().is_empty())
+            {
+                declared.insert(name);
+            }
+            if node.node_type == "core.SetVariable" {
+                if let Some(name) = node
+                    .config
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|name| !name.trim().is_empty())
+                {
+                    declared.insert(name);
+                }
+            }
         }
         let mut reported: HashSet<(String, String)> = HashSet::new();
         for node in &workflow.nodes {
             for reference in collect_variable_references(&node.config) {
-                if declared.contains(reference.as_str())
-                    || reference == "last_error"
-                    || reference.starts_with("last_error.")
-                {
+                if is_declared_reference(&declared, &reference) {
                     continue;
                 }
                 if reported.insert((format!("node:{}", node.id), reference.clone())) {
@@ -597,6 +612,14 @@ fn validate_config(node: &Node, descriptor: &NodeDescriptor, report: &mut Valida
             }
         }
     }
+}
+
+fn is_declared_reference(declared: &HashSet<&str>, reference: &str) -> bool {
+    declared.contains(reference)
+        || reference
+            .split('.')
+            .next()
+            .is_some_and(|root| declared.contains(root))
 }
 
 /// Extract `{{variable}}` references from a JSON config tree.
@@ -790,6 +813,33 @@ mod tests {
         let index = TestIndex(vec![
             NodeDescriptor::new("core.Start", "Start", "Core"),
             NodeDescriptor::new("core.Calculate", "Calculate", "Core"),
+            NodeDescriptor::new("core.Log", "Log", "Core"),
+            NodeDescriptor::new("core.End", "End", "Core"),
+        ]);
+        let report = validate_with(&wf, &index, &ValidationOptions::default());
+
+        assert!(!report.diagnostics.iter().any(|d| d.code == "WF150"));
+    }
+
+    #[test]
+    fn node_output_variables_satisfy_later_template_references() {
+        let mut wf = Workflow::new("wf.output-reference");
+        wf.add_node(Node::new("start", "core.Start"));
+        wf.add_node(
+            Node::new("capture", "test.Capture")
+                .with_config(serde_json::json!({ "output_var": "screenshot" })),
+        );
+        wf.add_node(Node::new("log", "core.Log").with_config(serde_json::json!({
+            "message": "artifact={{screenshot.id}}"
+        })));
+        wf.add_node(Node::new("end", "core.End"));
+        wf.add_edge(Edge::new("e1", "start", "capture"));
+        wf.add_edge(Edge::new("e2", "capture", "log"));
+        wf.add_edge(Edge::new("e3", "log", "end"));
+
+        let index = TestIndex(vec![
+            NodeDescriptor::new("core.Start", "Start", "Core"),
+            NodeDescriptor::new("test.Capture", "Capture", "Test"),
             NodeDescriptor::new("core.Log", "Log", "Core"),
             NodeDescriptor::new("core.End", "End", "Core"),
         ]);

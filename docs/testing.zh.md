@@ -181,10 +181,11 @@ $plugins.plugins | Select-Object id,version
 4. `examples/failure-branch.json` 校验无错误，Calculate 节点失败后通过 failure 连线进入恢复分支；
 5. `Variables…` 可设置临时变量且不修改工作流默认值，JSON 无效时 Run 保持禁用；
 6. `Extensions` 页列出内置扩展以及已发现/已加载的插件、节点数和状态；
-7. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
-8. 画布运行状态与事件一致；
-9. Pause/Resume 对延迟工作流有效；
-10. Cancel 能终止延迟节点。
+7. `examples/capture-preview.json` 在 Capture 事件下直接显示 PNG 预览，并能通过运行 artifact API 下载。
+8. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
+9. 画布运行状态与事件一致；
+10. Pause/Resume 对延迟工作流有效；
+11. Cancel 能终止延迟节点。
 
 ### 6.4 Audit
 

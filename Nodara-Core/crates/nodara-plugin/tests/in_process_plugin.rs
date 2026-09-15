@@ -9,8 +9,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use nodara_core::{
-    register_builtins, CapabilityRegistry, EngineOptions, ExecutionContext, NodeError,
-    NodeExecutor, NodeInput, NodeOutput, NodeResult, RunControl, RunRequest, WorkflowEngine,
+    register_builtins, ArtifactStore, CapabilityRegistry, EngineOptions, ExecutionContext,
+    NodeError, NodeExecutor, NodeInput, NodeOutput, NodeResult, RunControl, RunRequest,
+    WorkflowEngine,
 };
 use nodara_plugin::{
     InProcessTransport, PluginClient, PluginError, PluginExecutor, PluginHost, PluginServer,
@@ -65,6 +66,25 @@ impl NodeExecutor for EchoExecutor {
         Ok(NodeOutput::new()
             .with_output("out", json!(text))
             .with_variable("echoed", json!(text)))
+    }
+}
+
+/// A node that produces a binary artifact through the plugin protocol.
+#[derive(Debug, Default)]
+struct ArtifactExecutor;
+
+impl NodeExecutor for ArtifactExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("test.Artifact", "Artifact", "Test")
+    }
+
+    fn execute(&self, _input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let meta = context
+            .artifacts()
+            .put("preview", "image/png", vec![1, 2, 3, 4]);
+        let value = json!(meta);
+        context.set_variable("artifact", value.clone());
+        Ok(NodeOutput::new().with_output("artifact", value))
     }
 }
 
@@ -165,6 +185,58 @@ fn engine_executes_a_plugin_node() {
     );
     assert_eq!(outcome.nodes_executed, 3);
     assert_eq!(outcome.variables.get("echoed"), Some(&json!("hello world")));
+}
+
+#[test]
+fn artifacts_cross_the_plugin_boundary_and_reach_the_shared_store() {
+    let mut server_registry = CapabilityRegistry::new();
+    server_registry.register(ArtifactExecutor);
+    let manifest: PluginManifest = serde_json::from_value(json!({
+        "id": "nodara.test.artifact",
+        "name": "Test Artifact",
+        "version": "1.0.0",
+        "protocol_version": "1",
+        "executable": "unused.exe",
+        "node_types": ["test.Artifact"]
+    }))
+    .unwrap();
+    let server = PluginServer::new(
+        Arc::new(server_registry),
+        PluginServerInfo::new("nodara.test.artifact", "Test Artifact", "1.0.0"),
+        Arc::new(nodara_plugin::NullNotificationSink),
+    );
+    let client = Arc::new(
+        PluginClient::from_transport(manifest, Arc::new(InProcessTransport::new(server))).unwrap(),
+    );
+    let registry = {
+        let mut registry = CapabilityRegistry::new();
+        register_builtins(&mut registry);
+        registry.register_arc(Arc::new(PluginExecutor::new(
+            client,
+            NodeDescriptor::new("test.Artifact", "Artifact", "Test"),
+        )));
+        Arc::new(registry)
+    };
+    let artifacts = Arc::new(ArtifactStore::new());
+    let mut workflow = Workflow::new("wf.artifact-transfer");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("artifact", "test.Artifact"));
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "artifact"));
+    workflow.add_edge(Edge::new("e2", "artifact", "end"));
+
+    let outcome = WorkflowEngine::new(registry).run(
+        RunRequest::new(workflow).with_artifacts(artifacts.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(artifacts.len(), 1);
+    assert_eq!(artifacts.get("preview"), None);
+    let meta = artifacts.list().pop().expect("artifact metadata");
+    assert_eq!(meta.content_type, "image/png");
+    assert_eq!(artifacts.get(&meta.id), Some(vec![1, 2, 3, 4]));
+    assert_eq!(outcome.variables.get("artifact"), Some(&json!(meta)));
 }
 
 #[test]

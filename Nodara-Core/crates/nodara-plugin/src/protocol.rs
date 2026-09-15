@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 
+use nodara_core::ArtifactMeta;
 use nodara_schema::{NodeDescriptor, ValueType};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -85,6 +86,15 @@ pub struct DescribeResult {
     pub nodes: Vec<NodeDescriptor>,
 }
 
+/// A binary artefact transferred across the plugin boundary.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArtifactPayload {
+    /// Stable metadata, including the artifact id and MIME type.
+    pub meta: ArtifactMeta,
+    /// Standard Base64-encoded bytes.
+    pub data_base64: String,
+}
+
 /// `execute` parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecuteParams {
@@ -103,6 +113,9 @@ pub struct ExecuteParams {
     /// Read-only snapshot of the run scope.
     #[serde(default)]
     pub variables: BTreeMap<String, Value>,
+    /// Artifacts available to this execution, keyed by artifact id.
+    #[serde(default)]
+    pub artifacts: Vec<ArtifactPayload>,
     /// Per-call deadline in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u64>,
@@ -117,6 +130,9 @@ pub struct ExecuteResult {
     /// Variables published to the run scope.
     #[serde(default)]
     pub variables: BTreeMap<String, Value>,
+    /// New or updated artifacts produced by this execution.
+    #[serde(default)]
+    pub artifacts: Vec<ArtifactPayload>,
 }
 
 /// `cancel` parameters.
@@ -176,6 +192,7 @@ mod tests {
             config: serde_json::json!({"keys": "hello"}),
             inputs: BTreeMap::new(),
             variables: BTreeMap::new(),
+            artifacts: Vec::new(),
             timeout_ms: Some(1000),
         };
         let json = serde_json::to_string(&params).unwrap();

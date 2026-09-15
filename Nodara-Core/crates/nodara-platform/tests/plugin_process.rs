@@ -88,6 +88,7 @@ fn reports_an_error_for_an_unknown_node_type() {
             config: serde_json::json!({}),
             inputs: Default::default(),
             variables: Default::default(),
+            artifacts: Vec::new(),
             timeout_ms: Some(5_000),
         })
         .expect_err("unknown node types must fail");

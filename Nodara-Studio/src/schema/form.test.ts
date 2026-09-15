@@ -72,12 +72,15 @@ describe("schema-driven configuration forms", () => {
       type: "object",
       required: ["title"],
       properties: {
-        title: { type: "string", title: "Title", examples: ["Notepad"] },
+        title: { type: "string", title: "Title", description: "Target window title.", examples: ["Notepad"] },
       },
     };
     const { host } = render(schema, {});
     expect(host.querySelector(".field__label")?.textContent).toBe("Title *");
     expect(host.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Notepad");
+    expect(host.querySelector(".field__info")?.getAttribute("aria-label")).toBe(
+      "Target window title.",
+    );
   });
 
   it("resets a field to its schema default", () => {

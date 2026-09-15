@@ -72,6 +72,33 @@ describe("run status visualisation", () => {
     expect(node("start").classList.contains("node--done")).toBe(true);
   });
 
+  it("renders image artifact previews from node outputs", () => {
+    log = new EventLog(
+      document.getElementById("events")!,
+      canvas,
+      (runId, artifactId) => `/artifacts/${runId}/${artifactId}`,
+    );
+    log.append(
+      envelope(0, {
+        type: "node_finished",
+        node_id: "capture",
+        outputs: {
+          artifact: {
+            id: "image-1",
+            name: "desktop",
+            content_type: "image/png",
+            size: 128,
+          },
+        },
+        duration_ms: 9,
+      }),
+    );
+
+    const image = document.querySelector<HTMLImageElement>(".event-artifact__image")!;
+    expect(image.src).toContain("/artifacts/r1/image-1");
+    expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
+  });
+
   it("marks a failed node", () => {
     log.append(
       envelope(0, {

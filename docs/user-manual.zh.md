@@ -262,6 +262,21 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 - 画布高亮正在执行、成功或失败的节点；
 - `Audit` 页按运行过滤策略决策、审批和节点结果。
 
+### 截图与 artifact 调试
+
+截图节点会发布 artifact 元数据（`id`、`name`、`content_type`、`size`）。图片字节会从插件进程传回 runtime，并保留在该次运行中。在 Studio 的 **Events** 页找到 Capture 节点的 `node_finished` 事件，可直接看到图片预览和“打开”链接。
+
+其他节点需要 artifact ID 时使用 `{{screenshot.id}}`；诊断可使用 `{{screenshot.size}}` 或 `{{screenshot.content_type}}`。可直接运行 `examples/capture-preview.json` 验证。
+
+API 调试：
+
+```text
+GET /api/v1/runs/{run_id}/artifacts
+GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
+```
+
+第一个接口返回元数据，第二个接口按 MIME 类型返回原始字节。artifact 在当前 runtime 保留运行记录期间可访问。
+
 ### 失败恢复上下文
 
 节点执行失败时，运行作用域会发布 `last_error`，包含 `code`、`message`、`node_id` 和 `retryable`。失败分支可在条件表达式中使用这些字段，后续节点也可用 `{{last_error.code}}` 等模板渲染。

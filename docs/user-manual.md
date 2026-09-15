@@ -109,6 +109,28 @@ of the workflow document and are honored by the runtime:
 
 The node context menu also provides an immediate enable/disable action.
 
+### Screenshots and artifacts
+
+Capture nodes publish artifact metadata such as `{ "id", "name", "content_type", "size" }`.
+The image bytes are transferred from the plugin process into the run's artifact
+store. In Studio, open the **Events** tab: the Capture node's `node_finished`
+event shows an inline image preview and an **Open** link.
+
+Use `{{screenshot.id}}` when another node needs the artifact id, and
+`{{screenshot.size}}` or `{{screenshot.content_type}}` for diagnostics. The
+`examples/capture-preview.json` workflow demonstrates this.
+
+For API debugging:
+
+```text
+GET /api/v1/runs/{run_id}/artifacts
+GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
+```
+
+The first endpoint returns metadata; the second returns the raw bytes with the
+artifact MIME type. Artifacts remain available only while the runtime retains the
+run, so inspect them in the same session.
+
 ### Failure recovery context
 
 When a node executor fails, the runtime exposes `last_error` to the rest of the

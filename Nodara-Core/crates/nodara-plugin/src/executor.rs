@@ -2,13 +2,15 @@
 
 use std::sync::Arc;
 
+use base64::Engine;
+
 use nodara_core::{NodeError, NodeExecutor, NodeInput, NodeOutput};
 use nodara_schema::NodeDescriptor;
 
 use crate::client::PluginClient;
 use crate::error::PluginError;
 use crate::jsonrpc::codes;
-use crate::protocol::ExecuteParams;
+use crate::protocol::{ArtifactPayload, ExecuteParams};
 
 /// A [`NodeExecutor`] whose implementation lives in another process.
 pub struct PluginExecutor {
@@ -88,13 +90,40 @@ impl NodeExecutor for PluginExecutor {
             // Crosses a process boundary, so secrets stay masked; a plugin
             // receives resolved config values through `config`, not the scope.
             variables: context.redacted_variables(),
+            artifacts: context
+                .artifacts()
+                .list()
+                .into_iter()
+                .filter_map(|meta| {
+                    context
+                        .artifacts()
+                        .get(&meta.id)
+                        .map(|bytes| ArtifactPayload {
+                            meta,
+                            data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+                        })
+                })
+                .collect(),
             timeout_ms: input.timeout_ms,
         };
         match self.client.execute(params) {
-            Ok(result) => Ok(NodeOutput {
-                outputs: result.outputs,
-                variables: result.variables,
-            }),
+            Ok(result) => {
+                for payload in result.artifacts {
+                    let bytes = base64::engine::general_purpose::STANDARD
+                        .decode(payload.data_base64)
+                        .map_err(|error| {
+                            NodeError::Execution(format!(
+                                "plugin `{}` returned an invalid artifact: {error}",
+                                self.client.info().id
+                            ))
+                        })?;
+                    context.artifacts().insert(payload.meta, bytes);
+                }
+                Ok(NodeOutput {
+                    outputs: result.outputs,
+                    variables: result.variables,
+                })
+            }
             Err(error) => Err(self.map_error(error)),
         }
     }

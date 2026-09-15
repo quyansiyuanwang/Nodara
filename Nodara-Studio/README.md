@@ -102,12 +102,14 @@ known validation code has a Studio translation.
   expression directly. Failure edges provide explicit recovery paths; branch
   labels and colors are shown on the canvas.
 * Drag the dividers between the left/right panels or above the bottom drawer to
-  resize them; double-click a divider to restore its default size.
+  resize them; the bottom drawer remembers its height and has more room for
+  events, runs, audit records and extension tables.
 * A new document starts with a runnable `Start → Log → End` example so the
   first Run can be verified immediately.
 * Undo and redo workflow edits with the toolbar buttons, `Ctrl+Z`, `Ctrl+Y` or
   `Ctrl+Shift+Z`; rapid typing is coalesced into a single history entry.
-* Schema-driven forms mark required fields, show descriptions, use examples as
+* Schema-driven forms mark required fields, show a hover/keyboard `?` tooltip for
+  documented fields, use examples as
   placeholders, render nested object schemas as grouped controls, edit arrays as
   reorderable lists and offer a reset-to-default action when the Schema declares
   a default.
@@ -161,6 +163,8 @@ src/
 * `Validate` calls the runtime, so diagnostics match exactly what execution
   would enforce — including unknown node types and missing configuration;
 * `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control;
+* image artifacts such as screenshots are previewed inline under the producing
+  node in the **Events** tab, with a direct Open link;
 * the **Runs** tab lists runtime history and opens a selected run in the
   **Events** tab; the event stream highlights the running, finished and failed
   nodes on the canvas;

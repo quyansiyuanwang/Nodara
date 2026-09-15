@@ -120,7 +120,11 @@ class Studio {
         clearRunOverride: (name) => this.runOverrides.delete(name),
       },
     );
-    this.log = new EventLog(element("events"), this.canvas);
+    this.log = new EventLog(
+      element("events"),
+      this.canvas,
+      (runId, artifactId) => this.client.artifactUrl(runId, artifactId),
+    );
     this.agents = new AgentPanel(element("agent"), {
       onDecide: (sessionId, approvalId, approve) =>
         void this.decideApproval(sessionId, approvalId, approve),
@@ -337,7 +341,16 @@ class Studio {
     const drawer = element("resize-drawer");
     let leftWidth = 240;
     let rightWidth = 300;
-    let drawerHeight = 220;
+    let storedDrawerHeight = 300;
+    try {
+      storedDrawerHeight = Number(localStorage.getItem("nodara.drawer.height"));
+    } catch {
+      // Hardened webviews may disable local storage; keep the default.
+    }
+    let drawerHeight = Number.isFinite(storedDrawerHeight)
+      ? Math.max(180, Math.min(640, storedDrawerHeight))
+      : 300;
+    app.style.setProperty("--drawer-height", `${drawerHeight}px`);
 
     installResizer(left, {
       axis: "x",
@@ -364,11 +377,16 @@ class Studio {
       axis: "y",
       value: drawerHeight,
       min: 140,
-      max: () => Math.max(140, Math.min(560, window.innerHeight - 260)),
+      max: () => Math.max(180, Math.min(640, window.innerHeight - 260)),
       invert: true,
       onChange: (value) => {
         drawerHeight = value;
         app.style.setProperty("--drawer-height", `${value}px`);
+        try {
+          localStorage.setItem("nodara.drawer.height", String(value));
+        } catch {
+          // Resizing still works for this session.
+        }
       },
     });
   }

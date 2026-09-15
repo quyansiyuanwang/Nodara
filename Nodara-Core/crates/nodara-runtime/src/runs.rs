@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use nodara_core::{EventSink, RunControl, RunFailure, RunOutcome, RunRequest, WorkflowEngine};
+use nodara_core::{
+    ArtifactStore, EventSink, RunControl, RunFailure, RunOutcome, RunRequest, WorkflowEngine,
+};
 use nodara_schema::{EventEnvelope, ExecutionEvent, RunStatus, Workflow};
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -38,6 +40,9 @@ pub struct RunSnapshot {
     pub failure: Option<RunFailure>,
     /// Number of events recorded for the run.
     pub event_count: usize,
+    /// Number of artifacts retained for the run.
+    #[serde(default)]
+    pub artifact_count: usize,
 }
 
 #[derive(Debug)]
@@ -57,6 +62,7 @@ pub struct RunHandle {
     control: RunControl,
     state: Mutex<RunState>,
     history: Mutex<Vec<EventEnvelope>>,
+    artifacts: Arc<ArtifactStore>,
     next_seq: AtomicU64,
     broadcaster: broadcast::Sender<EventEnvelope>,
 }
@@ -68,7 +74,12 @@ impl std::fmt::Debug for RunHandle {
 }
 
 impl RunHandle {
-    fn new(id: String, workflow_id: String, control: RunControl) -> Arc<Self> {
+    fn new(
+        id: String,
+        workflow_id: String,
+        control: RunControl,
+        artifacts: Arc<ArtifactStore>,
+    ) -> Arc<Self> {
         let (broadcaster, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
         Arc::new(Self {
             id,
@@ -83,6 +94,7 @@ impl RunHandle {
                 failure: None,
             }),
             history: Mutex::new(Vec::new()),
+            artifacts,
             next_seq: AtomicU64::new(0),
             broadcaster,
         })
@@ -103,6 +115,11 @@ impl RunHandle {
         &self.control
     }
 
+    /// Artifacts retained for this run.
+    pub fn artifacts(&self) -> &Arc<ArtifactStore> {
+        &self.artifacts
+    }
+
     /// Current snapshot.
     pub fn snapshot(&self) -> RunSnapshot {
         let state = self.state.lock();
@@ -116,6 +133,7 @@ impl RunHandle {
             variables: state.variables.clone(),
             failure: state.failure.clone(),
             event_count: self.history.lock().len(),
+            artifact_count: self.artifacts.len(),
         }
     }
 
@@ -282,7 +300,13 @@ impl RunManager {
         variables: BTreeMap<String, serde_json::Value>,
     ) -> Arc<RunHandle> {
         let control = RunControl::new();
-        let handle = RunHandle::new(run_id.clone(), workflow.id.clone(), control.clone());
+        let artifacts = Arc::new(ArtifactStore::new());
+        let handle = RunHandle::new(
+            run_id.clone(),
+            workflow.id.clone(),
+            control.clone(),
+            artifacts.clone(),
+        );
         self.runs.lock().insert(run_id.clone(), handle.clone());
 
         let sink: Arc<dyn EventSink> = Arc::new(HandleSink {
@@ -291,7 +315,8 @@ impl RunManager {
         let request = RunRequest::new(workflow)
             .with_run_id(run_id)
             .with_variables(variables)
-            .with_event_sink(sink);
+            .with_event_sink(sink)
+            .with_artifacts(artifacts);
 
         let engine = self.engine.clone();
         let completion = handle.clone();

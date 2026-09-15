@@ -160,6 +160,7 @@ export interface RunSnapshot {
   variables: Record<string, unknown>;
   failure?: { code: string; message: string };
   event_count: number;
+  artifact_count?: number;
 }
 
 export type ExtensionKind =

@@ -132,6 +132,12 @@ Params:
   "config": { "keys": "ctrl+s" },
   "inputs": { "in": null },
   "variables": { "name": "World" },
+  "artifacts": [
+    {
+      "meta": { "id": "image-1", "name": "screen", "content_type": "image/png", "size": 4 },
+      "data_base64": "AQIDBA=="
+    }
+  ],
   "timeout_ms": 30000
 }
 ```
@@ -139,7 +145,10 @@ Params:
 `config` is already interpolated by the runtime: a plugin never sees `{{name}}`.
 `variables` is a read-only snapshot for context.
 
-Result: `{ "outputs": { "out": "ctrl+s" }, "variables": {} }`.
+Result: `{ "outputs": { "out": "ctrl+s" }, "variables": {}, "artifacts": [] }`.
+Artifacts produced by a plugin are Base64-transferred back to the runtime and
+stored under their original ids. The runtime sends available artifacts to later
+plugin executions, so a capture in one plugin can be consumed by OCR in another.
 
 ### `cancel`
 

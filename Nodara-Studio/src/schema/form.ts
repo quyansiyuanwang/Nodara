@@ -94,13 +94,29 @@ export function renderField(
   const id = `${options.idPrefix ?? "field"}-${key.replace(/[^A-Za-z0-9]/g, "-")}`;
   const fieldHeader = document.createElement("div");
   fieldHeader.className = "field__header";
+  const headingGroup = document.createElement("div");
+  headingGroup.className = "field__heading";
   const heading = document.createElement("label");
   heading.className = "field__label";
   heading.htmlFor = id;
   heading.textContent = `${label(key, schema)}${options.required ? " *" : ""}`;
   heading.dataset.required = options.required ? "true" : "false";
   if (schema.description) heading.title = schema.description;
-  fieldHeader.appendChild(heading);
+  headingGroup.appendChild(heading);
+  if (schema.description) {
+    const info = document.createElement("span");
+    info.className = "field__info";
+    info.tabIndex = 0;
+    info.setAttribute("role", "note");
+    info.setAttribute("aria-label", schema.description);
+    info.textContent = "?";
+    const tooltip = document.createElement("span");
+    tooltip.className = "field__tooltip";
+    tooltip.textContent = schema.description;
+    info.appendChild(tooltip);
+    headingGroup.appendChild(info);
+  }
+  fieldHeader.appendChild(headingGroup);
   wrapper.appendChild(fieldHeader);
 
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;

@@ -7,9 +7,11 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
-use axum::response::IntoResponse;
+use axum::http::{header, HeaderValue};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::StreamExt;
@@ -44,6 +46,8 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
         // than carrying a WebSocket client of its own.
         .route("/runs/{id}/events", get(stream_run_events))
         .route("/runs/{id}/event-log", get(run_events))
+        .route("/runs/{id}/artifacts", get(list_run_artifacts))
+        .route("/runs/{id}/artifacts/{artifact_id}", get(get_run_artifact))
         .route(
             "/agent/sessions",
             get(list_agent_sessions).post(create_agent_session),
@@ -179,6 +183,49 @@ async fn list_extensions(State(state): State<Arc<RuntimeState>>) -> Json<Extensi
     Json(ExtensionListResponse {
         extensions: state.extensions.descriptors(),
     })
+}
+
+#[derive(Debug, Serialize)]
+struct ArtifactListResponse {
+    artifacts: Vec<nodara_core::ArtifactMeta>,
+}
+
+async fn list_run_artifacts(
+    State(state): State<Arc<RuntimeState>>,
+    Path(run_id): Path<String>,
+) -> Result<Json<ArtifactListResponse>, ApiError> {
+    let run = state.runs.get(&run_id).ok_or_else(|| {
+        ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{run_id}`"))
+    })?;
+    Ok(Json(ArtifactListResponse {
+        artifacts: run.artifacts().list(),
+    }))
+}
+
+async fn get_run_artifact(
+    State(state): State<Arc<RuntimeState>>,
+    Path((run_id, artifact_id)): Path<(String, String)>,
+) -> Result<Response, ApiError> {
+    let run = state.runs.get(&run_id).ok_or_else(|| {
+        ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{run_id}`"))
+    })?;
+    let Some((meta, bytes)) = run.artifacts().get_with_meta(&artifact_id) else {
+        return Err(ApiError::not_found(
+            "E_ARTIFACT_NOT_FOUND",
+            format!("run `{run_id}` has no artifact `{artifact_id}`"),
+        ));
+    };
+    let mut response = Response::new(Body::from(bytes));
+    let content_type = HeaderValue::from_str(&meta.content_type)
+        .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream"));
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, content_type);
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, max-age=300"),
+    );
+    Ok(response)
 }
 
 #[derive(Debug, Serialize)]

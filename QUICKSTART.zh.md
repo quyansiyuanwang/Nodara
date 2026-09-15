@@ -113,8 +113,9 @@ $env:NODARA_RUNTIME_PORT = "8720"
 2. 确认画布显示 `Start → Log → End`；
 3. 点击 **Validate**，应无错误；
 4. 点击 **Run**，在 **Events** 页观察事件；
-5. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
-6. 打开 **Audit** 页，确认策略决策和节点结果已记录。
+5. 在 Windows 上打开 `examples/capture-preview.json`，确认 Capture 事件下方直接显示 PNG 预览；
+6. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
+7. 打开 **Audit** 页，确认策略决策和节点结果已记录。
 
 常用编辑操作：
 

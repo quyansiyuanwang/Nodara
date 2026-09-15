@@ -56,6 +56,9 @@ pub struct RunRequest {
     pub variables: BTreeMap<String, serde_json::Value>,
     /// Destination for execution events.
     pub event_sink: Arc<dyn EventSink>,
+    /// Optional shared artefact store. Runtimes supply one so API clients can
+    /// inspect images and other intermediate payloads after execution.
+    pub artifacts: Option<Arc<ArtifactStore>>,
 }
 
 impl std::fmt::Debug for RunRequest {
@@ -76,6 +79,7 @@ impl RunRequest {
             run_id: None,
             variables: BTreeMap::new(),
             event_sink: Arc::new(NullEventSink),
+            artifacts: None,
         }
     }
 
@@ -97,6 +101,13 @@ impl RunRequest {
     #[must_use]
     pub fn with_variables(mut self, variables: BTreeMap<String, serde_json::Value>) -> Self {
         self.variables = variables;
+        self
+    }
+
+    /// Share an artifact store with the caller so outputs remain inspectable.
+    #[must_use]
+    pub fn with_artifacts(mut self, artifacts: Arc<ArtifactStore>) -> Self {
+        self.artifacts = Some(artifacts);
         self
     }
 }
@@ -304,6 +315,9 @@ impl WorkflowEngine {
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let bus = EventBus::new(run_id.clone(), request.event_sink.clone());
+        let artifacts = request
+            .artifacts
+            .unwrap_or_else(|| Arc::new(ArtifactStore::new()));
         let workflow = request.workflow;
         let seeded = seeded_variables(&workflow, &request.variables);
 
@@ -379,7 +393,7 @@ impl WorkflowEngine {
             self.policy.clone(),
             self.approval.clone(),
             self.audit.clone(),
-            Arc::new(ArtifactStore::new()),
+            artifacts,
         );
 
         bus.emit(ExecutionEvent::RunStarted {

@@ -155,6 +155,12 @@ export class RuntimeClient {
     return this.request<RunSnapshot>(`/runs/${encodeURIComponent(runId)}`);
   }
 
+  artifactUrl(runId: string, artifactId: string): string {
+    return this.url(
+      `/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}`,
+    );
+  }
+
   pause(runId: string): Promise<RunSnapshot> {
     return this.post(`/runs/${encodeURIComponent(runId)}/pause`);
   }

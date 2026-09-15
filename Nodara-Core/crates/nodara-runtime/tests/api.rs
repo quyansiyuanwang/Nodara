@@ -5,8 +5,11 @@ use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use nodara_core::{ExtensionDescriptor, ExtensionKind};
+use nodara_core::{
+    ExecutionContext, ExtensionDescriptor, ExtensionKind, NodeExecutor, NodeInput, NodeOutput,
+};
 use nodara_runtime::{RuntimeBuilder, RuntimeConfig, RuntimeState};
+use nodara_schema::NodeDescriptor;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
@@ -40,6 +43,27 @@ fn json_request(method: &str, uri: &str, body: Value) -> Request<Body> {
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .expect("request builds")
+}
+
+#[derive(Debug, Default)]
+struct ArtifactExecutor;
+
+impl NodeExecutor for ArtifactExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("test.Artifact", "Artifact", "Test")
+    }
+
+    fn execute(
+        &self,
+        _input: NodeInput,
+        context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        let meta = context
+            .artifacts()
+            .put("preview", "image/png", vec![1, 2, 3, 4]);
+        Ok(NodeOutput::new()
+            .with_output("artifact", serde_json::to_value(meta).unwrap_or_default()))
+    }
 }
 
 fn valid_workflow() -> Value {
@@ -345,6 +369,70 @@ async fn a_run_completes_and_reports_variables() {
     assert_eq!(snapshot["nodes_executed"], 4);
     assert_eq!(snapshot["variables"]["answer"], 42);
     assert!(snapshot["event_count"].as_u64().unwrap() >= 9);
+}
+
+#[tokio::test]
+async fn run_artifacts_are_listed_and_downloadable() {
+    let mut builder = RuntimeBuilder::new(RuntimeConfig::default());
+    builder.register_executor(ArtifactExecutor);
+    let state = builder.build().expect("runtime builds");
+    let workflow = json!({
+        "schema_version": "2.0",
+        "id": "wf.artifact",
+        "nodes": [
+            { "id": "start", "type": "core.Start" },
+            { "id": "artifact", "type": "test.Artifact" },
+            { "id": "end", "type": "core.End" }
+        ],
+        "edges": [
+            { "id": "e1", "source": "start", "target": "artifact" },
+            { "id": "e2", "source": "artifact", "target": "end" }
+        ]
+    });
+    let (status, created) = call(
+        &state,
+        json_request("POST", "/api/v1/runs", json!({ "workflow": workflow })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{created}");
+    let run_id = created["id"].as_str().unwrap().to_string();
+
+    let mut artifacts = Value::Null;
+    for _ in 0..100 {
+        let (_, body) = call(
+            &state,
+            Request::builder()
+                .uri(format!("/api/v1/runs/{run_id}/artifacts"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        artifacts = body;
+        if !artifacts["artifacts"].as_array().unwrap().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let artifact = &artifacts["artifacts"][0];
+    assert_eq!(artifact["content_type"], "image/png");
+    assert_eq!(artifact["size"], 4);
+    let artifact_id = artifact["id"].as_str().unwrap();
+
+    let response = nodara_runtime::api::router(state.clone())
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/runs/{run_id}/artifacts/{artifact_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .expect("artifact response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["content-type"], "image/png");
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    assert_eq!(&bytes[..], &[1, 2, 3, 4]);
 }
 
 #[tokio::test]

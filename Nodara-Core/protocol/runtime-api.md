@@ -23,6 +23,8 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/runs/{id}/cancel` | Cancel, including in-flight plugin calls |
 | `WS` | `/api/v1/runs/{id}/events` | Replay then stream execution events |
 | `GET` | `/api/v1/runs/{id}/event-log` | The same event sequence over REST |
+| `GET` | `/api/v1/runs/{id}/artifacts` | Artifact metadata retained for a run |
+| `GET` | `/api/v1/runs/{id}/artifacts/{artifact_id}` | Raw artifact bytes with MIME type |
 | `GET` | `/api/v1/agent/sessions` | Agent sessions and pending approvals |
 | `POST` | `/api/v1/agent/sessions` | Create a session |
 | `GET` | `/api/v1/agent/sessions/{id}` | One session |

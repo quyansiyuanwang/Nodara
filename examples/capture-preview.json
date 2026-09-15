@@ -1,0 +1,40 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.capture-preview",
+  "metadata": {
+    "name": "Capture preview",
+    "description": "Captures the primary desktop and displays the PNG preview in the Events tab."
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start", "position": { "x": 80, "y": 160 } },
+    {
+      "id": "capture",
+      "type": "windows.Desktop.Capture",
+      "label": "Capture Desktop",
+      "config": {
+        "x": 0,
+        "y": 0,
+        "output_var": "screenshot"
+      },
+      "position": { "x": 360, "y": 160 }
+    },
+    {
+      "id": "log",
+      "type": "core.Log",
+      "label": "Artifact summary",
+      "config": {
+        "level": "info",
+        "message": "Captured {{screenshot.id}} ({{screenshot.content_type}}, {{screenshot.size}} bytes)"
+      },
+      "position": { "x": 680, "y": 160 }
+    },
+    { "id": "end", "type": "core.End", "config": { "code": 0 }, "position": { "x": 1000, "y": 160 } }
+  ],
+  "edges": [
+    { "id": "start-capture", "source": "start", "target": "capture" },
+    { "id": "capture-log", "source": "capture", "target": "log", "source_port": "artifact" },
+    { "id": "log-end", "source": "log", "target": "end" }
+  ],
+  "variables": {}
+}

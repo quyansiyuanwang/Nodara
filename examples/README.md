@@ -11,6 +11,7 @@ Every file here is a workflow document in the current format
 | `branching.json` | Edge guards (`condition`) pruning branches |
 | `result-mapping.json` | Common `result_var` / `result_port` output mapping on a built-in node |
 | `failure-branch.json` | A `failure` edge recovering from a node error without `continue_on_error` |
+| `capture-preview.json` | Captures the desktop and previews the PNG artifact in Studio |
 | `window-find.json` | A plugin-provided node type (`windows.Window.Find`) |
 | `legacy/v1-hello-world.json` | A pre-v2 document, kept as a migration fixture |
 

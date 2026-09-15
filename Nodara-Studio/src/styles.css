@@ -38,7 +38,7 @@ body {
 .app {
   --left-panel: 240px;
   --right-panel: 300px;
-  --drawer-height: 220px;
+  --drawer-height: 300px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) 6px var(--drawer-height);
   height: 100vh;
@@ -694,6 +694,61 @@ body.is-resizing-y * {
   gap: 8px;
 }
 
+.field__heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field__info {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--text-dim);
+  cursor: help;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.field__info:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field__tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 7px);
+  z-index: 1200;
+  width: max-content;
+  max-width: min(360px, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #11151e;
+  color: var(--text);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 48%);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.field__info:hover .field__tooltip,
+.field__info:focus .field__tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .field__label {
   display: block;
   font-size: 12px;
@@ -831,8 +886,12 @@ body.is-resizing-y * {
 
 .drawer__tabs {
   display: flex;
+  flex: 0 0 auto;
   gap: 4px;
   padding: 6px 10px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: #141821;
 }
 
 .tab {
@@ -862,17 +921,63 @@ body.is-resizing-y * {
 }
 
 .drawer__panel {
-  padding: 8px 12px 12px;
+  flex: 1 1 auto;
+  padding: 10px 12px 12px;
   overflow: auto;
-  min-height: 120px;
+  min-height: 0;
 }
 
 .events,
 .problems {
   font-family: var(--mono);
   font-size: 12px;
-  max-height: 160px;
+  max-height: none;
   overflow-y: auto;
+}
+
+.event-entry {
+  padding: 1px 0;
+  border-bottom: 1px solid #1c2030;
+}
+
+.event-entry .event {
+  border-bottom: none;
+}
+
+.event-artifact {
+  display: grid;
+  grid-template-columns: minmax(180px, 42%) 1fr;
+  gap: 10px;
+  margin: 6px 0 9px 202px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.event-artifact__image {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #090b10;
+  border: 1px solid #242a3a;
+}
+
+.event-artifact__caption {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.event-artifact__caption a {
+  color: var(--accent);
+  width: fit-content;
 }
 
 .event {
@@ -1117,7 +1222,7 @@ body.is-resizing-y * {
 
 .extensions {
   overflow: auto;
-  max-height: 190px;
+  max-height: none;
 }
 
 .extensions__table {
@@ -1171,7 +1276,7 @@ body.is-resizing-y * {
 
 .runs {
   overflow: auto;
-  max-height: 190px;
+  max-height: none;
 }
 
 .runs__table {
@@ -1221,7 +1326,7 @@ body.is-resizing-y * {
 
 .audit {
   overflow: auto;
-  max-height: 190px;
+  max-height: none;
 }
 
 .audit__table {

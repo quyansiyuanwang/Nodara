@@ -30,6 +30,7 @@ export class EventLog {
   constructor(
     private readonly root: HTMLElement,
     private readonly canvas: Canvas,
+    private readonly artifactUrl?: (runId: string, artifactId: string) => string,
   ) {}
 
   clear(): void {
@@ -54,13 +55,50 @@ export class EventLog {
     body.textContent = describe(envelope);
 
     row.append(time, kind, body);
-    this.root.appendChild(row);
-    while (this.root.childElementCount > MAX_ROWS) {
+    const entry = document.createElement("div");
+    entry.className = "event-entry";
+    entry.appendChild(row);
+    this.appendArtifactPreviews(entry, envelope);
+    this.root.appendChild(entry);
+    while (this.root.querySelectorAll(".event-entry").length > MAX_ROWS) {
       this.root.firstElementChild?.remove();
     }
     this.root.scrollTop = this.root.scrollHeight;
 
     this.decorate(event);
+  }
+
+  /** Render image artifacts attached to successful node events. */
+  private appendArtifactPreviews(entry: HTMLElement, envelope: EventEnvelope): void {
+    if (!this.artifactUrl || envelope.event.type !== "node_finished") return;
+    for (const [port, value] of Object.entries(envelope.event.outputs)) {
+      const artifact = artifactMeta(value);
+      if (!artifact || !artifact.content_type.startsWith("image/")) continue;
+      const url = this.artifactUrl(envelope.run_id, artifact.id);
+      const preview = document.createElement("figure");
+      preview.className = "event-artifact";
+      const image = document.createElement("img");
+      image.className = "event-artifact__image";
+      image.src = url;
+      image.alt = t("artifact.previewAlt", { name: artifact.name });
+      image.loading = "lazy";
+      const caption = document.createElement("figcaption");
+      caption.className = "event-artifact__caption";
+      const details = document.createElement("span");
+      details.textContent = t("artifact.previewDetails", {
+        port,
+        type: artifact.content_type,
+        size: artifact.size,
+      });
+      const open = document.createElement("a");
+      open.href = url;
+      open.target = "_blank";
+      open.rel = "noreferrer";
+      open.textContent = t("actions.open");
+      caption.append(details, open);
+      preview.append(image, caption);
+      entry.appendChild(preview);
+    }
   }
 
   /** Reflect execution state on the canvas. */
@@ -89,6 +127,31 @@ export class EventLog {
       this.canvas.clearStates();
     }
   }
+}
+
+interface ArtifactPreviewMeta {
+  id: string;
+  name: string;
+  content_type: string;
+  size: number;
+}
+
+function artifactMeta(value: unknown): ArtifactPreviewMeta | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.content_type !== "string" ||
+    typeof record.size !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: record.id,
+    name: typeof record.name === "string" ? record.name : record.id,
+    content_type: record.content_type,
+    size: record.size,
+  };
 }
 
 function describe(envelope: EventEnvelope): string {

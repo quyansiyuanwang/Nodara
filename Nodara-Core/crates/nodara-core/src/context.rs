@@ -61,6 +61,17 @@ impl ArtifactStore {
         meta
     }
 
+    /// Insert a transferred artefact while preserving its runtime identifier.
+    pub fn insert(&self, mut meta: ArtifactMeta, bytes: Vec<u8>) {
+        meta.size = bytes.len();
+        self.blobs.lock().insert(meta.id.clone(), (meta, bytes));
+    }
+
+    /// Retrieve metadata and bytes together.
+    pub fn get_with_meta(&self, id: &str) -> Option<(ArtifactMeta, Vec<u8>)> {
+        self.blobs.lock().get(id).cloned()
+    }
+
     /// Retrieve a blob by id.
     pub fn get(&self, id: &str) -> Option<Vec<u8>> {
         self.blobs.lock().get(id).map(|(_, bytes)| bytes.clone())
@@ -374,5 +385,26 @@ impl ExecutionContext {
             serde_json::Value::Null => String::new(),
             other => other.to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod artifact_tests {
+    use super::*;
+
+    #[test]
+    fn transferred_artifacts_preserve_id_and_size() {
+        let store = ArtifactStore::new();
+        let meta = ArtifactMeta {
+            id: "image-1".to_string(),
+            name: "screen".to_string(),
+            content_type: "image/png".to_string(),
+            size: 0,
+        };
+        store.insert(meta, vec![1, 2, 3, 4]);
+        let (meta, bytes) = store.get_with_meta("image-1").expect("artifact");
+        assert_eq!(meta.id, "image-1");
+        assert_eq!(meta.size, 4);
+        assert_eq!(bytes, vec![1, 2, 3, 4]);
     }
 }
