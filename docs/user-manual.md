@@ -83,6 +83,7 @@ copy.
 | Edit a connection | Select it to choose Always, Success, or Failure, then edit its label or guard condition in Properties |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Locate a problem | Click a Problems row that names a node or connection; the canvas centres it and opens Properties |
+| Filter events | Use the Events toolbar to filter by type/node/message; Clear only clears the view, and Follow controls automatic scrolling |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 | Collapse sections | Expand or collapse Execution, Configuration and Variables in Properties; Studio remembers the state |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |

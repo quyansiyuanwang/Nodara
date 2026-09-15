@@ -99,6 +99,15 @@
       <section class="drawer">
         <nav id="drawer-tabs" class="drawer__tabs"></nav>
         <div id="panel-events" class="drawer__panel">
+          <div class="events-toolbar">
+            <input id="event-filter" class="input input--small" placeholder="Filter events…" data-i18n-placeholder="events.filter" />
+            <label class="events-toolbar__follow">
+              <input id="events-follow" type="checkbox" checked />
+              <span data-i18n="events.follow">Follow</span>
+            </label>
+            <span id="events-count" class="events-toolbar__count"></span>
+            <button id="events-clear" class="btn btn--small" type="button" data-i18n="events.clear">Clear</button>
+          </div>
           <div id="events" class="events"></div>
         </div>
         <div id="panel-runs" class="drawer__panel" hidden>

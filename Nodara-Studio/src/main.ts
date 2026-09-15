@@ -135,6 +135,7 @@ class Studio {
       element("events"),
       this.canvas,
       (runId, artifactId) => this.client.artifactUrl(runId, artifactId),
+      element<HTMLElement>("events-count"),
     );
     this.agents = new AgentPanel(element("agent"), {
       onDecide: (sessionId, approvalId, approve) =>
@@ -247,6 +248,14 @@ class Studio {
   }
 
   private bindToolbar(): void {
+    element<HTMLInputElement>("event-filter").addEventListener("input", (event) => {
+      this.log.filter((event.target as HTMLInputElement).value);
+    });
+    element<HTMLInputElement>("events-follow").addEventListener("change", (event) => {
+      this.log.setFollow((event.target as HTMLInputElement).checked);
+    });
+    element("events-clear").addEventListener("click", () => this.log.clear());
+
     element("btn-language").addEventListener("click", () => {
       toggleLocale();
       window.location.reload();

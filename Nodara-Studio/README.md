@@ -193,6 +193,8 @@ src/
 * image artifacts such as screenshots are previewed inline under the producing
   `node_finished` event and under `log` events containing artifact JSON, with a
   direct Open link;
+* the Events toolbar filters the current stream, shows the visible/total count,
+  clears the view, and can pause automatic scrolling with **Follow**;
 * a mouse region picker captures a fresh desktop image and writes pixel
   coordinates into `windows.Desktop.Capture`;
 * the **Runs** tab lists runtime history and opens a selected run in the

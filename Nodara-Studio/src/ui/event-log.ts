@@ -27,14 +27,34 @@ const LABEL_KEYS: Record<string, string> = {
 };
 
 export class EventLog {
+  private query = "";
+  private follow = true;
+
   constructor(
     private readonly root: HTMLElement,
     private readonly canvas: Canvas,
     private readonly artifactUrl?: (runId: string, artifactId: string) => string,
+    private readonly countElement?: HTMLElement,
   ) {}
 
   clear(): void {
     this.root.replaceChildren();
+    this.updateCount();
+  }
+
+  /** Filter rendered events by type, node, message or output metadata. */
+  filter(query: string): void {
+    this.query = query.trim().toLowerCase();
+    for (const entry of this.root.querySelectorAll<HTMLElement>(".event-entry")) {
+      entry.hidden = !this.matches(entry.dataset.search ?? "");
+    }
+    this.updateCount();
+  }
+
+  /** Keep the newest visible event in view as new events arrive. */
+  setFollow(follow: boolean): void {
+    this.follow = follow;
+    if (follow) this.root.scrollTop = this.root.scrollHeight;
   }
 
   append(envelope: EventEnvelope): void {
@@ -57,6 +77,8 @@ export class EventLog {
     row.append(time, kind, body);
     const entry = document.createElement("div");
     entry.className = "event-entry";
+    entry.dataset.search = `${event.type} ${describe(envelope)} ${JSON.stringify(event)}`.toLowerCase();
+    entry.hidden = !this.matches(entry.dataset.search);
     entry.appendChild(row);
     this.appendArtifactPreviews(entry, envelope);
     this.appendCommandOutput(entry, envelope);
@@ -64,9 +86,21 @@ export class EventLog {
     while (this.root.querySelectorAll(".event-entry").length > MAX_ROWS) {
       this.root.firstElementChild?.remove();
     }
-    this.root.scrollTop = this.root.scrollHeight;
+    this.updateCount();
+    if (this.follow) this.root.scrollTop = this.root.scrollHeight;
 
     this.decorate(event);
+  }
+
+  private matches(search: string): boolean {
+    return this.query === "" || search.includes(this.query);
+  }
+
+  private updateCount(): void {
+    if (!this.countElement) return;
+    const entries = this.root.querySelectorAll<HTMLElement>(".event-entry");
+    const visible = [...entries].filter((entry) => !entry.hidden).length;
+    this.countElement.textContent = `${visible}/${entries.length}`;
   }
 
   /** Render image artifacts attached to successful node events. */

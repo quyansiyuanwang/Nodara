@@ -156,6 +156,8 @@ All notable changes to this project are documented here. The format follows
   connection.
 - Studio Properties now groups Execution, Configuration and Variables into
   collapsible sections and remembers each section's expanded state.
+- The Events drawer now has a filter field, visible/total count, clear button
+  and Follow toggle so long runtime logs remain navigable.
 
 ### Changed
 

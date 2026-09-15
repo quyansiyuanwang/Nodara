@@ -217,4 +217,30 @@ describe("run status visualisation", () => {
     expect(text).toContain("careful");
     expect(text).toContain("3 node(s) in 12ms");
   });
+
+  it("filters events and reports the visible count", () => {
+    const count = document.createElement("span");
+    log = new EventLog(document.getElementById("events")!, canvas, undefined, count);
+    log.append(envelope(0, { type: "run_started", workflow_id: "wf.demo" }));
+    log.append(
+      envelope(1, {
+        type: "node_failed",
+        node_id: "log",
+        code: "E_EXECUTION",
+        message: "boom",
+        retryable: false,
+      }),
+    );
+    expect(count.textContent).toBe("2/2");
+
+    log.filter("boom");
+    const entries = document.querySelectorAll<HTMLElement>(".event-entry");
+    expect(entries[0].hidden).toBe(true);
+    expect(entries[1].hidden).toBe(false);
+    expect(count.textContent).toBe("1/2");
+
+    log.clear();
+    expect(document.querySelectorAll(".event-entry")).toHaveLength(0);
+    expect(count.textContent).toBe("0/0");
+  });
 });
