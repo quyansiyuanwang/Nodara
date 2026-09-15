@@ -40,6 +40,32 @@ export function emptyWorkflow(): Workflow {
 }
 
 /**
+ * A runnable starter graph shown on first launch and when creating a new file.
+ * `emptyWorkflow` remains the minimal two-node scaffold used by tests and
+ * programmatic callers.
+ */
+export function starterWorkflow(): Workflow {
+  const workflow = emptyWorkflow();
+  workflow.metadata.name = "Hello workflow";
+  workflow.nodes = [
+    { id: "start", type: "core.Start", label: "Start", config: {}, position: { x: 80, y: 160 } },
+    {
+      id: "hello",
+      type: "core.Log",
+      label: "Log message",
+      config: { message: "Hello from Nodara", level: "info" },
+      position: { x: 400, y: 160 },
+    },
+    { id: "end", type: "core.End", label: "End", config: { code: 0 }, position: { x: 720, y: 160 } },
+  ];
+  workflow.edges = [
+    { id: "start-hello", source: "start", target: "hello" },
+    { id: "hello-end", source: "hello", target: "end" },
+  ];
+  return workflow;
+}
+
+/**
  * Copy a document into the editor's live instance.
  *
  * The Studio mutates one workflow object in place because the canvas, the

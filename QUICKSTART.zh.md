@@ -124,6 +124,7 @@ $env:NODARA_RUNTIME_PORT = "8720"
 | 连接节点 | 从输出端口拖到输入端口 |
 | 删除节点或连线 | 选中后按 `Delete`，或右键目标并选择删除 |
 | 自动校验 | 每次修改后自动执行；`Validate` 旁显示检查结果，错误会禁用 `Run` |
+| 初始模板 | 新建文档默认包含可运行的 `Start → Log → End` 示例 |
 | 调整布局 | 拖动左右面板之间和底部面板上方的细条；双击细条恢复默认宽度/高度 |
 
 如果连接标记仍显示 `runtime unreachable`，确认 `nodara-runtime.exe` 与

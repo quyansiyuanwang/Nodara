@@ -6,6 +6,7 @@ import {
   edgeExists,
   emptyWorkflow,
   localProblems,
+  starterWorkflow,
   nextEdgeId,
   nextNodeId,
   nodeTypeAdmission,
@@ -36,6 +37,17 @@ describe("workflow model", () => {
     expect(workflow.schema_version).toBe("2.0");
     expect(workflow.$schema).toBe(WORKFLOW_SCHEMA_PATH);
     expect(workflow.nodes.map((node) => node.type)).toEqual(["core.Start", "core.End"]);
+    expect(localProblems(workflow)).toEqual([]);
+  });
+
+  it("provides a runnable starter workflow", () => {
+    const workflow = starterWorkflow();
+    expect(workflow.nodes.map((node) => node.type)).toEqual([
+      "core.Start",
+      "core.Log",
+      "core.End",
+    ]);
+    expect(workflow.edges).toHaveLength(2);
     expect(localProblems(workflow)).toEqual([]);
   });
 

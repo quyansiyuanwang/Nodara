@@ -100,6 +100,8 @@ known validation code has a Studio translation.
   expression directly, and the workflow revalidates automatically.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
+* A new document starts with a runnable `Start → Log → End` example so the
+  first Run can be verified immediately.
 * Undo and redo workflow edits with the toolbar buttons, `Ctrl+Z`, `Ctrl+Y` or
   `Ctrl+Shift+Z`; rapid typing is coalesced into a single history entry.
 * Schema-driven forms mark required fields, show descriptions, use examples as

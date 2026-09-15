@@ -24,6 +24,8 @@ All notable changes to this project are documented here. The format follows
   can point it at the runtime.
 - Every shipped node descriptor now documents its configuration: `title`,
   `description`, `default`, `enum`, bounds and examples per property.
+- Studio opens a runnable `Start → Log → End` starter workflow on first
+  launch and when creating a new document, so Run can be exercised immediately.
 - Studio now supports bounded workflow undo/redo snapshots through
   `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` and toolbar buttons. Edits are coalesced so
   continuous typing does not create one history entry per character.

@@ -99,8 +99,8 @@ Then:
 1. drag **Log** onto the canvas and connect `Start → Log → End`;
 2. select the Log node and set its message; the workflow validates
    automatically after the edit settles;
-3. check the status beside **Validate**; any errors are listed in **Problems**
-   and disable **Run**;
+3. the new document already contains `Start → Log → End`; check the status
+   beside **Validate**, and fix any errors listed in **Problems**;
 4. press **Run** and watch the Events tab; nodes light up as they execute.
 
 If you install a plugin and restart the runtime, reload the page: the new node

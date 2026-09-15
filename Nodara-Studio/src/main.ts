@@ -18,8 +18,8 @@ import {
 import { WorkflowHistory } from "./model/history";
 import {
   applyWorkflow,
-  emptyWorkflow,
   localProblems,
+  starterWorkflow,
   nodeTypeAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./model/workflow";
@@ -54,7 +54,7 @@ class Studio {
    * The editor mutates this object in place rather than replacing it, because
    * the canvas, inspector and event log all hold a reference to it.
    */
-  private readonly workflow: Workflow = emptyWorkflow();
+  private readonly workflow: Workflow = starterWorkflow();
 
   private descriptors = new Map<string, NodeDescriptor>();
   private diagnostics: Diagnostic[] = [];
@@ -181,7 +181,7 @@ class Studio {
 
     element("btn-new").addEventListener("click", () => {
       if (!confirm(t("dialog.discardWorkflow"))) return;
-      this.replaceWorkflow(emptyWorkflow());
+      this.replaceWorkflow(starterWorkflow());
     });
 
     element("btn-undo").addEventListener("click", () => {
