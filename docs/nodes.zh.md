@@ -345,7 +345,7 @@
 
 ### `windows.Window.Wait` — Wait for Window
 
-等待匹配窗口出现，然后发布与 Find 相同的窗口记录。等待期间会响应取消，超过配置时间后以 `E_TIMEOUT` 失败。
+等待匹配窗口出现或消失，然后发布最后一个匹配窗口记录。等待期间会响应取消，超过配置时间后以 `E_TIMEOUT` 失败。
 
 * 端口：in `in`（any）→ out `window`（window）
 * 策略：始终放行
@@ -357,6 +357,7 @@
 | `process` | string | 否 | — | 拥有窗口的可执行文件名，不区分大小写。 |
 | `exact` | boolean | 否 | `false` | 要求提供的字段精确匹配。 |
 | `visible_only` | boolean | 否 | `true` | 等待时忽略隐藏窗口。 |
+| `mode` | string | 否 | `appear` | `appear` 等待窗口出现；`disappear` 等待所有匹配窗口消失。 |
 | `wait_timeout_ms` | integer | 否 | `10000` | 最长等待时间。 |
 | `poll_interval_ms` | integer | 否 | `100` | 两次窗口枚举之间的等待时间。 |
 | `output_var` | string | **是** | — | 接收窗口记录的变量。 |

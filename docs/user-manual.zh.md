@@ -287,7 +287,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 字段，便于后续日志和条件分支判断。
 
 需要等待应用启动时使用 `windows.Window.Wait`：它按同一套条件轮询，支持
-`wait_timeout_ms` 和 `poll_interval_ms`，窗口出现后输出与 Find 相同的记录，超时返回
+`mode=appear|disappear`、`wait_timeout_ms` 和 `poll_interval_ms`，窗口出现或消失后输出最后一个匹配记录，超时返回
 `E_TIMEOUT`。
 
 输入节点现已区分更多真实操作阶段：

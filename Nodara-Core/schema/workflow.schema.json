@@ -585,7 +585,7 @@
               },
               "type": {
                 "const": "windows.Window.Wait",
-                "description": "Waits until a matching window appears"
+                "description": "Waits until a matching window appears or disappears"
               }
             }
           }
@@ -1653,7 +1653,7 @@
     },
     "NodeConfig.windows.Window.Wait": {
       "additionalProperties": false,
-      "description": "Waits until a matching window appears",
+      "description": "Waits until a matching window appears or disappears",
       "properties": {
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",
@@ -1675,8 +1675,18 @@
           "title": "Foreground window",
           "type": "boolean"
         },
+        "mode": {
+          "default": "appear",
+          "description": "Wait for a matching window to appear, or for matching windows to disappear.",
+          "enum": [
+            "appear",
+            "disappear"
+          ],
+          "title": "Wait mode",
+          "type": "string"
+        },
         "output_var": {
-          "description": "Variable receiving the first matching window record.",
+          "description": "Variable receiving the last matching window record.",
           "title": "Output variable",
           "type": "string"
         },

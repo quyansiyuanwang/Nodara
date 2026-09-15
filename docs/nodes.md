@@ -365,9 +365,9 @@ window metadata, so it carries no permission.
 
 ### `windows.Window.Wait` — Wait for Window
 
-Waits until a matching window appears, then publishes the same record as Find.
-The wait observes cancellation and fails with `E_TIMEOUT` after the configured
-budget.
+Waits until a matching window appears or disappears, then publishes the last
+matching record. The wait observes cancellation and fails with `E_TIMEOUT` after
+the configured budget.
 
 * Ports: in `in` (any) → out `window` (window)
 * Policy: always allowed
@@ -379,6 +379,7 @@ budget.
 | `process` | string | no | — | Owning executable name, case-insensitive. |
 | `exact` | boolean | no | `false` | Require supplied fields to match exactly. |
 | `visible_only` | boolean | no | `true` | Ignore hidden windows while waiting. |
+| `mode` | string | no | `appear` | `appear` waits for a match; `disappear` waits until no matching window remains. |
 | `wait_timeout_ms` | integer | no | `10000` | Maximum time to wait. |
 | `poll_interval_ms` | integer | no | `100` | Delay between window enumerations. |
 | `output_var` | string | **yes** | — | Variable receiving the window record. |

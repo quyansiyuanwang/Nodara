@@ -308,8 +308,15 @@ impl NodeExecutor for WaitExecutor {
             config_schema: selector_schema(
                 serde_json::json!({
                     "output_var": output_var_property(
-                        "Variable receiving the first matching window record."
+                        "Variable receiving the last matching window record."
                     ),
+                    "mode": {
+                        "type": "string",
+                        "title": "Wait mode",
+                        "description": "Wait for a matching window to appear, or for matching windows to disappear.",
+                        "enum": ["appear", "disappear"],
+                        "default": "appear"
+                    },
                     "wait_timeout_ms": {
                         "type": "integer",
                         "title": "Wait timeout (ms)",
@@ -329,25 +336,52 @@ impl NodeExecutor for WaitExecutor {
             ),
             allows_additional_config: false,
             ..NodeDescriptor::new("windows.Window.Wait", "Wait for Window", "Window")
-                .with_description("Waits until a matching window appears")
+                .with_description("Waits until a matching window appears or disappears")
         }
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let output_var = input.require_str("output_var")?;
+        let mode = input.config_str("mode").unwrap_or("appear");
+        if !matches!(mode, "appear" | "disappear") {
+            return Err(NodeError::InvalidConfig(format!(
+                "unknown wait mode `{mode}`"
+            )));
+        }
         let selector = WindowSelector::from_config(&input.resolved_config)?;
         let timeout_ms = input.config_i64("wait_timeout_ms").unwrap_or(10_000).max(0) as u64;
         let poll_interval_ms = input.config_i64("poll_interval_ms").unwrap_or(100).max(1) as u64;
         let started = Instant::now();
+        let mut last_record: Option<native::WindowRecord> = None;
         loop {
             context.check_cancelled()?;
             match find(&selector) {
-                Ok(record) => {
+                Ok(record) if mode == "appear" => {
                     let value = window_value(&record);
                     context.set_variable(output_var, value.clone());
                     context.log(
                         nodara_schema::LogLevel::Info,
                         format!("window appeared: `{}`", record.title),
+                    );
+                    return Ok(NodeOutput::new().with_output("window", value));
+                }
+                Ok(record) => {
+                    last_record = Some(record);
+                    if started.elapsed() >= Duration::from_millis(timeout_ms) {
+                        return Err(NodeError::Timeout);
+                    }
+                    let remaining = timeout_ms.saturating_sub(started.elapsed().as_millis() as u64);
+                    wait_interruptible(context, poll_interval_ms.min(remaining))?;
+                }
+                Err(PlatformError::WindowNotFound { .. }) if mode == "disappear" => {
+                    let value = last_record
+                        .as_ref()
+                        .map(window_value)
+                        .unwrap_or(serde_json::Value::Null);
+                    context.set_variable(output_var, value.clone());
+                    context.log(
+                        nodara_schema::LogLevel::Info,
+                        "matching windows disappeared",
                     );
                     return Ok(NodeOutput::new().with_output("window", value));
                 }
@@ -505,6 +539,7 @@ mod tests {
     fn wait_descriptor_exposes_timeout_and_poll_controls() {
         let descriptor = WaitExecutor.descriptor();
         assert_eq!(descriptor.node_type, "windows.Window.Wait");
+        assert!(descriptor.config_schema["properties"]["mode"].is_object());
         assert!(descriptor.config_schema["properties"]["wait_timeout_ms"].is_object());
         assert!(descriptor.config_schema["properties"]["poll_interval_ms"].is_object());
         assert!(descriptor.permissions.is_empty());

@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `windows.Window.Wait` now supports `mode=appear|disappear`, allowing workflows to wait for a window to close as well as open while retaining cancellation and timeout handling.
 - Edge context menus can switch directly between Always, Success and Failure branches without moving to the Properties panel first.
 - The Runs panel now reports accurate started/finished timestamps, duration, event and artifact counts, and supports text/status filtering. The previous `Started` column incorrectly displayed the finished time for completed runs.
 - Added `core.CalculateMany` for ordered named calculations. Results are published as they are evaluated, so later expressions can reuse earlier names, and an optional `output_var` receives the complete result object.
