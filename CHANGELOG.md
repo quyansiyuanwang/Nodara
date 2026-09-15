@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- The Studio Events panel now pauses automatic follow when the operator scrolls up to inspect history and resumes follow when the list returns to the bottom.
 - Studio Events can now inspect every `node_finished` output as collapsed JSON,
   even for nodes without a dedicated renderer. Image artifacts are discovered
   recursively through nested objects and arrays, so vision results and wrapped

@@ -264,6 +264,32 @@ describe("run status visualisation", () => {
     expect(text).toContain("3 node(s) in 12ms");
   });
 
+  it("pauses follow on scroll-up and resumes at the bottom", () => {
+    const root = document.getElementById("events")!;
+    const changes: boolean[] = [];
+    log = new EventLog(
+      root,
+      canvas,
+      undefined,
+      undefined,
+      (follow) => changes.push(follow),
+    );
+    Object.defineProperty(root, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(root, "clientHeight", { value: 200, configurable: true });
+
+    root.scrollTop = 100;
+    root.dispatchEvent(new Event("scroll"));
+    expect(changes).toEqual([false]);
+
+    root.scrollTop = 800;
+    root.dispatchEvent(new Event("scroll"));
+    expect(changes).toEqual([false, true]);
+
+    log.setFollow(false);
+    root.dispatchEvent(new Event("scroll"));
+    expect(changes).toEqual([false, true]);
+  });
+
   it("filters events and reports the visible count", () => {
     const count = document.createElement("span");
     log = new EventLog(document.getElementById("events")!, canvas, undefined, count);

@@ -136,6 +136,9 @@ class Studio {
       this.canvas,
       (runId, artifactId) => this.client.artifactUrl(runId, artifactId),
       element<HTMLElement>("events-count"),
+      (follow) => {
+        element<HTMLInputElement>("events-follow").checked = follow;
+      },
     );
     this.agents = new AgentPanel(element("agent"), {
       onDecide: (sessionId, approvalId, approve) =>

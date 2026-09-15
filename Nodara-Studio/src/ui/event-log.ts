@@ -29,13 +29,18 @@ const LABEL_KEYS: Record<string, string> = {
 export class EventLog {
   private query = "";
   private follow = true;
+  private followSuspendedByScroll = false;
+  private suppressFollowScroll = false;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly canvas: Canvas,
     private readonly artifactUrl?: (runId: string, artifactId: string) => string,
     private readonly countElement?: HTMLElement,
-  ) {}
+    private readonly onFollowChange?: (follow: boolean) => void,
+  ) {
+    this.root.addEventListener("scroll", () => this.onScroll());
+  }
 
   clear(): void {
     this.root.replaceChildren();
@@ -54,7 +59,8 @@ export class EventLog {
   /** Keep the newest visible event in view as new events arrive. */
   setFollow(follow: boolean): void {
     this.follow = follow;
-    if (follow) this.root.scrollTop = this.root.scrollHeight;
+    this.followSuspendedByScroll = false;
+    if (follow) this.scrollToLatest();
   }
 
   append(envelope: EventEnvelope): void {
@@ -88,13 +94,34 @@ export class EventLog {
       this.root.firstElementChild?.remove();
     }
     this.updateCount();
-    if (this.follow) this.root.scrollTop = this.root.scrollHeight;
+    if (this.follow) this.scrollToLatest();
 
     this.decorate(event);
   }
 
   private matches(search: string): boolean {
     return this.query === "" || search.includes(this.query);
+  }
+
+  private onScroll(): void {
+    if (this.suppressFollowScroll) return;
+    const bottom = this.root.scrollHeight - this.root.clientHeight;
+    const atBottom = bottom - this.root.scrollTop <= 24;
+    if (!atBottom && this.follow) {
+      this.follow = false;
+      this.followSuspendedByScroll = true;
+      this.onFollowChange?.(false);
+    } else if (atBottom && !this.follow && this.followSuspendedByScroll) {
+      this.follow = true;
+      this.followSuspendedByScroll = false;
+      this.onFollowChange?.(true);
+    }
+  }
+
+  private scrollToLatest(): void {
+    this.suppressFollowScroll = true;
+    this.root.scrollTop = this.root.scrollHeight;
+    this.suppressFollowScroll = false;
   }
 
   private updateCount(): void {

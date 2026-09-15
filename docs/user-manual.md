@@ -127,7 +127,8 @@ The node context menu also provides immediate enable/disable and breakpoint acti
   `paused`.
 * **Pause**, **Resume** and **Cancel** steer the active run. A node breakpoint pauses the run immediately before that node, even when execution started unpaused.
 * The Events tab follows the WebSocket event stream and highlights the running,
-  completed and failed node on the canvas.
+  completed and failed node on the canvas. Scrolling up pauses automatic follow
+  so history stays readable; scrolling back to the bottom restores it.
 
 The same behavior is available over the API by starting a run with
 `"start_paused": true`, then calling `POST /api/v1/runs/{id}/step`.
