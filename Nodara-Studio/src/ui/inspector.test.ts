@@ -27,6 +27,7 @@ function descriptor(): NodeDescriptor {
 describe("node execution settings", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    localStorage.clear();
   });
 
   it("edits workflow metadata and adds variables", () => {
@@ -201,5 +202,28 @@ describe("node execution settings", () => {
     expect(workflow.nodes.find((node) => node.id === "log")?.result_var).toBe("answer");
     expect(workflow.nodes.find((node) => node.id === "log")?.result_port).toBe("result");
     expect(changes).toBe(7);
+  });
+
+  it("remembers collapsed configuration sections", () => {
+    const workflow = emptyWorkflow();
+    workflow.nodes.push({ id: "log", type: "core.Log", config: {} });
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inspector = new Inspector(
+      root,
+      workflow,
+      (nodeType) => (nodeType === "core.Log" ? descriptor() : undefined),
+      { onChange: () => undefined },
+    );
+
+    inspector.render("log");
+    const execution = root.querySelector<HTMLDetailsElement>('[data-section="execution"]')!;
+    execution.open = false;
+    execution.dispatchEvent(new Event("toggle"));
+    inspector.render("log");
+
+    expect(
+      root.querySelector<HTMLDetailsElement>('[data-section="execution"]')?.open,
+    ).toBe(false);
   });
 });

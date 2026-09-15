@@ -129,6 +129,8 @@ workflow variables marked secret are not persisted beyond the browser session.
   retry count, retry delay and common result mapping (`result_var` /
   `result_port`). Plugin nodes also expose a per-attempt timeout. The node
   context menu can toggle a node on or off immediately.
+* Execution, Configuration and Variables are collapsible sections. Their
+  expanded state is remembered locally so complex nodes remain manageable.
 * Keyboard nodes expose `type`/`press`/`release` and hold duration directly.
   Mouse nodes expose button, relative coordinates, click duration, double-click
   interval and smooth drag start/end/duration controls.

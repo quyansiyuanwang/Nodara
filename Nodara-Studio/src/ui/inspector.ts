@@ -32,6 +32,34 @@ export class Inspector {
     private readonly handlers: InspectorHandlers,
   ) {}
 
+  private section(titleKey: string, key: string, defaultOpen = true): HTMLElement {
+    const details = document.createElement("details");
+    details.className = "inspector__fold";
+    details.dataset.section = key;
+    let open = defaultOpen;
+    try {
+      const stored = localStorage.getItem(`nodara.inspector.${key}.open`);
+      if (stored !== null) open = stored === "true";
+    } catch {
+      // Storage is optional.
+    }
+    details.open = open;
+    details.addEventListener("toggle", () => {
+      try {
+        localStorage.setItem(`nodara.inspector.${key}.open`, String(details.open));
+      } catch {
+        // The current session still keeps the selected state.
+      }
+    });
+    const summary = document.createElement("summary");
+    summary.textContent = t(titleKey);
+    const body = document.createElement("div");
+    body.className = "inspector__fold-body";
+    details.append(summary, body);
+    this.root.appendChild(details);
+    return body;
+  }
+
   /** Render the selected node or connection, plus relevant diagnostics. */
   render(nodeId: string | null, diagnostics: Diagnostic[] = [], edgeId: string | null = null): void {
     this.root.replaceChildren();
@@ -296,13 +324,10 @@ export class Inspector {
   }
 
   private renderExecution(node: WorkflowNode, descriptor?: NodeDescriptor): void {
-    const heading = document.createElement("h4");
-    heading.className = "inspector__section";
-    heading.textContent = t("inspector.execution");
-    this.root.appendChild(heading);
+    const content = this.section("inspector.execution", "execution");
 
     renderConfigForm(
-      this.root,
+      content,
       {
         type: "object",
         properties: {
@@ -445,10 +470,7 @@ export class Inspector {
   }
 
   private renderConfig(node: WorkflowNode, descriptor: NodeDescriptor | undefined): void {
-    const heading = document.createElement("h4");
-    heading.className = "inspector__section";
-    heading.textContent = t("inspector.configuration");
-    this.root.appendChild(heading);
+    const content = this.section("inspector.configuration", "configuration");
 
     node.config ??= {};
     const properties = descriptor?.config_schema?.properties ?? {};
@@ -486,10 +508,10 @@ export class Inspector {
         }
       });
       toolbar.append(hint, button);
-      this.root.appendChild(toolbar);
+      content.appendChild(toolbar);
     }
     renderConfigForm(
-      this.root,
+      content,
       descriptor?.config_schema ?? {},
       node.config as Record<string, unknown>,
       (key, value) => {
@@ -505,11 +527,9 @@ export class Inspector {
   }
 
   private renderVariables(diagnostics: Diagnostic[]): void {
+    const content = this.section("inspector.variables", "variables");
     const headingRow = document.createElement("div");
     headingRow.className = "section-header";
-    const heading = document.createElement("h4");
-    heading.className = "inspector__section";
-    heading.textContent = t("inspector.variables");
     const add = document.createElement("button");
     add.type = "button";
     add.className = "btn btn--small";
@@ -521,17 +541,17 @@ export class Inspector {
       this.handlers.onChange();
       this.render(null, diagnostics);
     });
-    headingRow.append(heading, add);
-    this.root.appendChild(headingRow);
+    headingRow.appendChild(add);
+    content.appendChild(headingRow);
 
     const hint = document.createElement("p");
     hint.className = "muted";
     hint.textContent = t("inspector.variableHint");
-    this.root.appendChild(hint);
+    content.appendChild(hint);
 
     const names = Object.keys(this.workflow.variables);
     if (names.length === 0) {
-      this.root.appendChild(muted(t("inspector.noVariables")));
+      content.appendChild(muted(t("inspector.noVariables")));
     }
     for (const name of names) {
       const variable = this.workflow.variables[name];
@@ -634,7 +654,7 @@ export class Inspector {
       secretLabel.append(secret, document.createTextNode(` ${t("inspector.secret")}`));
 
       card.append(header, value, description, secretLabel);
-      this.root.appendChild(card);
+      content.appendChild(card);
     }
     this.renderDiagnostics(diagnostics);
   }

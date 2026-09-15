@@ -84,6 +84,7 @@ copy.
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Locate a problem | Click a Problems row that names a node or connection; the canvas centres it and opens Properties |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
+| Collapse sections | Expand or collapse Execution, Configuration and Variables in Properties; Studio remembers the state |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
 | Navigate the canvas | Wheel to zoom, middle-drag or Space-drag to pan, and use Fit / 100% controls in the canvas toolbar |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |

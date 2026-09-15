@@ -154,6 +154,8 @@ All notable changes to this project are documented here. The format follows
 - Canvas connections can now be made by clicking an output port and then an
   input port, in addition to drag-and-drop. `Escape` cancels the pending
   connection.
+- Studio Properties now groups Execution, Configuration and Variables into
+  collapsible sections and remembers each section's expanded state.
 
 ### Changed
 
