@@ -16,6 +16,7 @@ import {
   toggleLocale,
 } from "./i18n";
 import { WorkflowHistory } from "./model/history";
+import { loadDraft, saveDraft } from "./model/draft";
 import {
   applyWorkflow,
   localProblems,
@@ -53,6 +54,8 @@ function element<T extends Element = HTMLElement>(id: string): T {
 
 applyStaticTranslations();
 
+const restoredDraft = loadDraft();
+
 class Studio {
   private readonly client = new RuntimeClient(defaultRuntimeBaseUrl());
 
@@ -60,7 +63,7 @@ class Studio {
    * The editor mutates this object in place rather than replacing it, because
    * the canvas, inspector and event log all hold a reference to it.
    */
-  private readonly workflow: Workflow = starterWorkflow();
+  private readonly workflow: Workflow = restoredDraft ?? starterWorkflow();
 
   private descriptors = new Map<string, NodeDescriptor>();
   private diagnostics: Diagnostic[] = [];
@@ -164,6 +167,7 @@ class Studio {
     this.renderInspector();
     this.renderWorkspace();
     this.setStatus(null);
+    if (restoredDraft) this.pushLocal(t("status.draftRestored"));
   }
 
   async start(): Promise<void> {
@@ -524,6 +528,7 @@ class Studio {
   /** Called after every real workflow edit. */
   private workflowChanged(): void {
     this.diagnostics = [];
+    saveDraft(this.workflow);
     this.workflowRevision += 1;
     this.palette.refreshAvailability();
     // Preserve the caret while a property field is being edited.

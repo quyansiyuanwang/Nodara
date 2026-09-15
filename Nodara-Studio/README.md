@@ -83,6 +83,11 @@ also localizes node names, categories, configuration labels and descriptions.
 Runtime-provided diagnostic text remains in its original language unless a
 known validation code has a Studio translation.
 
+Uncommitted workflows are mirrored to `sessionStorage` after each edit. A
+language switch or accidental page reload restores the current tab's draft;
+closing the tab clears it. This is intentionally not long-term storage, so
+workflow variables marked secret are not persisted beyond the browser session.
+
 ## Canvas controls
 
 * **Click** a node in the palette to add it near the canvas centre, or drag it to

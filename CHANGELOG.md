@@ -148,6 +148,9 @@ All notable changes to this project are documented here. The format follows
   selector and publishes the same window record as `windows.Window.Find`.
 - Problems rows that reference a node or connection are now clickable and centre
   the target on the canvas for immediate correction.
+- Studio now keeps an unsaved workflow draft in `sessionStorage`; language
+  switches and accidental reloads restore the current tab's document, while
+  closing the tab clears the session-only copy.
 
 ### Changed
 

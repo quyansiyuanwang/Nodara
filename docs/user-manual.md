@@ -68,6 +68,9 @@ If the badge still says `runtime unreachable`, verify that
 ### Language
 
 Use the `中文` / `English` button in the toolbar. Studio persists the choice and localizes the editor UI and known node/configuration labels.
+Unsaved edits are kept in the current browser tab, so changing language or
+reloading the page restores the draft. Closing the tab clears this session-only
+copy.
 
 ### Canvas controls
 
