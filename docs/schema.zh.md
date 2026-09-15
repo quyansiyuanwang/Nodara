@@ -87,6 +87,8 @@
 | `timeout_ms` | integer | 否 | 插件单次执行尝试的可选最大时间；核心内置节点忽略进程级超时。 |
 | `retry` | integer | 否 | 默认 `0`。首次失败后的额外执行次数。 |
 | `retry_delay_ms` | integer | 否 | 默认 `0`。失败尝试之间的等待时间。 |
+| `retry_backoff` | string | 否 | `fixed`（默认）或 `exponential`；指数模式会在每次失败后翻倍等待时间。 |
+| `retry_max_delay_ms` | integer | 否 | 可选，限制计算后的最大重试等待时间。 |
 | `result_var` | string | 否 | 通用输出映射：将选定的输出端口发布到此运行变量。 |
 | `result_port` | string | 否 | `result_var` 捕获的输出端口；默认使用 `out` 或第一个输出（未知时报 `WF144`）。 |
 | `metadata` | object | 否 | 往返保留的扩展包。 |

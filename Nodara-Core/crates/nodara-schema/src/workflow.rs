@@ -42,6 +42,10 @@ fn is_zero_u64(value: &u64) -> bool {
     *value == 0
 }
 
+fn is_fixed_backoff(value: &RetryBackoff) -> bool {
+    *value == RetryBackoff::Fixed
+}
+
 fn is_always_branch(value: &EdgeBranch) -> bool {
     *value == EdgeBranch::Always
 }
@@ -87,6 +91,17 @@ pub struct Variable {
     pub description: Option<String>,
     /// Marks a value that must never be written to logs or audit records.
     pub secret: bool,
+}
+
+/// How the delay between node retry attempts grows.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum RetryBackoff {
+    /// Use the configured delay for every retry.
+    #[default]
+    Fixed,
+    /// Double the delay after each failed attempt.
+    Exponential,
 }
 
 /// A node in the workflow graph.
@@ -141,6 +156,12 @@ pub struct Node {
     /// Delay between failed attempts, in milliseconds.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub retry_delay_ms: u64,
+    /// Retry delay growth strategy.
+    #[serde(default, skip_serializing_if = "is_fixed_backoff")]
+    pub retry_backoff: RetryBackoff,
+    /// Maximum computed retry delay. Applies to both backoff strategies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_max_delay_ms: Option<u64>,
     /// Optional run-scope variable that receives one of this node's outputs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_var: Option<String>,
@@ -170,6 +191,8 @@ impl Node {
             timeout_ms: None,
             retry: 0,
             retry_delay_ms: 0,
+            retry_backoff: RetryBackoff::Fixed,
+            retry_max_delay_ms: None,
             result_var: None,
             result_port: None,
             metadata: BTreeMap::new(),
@@ -391,6 +414,8 @@ mod tests {
         node.timeout_ms = Some(2_500);
         node.retry = 3;
         node.retry_delay_ms = 100;
+        node.retry_backoff = RetryBackoff::Exponential;
+        node.retry_max_delay_ms = Some(2_000);
         node.result_var = Some("answer".to_string());
         node.result_port = Some("result".to_string());
 
@@ -404,6 +429,8 @@ mod tests {
         assert_eq!(back.timeout_ms, Some(2_500));
         assert_eq!(back.retry, 3);
         assert_eq!(back.retry_delay_ms, 100);
+        assert_eq!(back.retry_backoff, RetryBackoff::Exponential);
+        assert_eq!(back.retry_max_delay_ms, Some(2_000));
         assert_eq!(back.result_var.as_deref(), Some("answer"));
         assert_eq!(back.result_port.as_deref(), Some("result"));
     }

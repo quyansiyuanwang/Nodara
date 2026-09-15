@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use nodara_schema::{
-    validate_with, EdgeBranch, ExecutionEvent, RunStatus, ValidationOptions, Workflow,
-    WorkflowGraph,
+    validate_with, EdgeBranch, ExecutionEvent, RetryBackoff, RunStatus, ValidationOptions,
+    Workflow, WorkflowGraph,
 };
 
 use crate::audit::{AuditCategory, AuditLog, AuditRecord, NullAuditLog};
@@ -608,7 +608,7 @@ impl WorkflowEngine {
                                 node.id
                             ),
                         );
-                        if !wait_interruptible(control, node.retry_delay_ms) {
+                        if !wait_interruptible(control, retry_delay_ms(&node, attempt)) {
                             break None;
                         }
                     }
@@ -856,6 +856,18 @@ fn seeded_variables(
     variables
 }
 
+fn retry_delay_ms(node: &nodara_schema::Node, failed_attempt: u32) -> u64 {
+    let delay = match node.retry_backoff {
+        RetryBackoff::Fixed => node.retry_delay_ms,
+        RetryBackoff::Exponential => {
+            let shift = failed_attempt.saturating_sub(1).min(63);
+            node.retry_delay_ms.saturating_mul(1u64 << shift)
+        }
+    };
+    node.retry_max_delay_ms
+        .map_or(delay, |maximum| delay.min(maximum))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NodeOutcome {
     Success,
@@ -893,5 +905,24 @@ fn edge_is_taken(
             });
             false
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fixed_and_exponential_retry_delays_are_capped() {
+        let mut node = nodara_schema::Node::new("n", "test.Node");
+        node.retry_delay_ms = 100;
+        node.retry_max_delay_ms = Some(250);
+        assert_eq!(retry_delay_ms(&node, 1), 100);
+        assert_eq!(retry_delay_ms(&node, 2), 100);
+
+        node.retry_backoff = RetryBackoff::Exponential;
+        assert_eq!(retry_delay_ms(&node, 1), 100);
+        assert_eq!(retry_delay_ms(&node, 2), 200);
+        assert_eq!(retry_delay_ms(&node, 3), 250);
     }
 }

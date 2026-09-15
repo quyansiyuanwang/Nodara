@@ -77,6 +77,10 @@ export interface WorkflowNode {
   /** Additional attempts after the first failed execution. */
   retry?: number;
   retry_delay_ms?: number;
+  /** How retry_delay_ms grows after each failure. */
+  retry_backoff?: "fixed" | "exponential";
+  /** Maximum computed retry delay, in milliseconds. */
+  retry_max_delay_ms?: number;
   /** Publish one output port under this run-scope variable. */
   result_var?: string;
   /** Output port selected by result_var; defaults to `out` or the first output. */

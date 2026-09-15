@@ -158,6 +158,8 @@ All notable changes to this project are documented here. The format follows
   collapsible sections and remembers each section's expanded state.
 - The Events drawer now has a filter field, visible/total count, clear button
   and Follow toggle so long runtime logs remain navigable.
+- Node retries now support fixed or exponential backoff with an optional maximum
+  delay. Both settings are editable directly in the Execution section.
 
 ### Changed
 

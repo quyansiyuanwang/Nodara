@@ -386,6 +386,20 @@ export class Inspector {
             minimum: 0,
             default: 0,
           },
+          retry_backoff: {
+            type: "string",
+            title: t("execution.retryBackoff"),
+            description: t("execution.retryBackoffDetail"),
+            enum: ["fixed", "exponential"],
+            default: "fixed",
+          },
+          retry_max_delay_ms: {
+            type: "integer",
+            title: t("execution.retryMaxDelay"),
+            description: t("execution.retryMaxDelayDetail"),
+            minimum: 0,
+            default: 0,
+          },
           result_var: {
             type: "string",
             title: t("execution.resultVar"),
@@ -407,6 +421,8 @@ export class Inspector {
         timeout_ms: node.timeout_ms ?? 0,
         retry: node.retry ?? 0,
         retry_delay_ms: node.retry_delay_ms ?? 0,
+        retry_backoff: node.retry_backoff ?? "fixed",
+        retry_max_delay_ms: node.retry_max_delay_ms ?? 0,
         result_var: node.result_var ?? "",
         result_port: node.result_port ?? "",
       },
@@ -450,6 +466,14 @@ export class Inspector {
       case "retry_delay_ms":
         if (number > 0) node.retry_delay_ms = number;
         else delete node.retry_delay_ms;
+        break;
+      case "retry_backoff":
+        if (value === "exponential") node.retry_backoff = "exponential";
+        else delete node.retry_backoff;
+        break;
+      case "retry_max_delay_ms":
+        if (number > 0) node.retry_max_delay_ms = number;
+        else delete node.retry_max_delay_ms;
         break;
       case "result_var": {
         const next = typeof value === "string" ? value.trim() : "";

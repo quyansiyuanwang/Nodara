@@ -91,6 +91,8 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | `timeout_ms` | integer | no | Optional maximum time for one plugin execution attempt. Core built-in nodes ignore process-level timeouts. |
 | `retry` | integer | no | Defaults to `0`. Additional attempts after the first failed execution. |
 | `retry_delay_ms` | integer | no | Defaults to `0`. Wait between failed attempts. |
+| `retry_backoff` | string | no | `fixed` (default) or `exponential`; exponential doubles the delay after each failed attempt. |
+| `retry_max_delay_ms` | integer | no | Optional maximum computed retry delay. |
 | `result_var` | string | no | Common output mapping. Publishes the selected output port under this run-scope variable. |
 | `result_port` | string | no | Output port captured by `result_var`; defaults to `out` or the first available output (`WF144` when unknown). |
 | `metadata` | object | no | Extension bag preserved on round-trip. |

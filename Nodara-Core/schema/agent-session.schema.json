@@ -414,11 +414,28 @@
           "minimum": 0.0,
           "type": "integer"
         },
+        "retry_backoff": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RetryBackoff"
+            }
+          ],
+          "description": "Retry delay growth strategy."
+        },
         "retry_delay_ms": {
           "description": "Delay between failed attempts, in milliseconds.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
+        },
+        "retry_max_delay_ms": {
+          "description": "Maximum computed retry delay. Applies to both backoff strategies.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "timeout_ms": {
           "description": "Maximum time an executor may spend on one attempt, in milliseconds.",
@@ -510,6 +527,25 @@
         "y"
       ],
       "type": "object"
+    },
+    "RetryBackoff": {
+      "description": "How the delay between node retry attempts grows.",
+      "oneOf": [
+        {
+          "description": "Use the configured delay for every retry.",
+          "enum": [
+            "fixed"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Double the delay after each failed attempt.",
+          "enum": [
+            "exponential"
+          ],
+          "type": "string"
+        }
+      ]
     },
     "SessionMessage": {
       "description": "One turn in the conversation.",

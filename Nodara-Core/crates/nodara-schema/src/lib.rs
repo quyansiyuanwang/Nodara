@@ -62,7 +62,7 @@ pub use validation::{
     ValidationReport,
 };
 pub use version::{API_VERSION, PROTOCOL_VERSION, SCHEMA_VERSION};
-pub use workflow::{Edge, EdgeBranch, Metadata, Node, Position, Variable, Workflow};
+pub use workflow::{Edge, EdgeBranch, Metadata, Node, Position, RetryBackoff, Variable, Workflow};
 pub use workflow_schema::{
     config_definition_name, workflow_schema, workflow_schema_for, NODE_CONFIG_PREFIX,
     NODE_TYPE_DEFINITION,
