@@ -49,12 +49,23 @@ makes `cancel` able to interleave with a long-running `execute`.
   "executable": "nodara-platform-plugin.exe",
   "capabilities": ["Input.Keyboard"],
   "permissions": ["input.control"],
-  "node_types": ["windows.Input.Keyboard"]
+  "node_types": ["windows.Input.Keyboard"],
+  "features": [
+    {
+      "id": "input",
+      "name": "Keyboard integration",
+      "kind": "integration",
+      "capabilities": ["Input.Keyboard"],
+      "permissions": ["input.control"]
+    }
+  ]
 }
 ```
 
 The manifest is read **before** any plugin code runs, so the runtime knows what
-a plugin provides and what it will ask for. A plugin that declares a node type it
+a plugin provides and what it will ask for. `features` is optional and lets a
+plugin expose non-node contributions such as UI metadata, policy integration or
+host-system integrations through the unified `/api/v1/extensions` registry. A plugin that declares a node type it
 does not describe during `describe` is accepted but logged as drift; a plugin
 whose manifest declares an incompatible `protocol_version` is rejected outright.
 

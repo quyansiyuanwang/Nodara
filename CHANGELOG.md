@@ -45,6 +45,9 @@ All notable changes to this project are documented here. The format follows
   item controls instead of falling back to a raw JSON textarea.
 - Workflow Properties now edit the metadata author and workflow version fields,
   so these common document settings no longer require the JSON tab.
+- Plugin manifests can now declare multiple `features`, including
+  `integration`, `ui` and `policy` contributions. Each feature is validated and
+  registered as its own extension with a stable `plugin/feature` id.
 - Built-in, in-process and plugin capabilities now share one
   `ExtensionRegistry`. The runtime exposes unified registration metadata at
   `GET /api/v1/extensions`, including source, kind, capabilities, permissions,

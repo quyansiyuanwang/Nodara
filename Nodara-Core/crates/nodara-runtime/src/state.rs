@@ -200,17 +200,31 @@ impl RuntimeBuilder {
         host.install_into(&mut self.registry);
         for plugin in host.summaries() {
             self.extensions.register(ExtensionDescriptor {
-                id: plugin.id,
-                name: plugin.name,
-                version: plugin.version,
+                id: plugin.id.clone(),
+                name: plugin.name.clone(),
+                version: plugin.version.clone(),
                 kind: ExtensionKind::Plugin,
                 source: "plugin".to_string(),
-                description: plugin.description,
-                capabilities: plugin.capabilities,
-                permissions: plugin.permissions,
-                node_types: plugin.node_types,
+                description: plugin.description.clone(),
+                capabilities: plugin.capabilities.clone(),
+                permissions: plugin.permissions.clone(),
+                node_types: plugin.node_types.clone(),
                 loaded: plugin.loaded,
             });
+            for feature in plugin.features {
+                self.extensions.register(ExtensionDescriptor {
+                    id: format!("{}/{}", plugin.id, feature.id),
+                    name: feature.name,
+                    version: plugin.version.clone(),
+                    kind: feature.kind,
+                    source: format!("plugin:{}", plugin.id),
+                    description: feature.description,
+                    capabilities: feature.capabilities,
+                    permissions: feature.permissions,
+                    node_types: feature.node_types,
+                    loaded: plugin.loaded,
+                });
+            }
         }
 
         let sessions = AgentSessionStore::new(self.config.approval_timeout);

@@ -20,6 +20,7 @@ and their configuration.
 | Workflow | [`schema/workflow.schema.json`](../Nodara-Core/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + installed node descriptors |
 | Plugin manifest | [`schema/plugin-manifest.schema.json`](../Nodara-Core/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
 | Node descriptor | [`schema/node-descriptor.schema.json`](../Nodara-Core/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
+| Extension registration | [`schema/extension.schema.json`](../Nodara-Core/schema/extension.schema.json) | `GET /api/v1/schema/extension` | `ExtensionDescriptor` |
 | Execution event | [`schema/execution-event.schema.json`](../Nodara-Core/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
 | Agent session | [`schema/agent-session.schema.json`](../Nodara-Core/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
 | Agent tool call | [`schema/agent-tool-call.schema.json`](../Nodara-Core/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |

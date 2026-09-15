@@ -21,6 +21,7 @@ pub fn execute(plugin_dirs: &[PathBuf], json: bool) -> CliResult<()> {
                     "capabilities": plugin.manifest.capabilities,
                     "permissions": plugin.manifest.permissions,
                     "node_types": plugin.manifest.node_types,
+                    "features": plugin.manifest.features,
                     "directory": plugin.directory.display().to_string(),
                 })
             }).collect::<Vec<_>>(),
@@ -51,6 +52,18 @@ pub fn execute(plugin_dirs: &[PathBuf], json: bool) -> CliResult<()> {
         );
         if !plugin.manifest.permissions.is_empty() {
             println!("  permissions: {}", plugin.manifest.permissions.join(", "));
+        }
+        if !plugin.manifest.features.is_empty() {
+            println!(
+                "  features:    {}",
+                plugin
+                    .manifest
+                    .features
+                    .iter()
+                    .map(|feature| feature.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
         }
     }
     for error in &outcome.errors {

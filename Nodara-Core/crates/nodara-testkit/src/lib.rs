@@ -233,6 +233,7 @@ pub fn test_manifest(id: &str, node_types: &[&str]) -> PluginManifest {
         capabilities: node_types.iter().map(|t| (*t).to_string()).collect(),
         permissions: Vec::new(),
         node_types: node_types.iter().map(|t| (*t).to_string()).collect(),
+        features: Vec::new(),
         description: None,
         author: None,
         homepage: None,

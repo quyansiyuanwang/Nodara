@@ -36,8 +36,8 @@ API; neither links against runtime internals.
 ## Schemas and editor content hints
 
 `GET /api/v1/schema/{document}` serves the same documents `nodara-cli schema`
-publishes: `workflow`, `plugin-manifest`, `node-descriptor`, `execution-event`,
-`agent-session` and `agent-tool-call`. The bare name and the published file name
+publishes: `workflow`, `plugin-manifest`, `node-descriptor`, `extension`,
+`execution-event`, `agent-session` and `agent-tool-call`. The bare name and the published file name
 both resolve, so `/schema/workflow` and `/schema/workflow.schema.json` are the
 same document.
 

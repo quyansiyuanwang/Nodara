@@ -222,6 +222,7 @@ const EN: Record<string, string> = {
   "extensions.kindPlugin": "plugin",
   "extensions.kindUi": "UI",
   "extensions.kindPolicy": "policy",
+  "extensions.kindIntegration": "integration",
   "extensions.kindOther": "other",
   "runs.empty": "No runs yet.",
   "runs.id": "Run",
@@ -463,6 +464,7 @@ const ZH: Record<string, string> = {
   "extensions.kindPlugin": "插件",
   "extensions.kindUi": "界面",
   "extensions.kindPolicy": "策略",
+  "extensions.kindIntegration": "集成",
   "extensions.kindOther": "其他",
   "runs.empty": "尚无运行记录。",
   "runs.id": "运行",
@@ -727,6 +729,7 @@ const EXTENSION_KIND_ZH: Record<ExtensionKind, string> = {
   plugin: "插件",
   ui: "界面",
   policy: "策略",
+  integration: "集成",
   other: "其他",
 };
 

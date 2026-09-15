@@ -133,7 +133,8 @@ The same implementation can run two ways:
 * **in process** — register it in the runtime's `CapabilityRegistry`; the
   `ExtensionRegistry` records its source, kind, node types and load state;
 * **as a plugin** — serve it over stdio with `nodara_plugin::serve_stdio` and drop a
-  `manifest.json` next to the binary.
+  `manifest.json` next to the binary. The manifest may also declare `features`
+  for non-node contributions, which join the same `ExtensionRegistry`.
 
 The runtime launches plugins lazily through JSON-RPC (`initialize`, `describe`,
 `execute`, `cancel`, `health`, `shutdown`), and turns protocol failures into

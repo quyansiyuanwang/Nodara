@@ -168,6 +168,7 @@ export type ExtensionKind =
   | "plugin"
   | "ui"
   | "policy"
+  | "integration"
   | "other";
 
 export interface ExtensionDescriptor {
@@ -183,6 +184,16 @@ export interface ExtensionDescriptor {
   loaded: boolean;
 }
 
+export interface PluginFeature {
+  id: string;
+  name: string;
+  kind: ExtensionKind;
+  description?: string;
+  capabilities: string[];
+  permissions: string[];
+  node_types: string[];
+}
+
 export interface PluginSummary {
   id: string;
   name: string;
@@ -191,6 +202,7 @@ export interface PluginSummary {
   capabilities: string[];
   permissions: string[];
   node_types: string[];
+  features: PluginFeature[];
   description?: string;
   loaded: boolean;
 }

@@ -16,5 +16,16 @@
   "node_types": [
     "vision.TemplateMatch",
     "vision.Ocr"
+  ],
+  "features": [
+    {
+      "id": "vision",
+      "name": "Vision analysis",
+      "kind": "integration",
+      "description": "Template matching and pluggable OCR.",
+      "capabilities": ["Vision.TemplateMatch", "Vision.Ocr"],
+      "permissions": ["vision.analyze"],
+      "node_types": ["vision.TemplateMatch", "vision.Ocr"]
+    }
   ]
 }

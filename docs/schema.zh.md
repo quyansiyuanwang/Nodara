@@ -16,6 +16,7 @@
 | 工作流 | [`schema/workflow.schema.json`](../Nodara-Core/schema/workflow.schema.json) | `GET /api/v1/schema/workflow` | `Workflow` + 已安装节点描述符 |
 | 插件 manifest | [`schema/plugin-manifest.schema.json`](../Nodara-Core/schema/plugin-manifest.schema.json) | `GET /api/v1/schema/plugin-manifest` | `PluginManifest` |
 | 节点描述符 | [`schema/node-descriptor.schema.json`](../Nodara-Core/schema/node-descriptor.schema.json) | `GET /api/v1/schema/node-descriptor` | `NodeDescriptor` |
+| 扩展注册 | [`schema/extension.schema.json`](../Nodara-Core/schema/extension.schema.json) | `GET /api/v1/schema/extension` | `ExtensionDescriptor` |
 | 执行事件 | [`schema/execution-event.schema.json`](../Nodara-Core/schema/execution-event.schema.json) | `GET /api/v1/schema/execution-event` | `EventEnvelope` |
 | Agent 会话 | [`schema/agent-session.schema.json`](../Nodara-Core/schema/agent-session.schema.json) | `GET /api/v1/schema/agent-session` | `AgentSession` |
 | Agent 工具调用 | [`schema/agent-tool-call.schema.json`](../Nodara-Core/schema/agent-tool-call.schema.json) | `GET /api/v1/schema/agent-tool-call` | `ToolCall` |

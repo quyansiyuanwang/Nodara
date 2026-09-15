@@ -31,5 +31,47 @@
     "windows.Window.Capture",
     "windows.Desktop.Capture",
     "system.Clipboard"
+  ],
+  "features": [
+    {
+      "id": "input",
+      "name": "Keyboard, mouse and text input",
+      "kind": "integration",
+      "description": "Foreground keyboard, mouse and text automation.",
+      "capabilities": ["Input.Keyboard", "Input.Mouse"],
+      "permissions": ["input.control"],
+      "node_types": [
+        "windows.Input.Keyboard",
+        "windows.Input.Mouse",
+        "windows.Input.Text"
+      ]
+    },
+    {
+      "id": "windows",
+      "name": "Window and screen integration",
+      "kind": "integration",
+      "description": "Window lookup, focus, window capture and desktop capture.",
+      "capabilities": [
+        "Window.Find",
+        "Window.Focus",
+        "Window.Capture",
+        "Desktop.Capture"
+      ],
+      "permissions": ["window.control", "screen.capture"],
+      "node_types": [
+        "windows.Window.Find",
+        "windows.Window.Focus",
+        "windows.Window.Capture",
+        "windows.Desktop.Capture"
+      ]
+    },
+    {
+      "id": "clipboard",
+      "name": "Clipboard integration",
+      "kind": "integration",
+      "capabilities": ["Clipboard.Read", "Clipboard.Write"],
+      "permissions": ["clipboard"],
+      "node_types": ["system.Clipboard"]
+    }
   ]
 }

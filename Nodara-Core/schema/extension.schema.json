@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ExtensionKind": {
+      "description": "Origin category for one runtime extension.",
+      "oneOf": [
+        {
+          "description": "Ships with the runtime itself.",
+          "enum": [
+            "builtin"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Linked into the runtime by an embedding host.",
+          "enum": [
+            "in_process"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Loaded through a plugin manifest.",
+          "enum": [
+            "plugin"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A declarative or host-provided UI contribution.",
+          "enum": [
+            "ui"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A policy contribution.",
+          "enum": [
+            "policy"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A host or external-system integration.",
+          "enum": [
+            "integration"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Any extension that does not fit a more specific category.",
+          "enum": [
+            "other"
+          ],
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "description": "One discoverable runtime extension.",
+  "properties": {
+    "capabilities": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/definitions/ExtensionKind"
+    },
+    "loaded": {
+      "type": "boolean"
+    },
+    "name": {
+      "type": "string"
+    },
+    "node_types": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "permissions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "source": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "loaded",
+    "name",
+    "source",
+    "version"
+  ],
+  "title": "ExtensionDescriptor",
+  "type": "object"
+}

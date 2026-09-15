@@ -29,6 +29,7 @@ const STATIC_DOCUMENTS: &[StaticDocument] = &[
         "node-descriptor.schema.json",
         nodara_schema::descriptor_schema,
     ),
+    ("extension.schema.json", nodara_schema::extension_schema),
     ("execution-event.schema.json", nodara_schema::event_schema),
     ("agent-session.schema.json", nodara_schema::session_schema),
     (

@@ -10,10 +10,35 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::error::{SchemaError, SchemaResult};
+use crate::extension::ExtensionKind;
 use crate::version::{major_of, PROTOCOL_VERSION};
 
 /// Conventional manifest file name inside a plugin directory.
 pub const MANIFEST_FILE: &str = "manifest.json";
+
+/// One non-node feature declared by a plugin.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct PluginFeature {
+    /// Stable identifier, unique within the plugin.
+    pub id: String,
+    /// Human-facing name.
+    pub name: String,
+    /// Feature category.
+    #[serde(default)]
+    pub kind: ExtensionKind,
+    /// Optional description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Capabilities the feature contributes.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    /// Permissions the feature requires.
+    #[serde(default)]
+    pub permissions: Vec<String>,
+    /// Node types the feature contributes.
+    #[serde(default)]
+    pub node_types: Vec<String>,
+}
 
 /// Declarative description of an installed plugin.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
@@ -40,6 +65,9 @@ pub struct PluginManifest {
     /// Node types the plugin provides.
     #[serde(default)]
     pub node_types: Vec<String>,
+    /// Explicit non-node feature contributions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<PluginFeature>,
     /// Short description.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -92,8 +120,21 @@ impl PluginManifest {
                 self.protocol_version, PROTOCOL_VERSION
             ));
         }
-        if self.node_types.is_empty() && self.capabilities.is_empty() {
-            errors.push("plugin must declare at least one node type or capability".to_string());
+        if self.node_types.is_empty() && self.capabilities.is_empty() && self.features.is_empty() {
+            errors.push(
+                "plugin must declare at least one node type, capability or feature".to_string(),
+            );
+        }
+        let mut feature_ids = std::collections::BTreeSet::new();
+        for feature in &self.features {
+            if feature.id.trim().is_empty() {
+                errors.push("feature `id` must not be empty".to_string());
+            } else if !feature_ids.insert(feature.id.clone()) {
+                errors.push(format!("feature id `{}` is duplicated", feature.id));
+            }
+            if feature.name.trim().is_empty() {
+                errors.push(format!("feature `{}` name must not be empty", feature.id));
+            }
         }
         if errors.is_empty() {
             Ok(())
@@ -145,6 +186,26 @@ mod tests {
     fn rejects_incompatible_protocol() {
         let mut manifest = PluginManifest::from_json(SAMPLE).unwrap();
         manifest.protocol_version = "2".to_string();
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn accepts_feature_only_plugins_and_rejects_duplicate_feature_ids() {
+        let mut manifest = PluginManifest::from_json(SAMPLE).unwrap();
+        manifest.node_types.clear();
+        manifest.capabilities.clear();
+        manifest.features.push(PluginFeature {
+            id: "ui.panel".to_string(),
+            name: "Panel".to_string(),
+            kind: ExtensionKind::Ui,
+            description: None,
+            capabilities: Vec::new(),
+            permissions: Vec::new(),
+            node_types: Vec::new(),
+        });
+        assert!(manifest.validate().is_ok());
+
+        manifest.features.push(manifest.features[0].clone());
         assert!(manifest.validate().is_err());
     }
 

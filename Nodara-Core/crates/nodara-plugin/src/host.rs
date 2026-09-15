@@ -9,7 +9,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use nodara_core::{CapabilityRegistry, EventSink};
-use nodara_schema::{EventEnvelope, ExecutionEvent, LogLevel, NodeDescriptor, PluginManifest};
+use nodara_schema::{
+    EventEnvelope, ExecutionEvent, LogLevel, NodeDescriptor, PluginFeature, PluginManifest,
+};
 use parking_lot::Mutex;
 
 use crate::client::PluginClient;
@@ -45,6 +47,9 @@ pub struct PluginSummary {
     pub permissions: Vec<String>,
     /// Node types the plugin provides.
     pub node_types: Vec<String>,
+    /// Explicit non-node features declared by the manifest.
+    #[serde(default)]
+    pub features: Vec<PluginFeature>,
     /// Optional description.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -227,6 +232,7 @@ impl PluginHost {
                 capabilities: entry.manifest.capabilities.clone(),
                 permissions: entry.manifest.permissions.clone(),
                 node_types: entry.manifest.node_types.clone(),
+                features: entry.manifest.features.clone(),
                 description: entry.manifest.description.clone(),
                 loaded: entry.client.is_some(),
             })

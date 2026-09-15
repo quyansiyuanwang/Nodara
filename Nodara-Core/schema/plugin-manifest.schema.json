@@ -1,5 +1,119 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ExtensionKind": {
+      "description": "Origin category for one runtime extension.",
+      "oneOf": [
+        {
+          "description": "Ships with the runtime itself.",
+          "enum": [
+            "builtin"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Linked into the runtime by an embedding host.",
+          "enum": [
+            "in_process"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Loaded through a plugin manifest.",
+          "enum": [
+            "plugin"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A declarative or host-provided UI contribution.",
+          "enum": [
+            "ui"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A policy contribution.",
+          "enum": [
+            "policy"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "A host or external-system integration.",
+          "enum": [
+            "integration"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Any extension that does not fit a more specific category.",
+          "enum": [
+            "other"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "PluginFeature": {
+      "description": "One non-node feature declared by a plugin.",
+      "properties": {
+        "capabilities": {
+          "default": [],
+          "description": "Capabilities the feature contributes.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": {
+          "description": "Optional description.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Stable identifier, unique within the plugin.",
+          "type": "string"
+        },
+        "kind": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ExtensionKind"
+            }
+          ],
+          "default": "integration",
+          "description": "Feature category."
+        },
+        "name": {
+          "description": "Human-facing name.",
+          "type": "string"
+        },
+        "node_types": {
+          "default": [],
+          "description": "Node types the feature contributes.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "permissions": {
+          "default": [],
+          "description": "Permissions the feature requires.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
   "description": "Declarative description of an installed plugin.",
   "properties": {
     "args": {
@@ -35,6 +149,13 @@
     "executable": {
       "description": "Executable path relative to the plugin directory.",
       "type": "string"
+    },
+    "features": {
+      "description": "Explicit non-node feature contributions.",
+      "items": {
+        "$ref": "#/definitions/PluginFeature"
+      },
+      "type": "array"
     },
     "homepage": {
       "description": "Homepage or repository URL.",

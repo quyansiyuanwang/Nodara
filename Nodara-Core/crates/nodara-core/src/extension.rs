@@ -6,54 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
-/// Origin category for one runtime extension.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ExtensionKind {
-    /// Ships with the runtime itself.
-    Builtin,
-    /// Linked into the runtime by an embedding host.
-    InProcess,
-    /// Loaded through a plugin manifest.
-    Plugin,
-    /// A future UI-only contribution.
-    Ui,
-    /// A future policy contribution.
-    Policy,
-    /// Any extension that does not fit a more specific category.
-    Other,
-}
-
-/// One discoverable runtime extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ExtensionDescriptor {
-    /// Stable reverse-DNS identifier.
-    pub id: String,
-    /// Human-facing name.
-    pub name: String,
-    /// Extension version.
-    pub version: String,
-    /// Registration category.
-    pub kind: ExtensionKind,
-    /// Where the extension came from, e.g. `runtime` or `plugin`.
-    pub source: String,
-    /// Optional description.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Capability identifiers contributed by the extension.
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    /// Permissions declared by the extension.
-    #[serde(default)]
-    pub permissions: Vec<String>,
-    /// Node types contributed by the extension.
-    #[serde(default)]
-    pub node_types: Vec<String>,
-    /// Whether the extension's executable side is currently available.
-    pub loaded: bool,
-}
+use nodara_schema::ExtensionDescriptor;
 
 /// Registry shared by built-in, in-process and plugin extensions.
 #[derive(Debug, Default)]
@@ -97,6 +50,7 @@ impl ExtensionRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nodara_schema::ExtensionKind;
 
     fn descriptor(id: &str, loaded: bool) -> ExtensionDescriptor {
         ExtensionDescriptor {

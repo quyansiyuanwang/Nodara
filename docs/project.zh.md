@@ -114,7 +114,7 @@ RunManager.start
 
 * **进程内** —— 注册进运行时的 `CapabilityRegistry`，并由
   `ExtensionRegistry` 统一记录来源、类型、节点和加载状态；
-* **插件** —— 用 `nodara_plugin::serve_stdio` 通过 stdio 提供服务，并在二进制旁放置 `manifest.json`。
+* **插件** —— 用 `nodara_plugin::serve_stdio` 通过 stdio 提供服务，并在二进制旁放置 `manifest.json`。manifest 还可通过 `features` 声明非节点功能，并加入同一个 `ExtensionRegistry`。
 
 运行时通过 JSON-RPC 懒加载插件（`initialize`、`describe`、`execute`、`cancel`、`health`、`shutdown`），
 并把协议层故障降级为普通节点失败：崩溃、超时或断连只会让该节点失败，不会拖垮运行时。仅描述符注册

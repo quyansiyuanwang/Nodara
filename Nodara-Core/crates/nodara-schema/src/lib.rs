@@ -34,6 +34,7 @@
 pub mod descriptor;
 pub mod error;
 pub mod event;
+pub mod extension;
 pub mod graph;
 pub mod manifest;
 pub mod migration;
@@ -47,8 +48,9 @@ pub mod workflow_schema;
 pub use descriptor::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
 pub use error::{SchemaError, SchemaResult};
 pub use event::{EventEnvelope, ExecutionEvent, LogLevel, RunStatus};
+pub use extension::{ExtensionDescriptor, ExtensionKind};
 pub use graph::{GraphError, WorkflowGraph};
-pub use manifest::{PluginManifest, MANIFEST_FILE};
+pub use manifest::{PluginFeature, PluginManifest, MANIFEST_FILE};
 pub use migration::{migrate, MigrationReport};
 pub use session::{
     AgentSession, ApprovalDecision, ApprovalDecisionRequest, ApprovalRequest, MessageRole,
@@ -79,6 +81,11 @@ pub fn manifest_schema() -> serde_json::Value {
 /// JSON Schema for a node descriptor.
 pub fn descriptor_schema() -> serde_json::Value {
     json_schema::<NodeDescriptor>()
+}
+
+/// JSON Schema for a unified runtime extension registration.
+pub fn extension_schema() -> serde_json::Value {
+    json_schema::<ExtensionDescriptor>()
 }
 
 /// JSON Schema for an execution event envelope.
