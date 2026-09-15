@@ -90,6 +90,7 @@ export class Canvas {
   private readonly selectionBox: SVGRectElement;
   private readonly quickConfig: HTMLDivElement;
   private readonly edgeAnimations = new Map<string, EdgeAnimation>();
+  private quickConfigVisible = false;
   private selected = new Set<string>();
   private primarySelected: string | null = null;
   private selectedEdge: string | null = null;
@@ -382,6 +383,7 @@ export class Canvas {
   }
 
   private setSelection(ids: Iterable<string>, primary: string | null): void {
+    this.quickConfigVisible = false;
     this.selected = new Set(ids);
     this.primarySelected = primary && this.selected.has(primary)
       ? primary
@@ -761,7 +763,7 @@ export class Canvas {
       if (moved) {
         this.drag.moved = true;
         this.renderEdges();
-        this.renderQuickConfig();
+        if (this.quickConfigVisible) this.renderQuickConfig();
       }
       return;
     }
@@ -799,7 +801,14 @@ export class Canvas {
       const changed = this.drag.moved;
       this.drag = null;
       document.body.classList.remove("is-canvas-dragging");
-      if (changed) this.handlers.onChange();
+      if (changed) {
+        this.handlers.onChange();
+      } else {
+        // A click reveals the floating execution settings. Dragging a node or
+        // marquee-selecting never opens it as a side effect.
+        this.quickConfigVisible = true;
+        this.renderQuickConfig();
+      }
     }
     if (this.marquee) {
       const box = this.marquee;
@@ -1255,15 +1264,6 @@ export class Canvas {
       rect.classList.add("node__body");
       group.appendChild(rect);
 
-      const accent = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      accent.setAttribute("x", "1");
-      accent.setAttribute("y", "8");
-      accent.setAttribute("width", "3");
-      accent.setAttribute("height", String(NODE_HEIGHT - 16));
-      accent.setAttribute("rx", "1.5");
-      accent.classList.add("node__accent");
-      group.appendChild(accent);
-
       const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
       label.setAttribute("x", "10");
       label.setAttribute("y", "18");
@@ -1361,6 +1361,7 @@ export class Canvas {
       group.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || this.spaceDown) return;
         if ((event.target as Element).closest(".port, .exec-port")) return;
+        this.quickConfigVisible = false;
         event.preventDefault();
         event.stopPropagation();
         if (event.ctrlKey || event.metaKey) {
@@ -1398,7 +1399,7 @@ export class Canvas {
   /** Floating execution settings for one or many selected nodes. */
   private renderQuickConfig(): void {
     const nodes = this.workflow.nodes.filter((node) => this.selected.has(node.id));
-    if (nodes.length === 0) {
+    if (!this.quickConfigVisible || nodes.length === 0) {
       this.quickConfig.classList.add("is-hidden");
       this.quickConfig.replaceChildren();
       return;

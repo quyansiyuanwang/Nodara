@@ -164,12 +164,14 @@ describe("graph editing on the canvas", () => {
     canvas.render();
 
     const node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    expect(node.querySelector(".node__accent")).toBeNull();
     node.dispatchEvent(pointerEvent("pointerdown", 100, 100));
     window.dispatchEvent(pointerEvent("pointermove", 120, 130));
     expect(document.body.classList.contains("is-canvas-dragging")).toBe(true);
 
     window.dispatchEvent(pointerEvent("pointerup", 120, 130));
     expect(document.body.classList.contains("is-canvas-dragging")).toBe(false);
+    expect(document.querySelector(".node-quick-config")?.classList.contains("is-hidden")).toBe(true);
   });
 
   it("styles and labels success and failure branches", () => {
@@ -613,6 +615,12 @@ describe("graph editing on the canvas", () => {
     window.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 760, clientY: 660 }));
     window.dispatchEvent(new MouseEvent("pointerup"));
     expect(canvas.selectedNodeIds()).toHaveLength(2);
+    expect(document.querySelector(".node-quick-config")?.classList.contains("is-hidden")).toBe(true);
+
+    const selectedNode = document.querySelector<SVGGElement>('[data-node-id^="log"]')!;
+    pointerDown(selectedNode);
+    pointerUp(selectedNode);
+    expect(document.querySelector(".node-quick-config")?.classList.contains("is-hidden")).toBe(false);
 
     const retry = document.querySelector<HTMLInputElement>(
       '.node-quick-config input[data-field="retry"]',

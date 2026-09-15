@@ -101,6 +101,7 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 20. The Audit tab shows capability and node records.
 21. Open `examples/breakpoint-debug.json`; the Calculate node shows a breakpoint marker, Run pauses before it with `nodes_executed=2`, and Resume or Step completes the workflow.
 22. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+23. Marquee selection and node dragging do not open the floating quick card; a click without movement opens it. After a multi-selection, click any selected node to edit shared execution settings.
 
 ## Agent
 

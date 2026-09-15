@@ -92,6 +92,7 @@ copy.
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 | Bulk configuration | Use the Properties bulk form or floating quick card to set enabled, breakpoint, condition, delays, continue-on-error, retry and timeout together |
+| Floating quick card | **Click** a node without moving it to open the card; dragging or marquee selection never opens it automatically. After a multi-selection, click any selected node to edit the shared execution fields |
 | Node groups | Create a persistent group from a selection, drag the group frame as a unit, and rename, recolor, remove members or select the group from Properties |
 
 ### Compact layout and motion

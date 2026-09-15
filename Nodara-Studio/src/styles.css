@@ -2997,36 +2997,6 @@ body {
   pointer-events: none;
 }
 
-.node__accent {
-  fill: #567bc2;
-  pointer-events: none;
-  transition: fill var(--motion-fast) ease, filter var(--motion-fast) ease;
-}
-
-.node--gated .node__accent {
-  fill: var(--warn);
-}
-
-.node--disabled .node__accent {
-  fill: #596174;
-}
-
-.node--active .node__accent,
-.node--done .node__accent {
-  fill: var(--accent);
-  filter: drop-shadow(0 0 4px rgb(91 141 239 / 75%));
-}
-
-.node--done .node__accent {
-  fill: var(--ok);
-  filter: drop-shadow(0 0 4px rgb(63 178 127 / 68%));
-}
-
-.node--failed .node__accent {
-  fill: var(--error);
-  filter: drop-shadow(0 0 4px rgb(224 96 96 / 72%));
-}
-
 .node:hover .node__body {
   filter: drop-shadow(0 4px 8px rgb(0 0 0 / 34%));
 }
