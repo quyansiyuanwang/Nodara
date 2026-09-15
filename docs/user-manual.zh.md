@@ -153,6 +153,8 @@ runtime 可执行文件，或先手工运行 runtime。
 
 Studio 使用面向操作的紧凑布局：工具栏、属性字段、事件行和默认底栏都降低了高度，并通过折叠节点分类提升信息密度。左栏分类会记住展开状态，默认只展开**核心**；需要更多空间时可直接拖动分隔条放大任意区域。
 
+右栏采用独立滚动的卡片式折叠分组，标题、字段和控制层级更紧凑。画布节点收紧为更小的信息块，空白区域用于显示常用配置摘要；Agent 的 **Provider 设置** 和最终 JSON 展开状态会在会话轮询及数据刷新后保留，不会自动收起。
+
 动效用于表达真实执行状态，而不是单纯装饰：
 
 - 节点运行时蓝色脉冲，成功后绿色弹出，失败时红色发光；
@@ -393,7 +395,7 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio`，并把结构化请求
 通过 stdin/stdout 传给 Agent。Provider 可填写 OpenAI-compatible Endpoint、Model、
 API Key 和超时；API Key 仅保存在当前 Studio 进程内存。会话列表、完整消息历史、计划
-JSON、审批和运行记录都由 runtime session 保存。
+JSON、审批和运行记录都由 runtime session 保存。Provider 设置和计划 JSON 的展开状态会跨轮询刷新保留；未变化的会话响应不会重建 Agent DOM。Agent 页打开时即使 runtime 暂时不可达，也会先显示本地 Provider 配置和对话输入框。
 
 四档执行模式：
 

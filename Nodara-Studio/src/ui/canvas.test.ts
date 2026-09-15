@@ -153,7 +153,7 @@ describe("graph editing on the canvas", () => {
     window.dispatchEvent(pointerEvent("pointerup", 300, 250));
     const added = workflow.nodes[workflow.nodes.length - 1];
     expect(added.type).toBe("core.Log");
-    expect(added.position).toEqual({ x: 90, y: 135 });
+    expect(added.position).toEqual({ x: 100, y: 146 });
     expect(document.body.classList.contains("is-palette-dragging")).toBe(false);
   });
 

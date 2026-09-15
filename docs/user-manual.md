@@ -96,6 +96,8 @@ copy.
 
 The Studio uses a compact operator layout: toolbar controls, inspector fields, event rows and the default bottom drawer are intentionally dense. Node categories in the left palette are collapsible and remember their state; only **Core** opens initially. Drag the dividers to enlarge any pane when a particular task needs more room.
 
+The Properties rail is an independently scrolling stack of compact cards. Graph nodes use tighter information blocks and show a short common-config summary instead of unused empty space. Agent Provider settings and final-JSON sections stay expanded across session polling and data refreshes.
+
 Motion is part of execution feedback, not decoration:
 
 - a running node pulses blue, a successful node pops green and a failed node glows red;
@@ -335,7 +337,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 ## Agent
 
-Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab, enter a goal, configure any OpenAI-compatible endpoint/model in Provider settings, choose a baseline and one of four execution modes, then Send. The API key remains in process memory only. Sessions preserve their visible message history across turns.
+Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab, enter a goal, configure any OpenAI-compatible endpoint/model in Provider settings, choose a baseline and one of four execution modes, then Send. The API key remains in process memory only. Sessions preserve their visible message history across turns. Unchanged polling responses do not rebuild the panel, and Provider/final-JSON expanders retain their state when session data does change. The Agent page renders its local Provider controls and composer immediately, even while the runtime is temporarily unreachable.
 
 | Mode | Behavior |
 |---|---|

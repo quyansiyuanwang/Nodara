@@ -402,7 +402,7 @@ class Studio {
     const right = element("resize-right");
     const drawer = element("resize-drawer");
     let leftWidth = 208;
-    let rightWidth = 268;
+    let rightWidth = 286;
     let storedDrawerHeight: number | null = null;
     try {
       const stored = localStorage.getItem("nodara.drawer.height");

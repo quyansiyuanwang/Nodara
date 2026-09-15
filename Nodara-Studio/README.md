@@ -113,8 +113,11 @@ workflow variables marked secret are not persisted beyond the browser session.
   edges switch between Always, Success and Failure; data edges show explicit
   ports instead.
 * The operator shell is tuned for high information density: compact toolbar and
-  inspector controls, a shallower default drawer, and collapsible node categories
-  that remember their expanded state. Only the Core category starts open.
+  inspector controls, a narrower card-style Properties rail, a shallower default
+  drawer, and collapsible node categories that remember their expanded state. Only
+  the Core category starts open. Graph nodes use a 200x108 layout and surface a
+  short common-config summary instead of empty space, and Agent Provider/final-JSON
+  expanders stay open across session polling.
 * Motion is built into the interaction surface: nodes pulse while running and pop
   when complete or glow when failed; ports lift on hover; panels, menus and event
   rows animate in. Edge arrows are always visible, and runtime

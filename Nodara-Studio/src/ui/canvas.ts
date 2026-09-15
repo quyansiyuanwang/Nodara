@@ -18,8 +18,8 @@ import {
 } from "../model/workflow";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 130;
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 108;
 const EDGE_MIN_HANDLE = 52;
 const EDGE_MAX_HANDLE = 180;
 const EDGE_PALETTE_DRAG_THRESHOLD = 5;
@@ -1036,23 +1036,45 @@ export class Canvas {
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("width", String(NODE_WIDTH));
       rect.setAttribute("height", String(NODE_HEIGHT));
-      rect.setAttribute("rx", "8");
+      rect.setAttribute("rx", "7");
       rect.classList.add("node__body");
       group.appendChild(rect);
 
+      const accent = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      accent.setAttribute("x", "1");
+      accent.setAttribute("y", "8");
+      accent.setAttribute("width", "3");
+      accent.setAttribute("height", String(NODE_HEIGHT - 16));
+      accent.setAttribute("rx", "1.5");
+      accent.classList.add("node__accent");
+      group.appendChild(accent);
+
       const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("x", "12");
-      label.setAttribute("y", "24");
+      label.setAttribute("x", "10");
+      label.setAttribute("y", "18");
       label.classList.add("node__label");
-      label.textContent = node.label ?? descriptor?.display_name ?? node.type;
+      label.textContent = this.truncateNodeText(
+        node.label ?? descriptor?.display_name ?? node.type,
+        25,
+      );
       group.appendChild(label);
 
       const type = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      type.setAttribute("x", "12");
-      type.setAttribute("y", "42");
+      type.setAttribute("x", "10");
+      type.setAttribute("y", "34");
       type.classList.add("node__type");
-      type.textContent = node.type;
+      type.textContent = this.truncateNodeText(node.type, 29);
       group.appendChild(type);
+
+      const summaryText = this.nodeSummary(node);
+      if (summaryText) {
+        const summary = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        summary.setAttribute("x", "10");
+        summary.setAttribute("y", "52");
+        summary.classList.add("node__summary");
+        summary.textContent = summaryText;
+        group.appendChild(summary);
+      }
 
       if (node.breakpoint) {
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -1330,11 +1352,11 @@ export class Canvas {
     index: number,
   ): SVGCircleElement {
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    const step = Math.min(22, (NODE_HEIGHT - 70) / Math.max(1, Math.ceil((kind === "input" ? 1 : 1))));
+    const step = 16;
     const xOffset = kind === "output" ? NODE_WIDTH : 0;
     circle.setAttribute("cx", String(xOffset));
-    circle.setAttribute("cy", String(32 + index * step));
-    circle.setAttribute("r", "5.5");
+    circle.setAttribute("cy", String(27 + index * step));
+    circle.setAttribute("r", "5");
     circle.classList.add("port", `port--${kind}`, "port--data");
     circle.dataset.nodeId = nodeId;
     circle.dataset.port = portName;
@@ -1409,11 +1431,11 @@ export class Canvas {
   ): SVGPolygonElement {
     const index = outputBranch === "success" ? 1 : outputBranch === "failure" ? 2 : 0;
     const x = kind === "input" ? 0 : NODE_WIDTH;
-    const y = kind === "input" ? NODE_HEIGHT - 20 : NODE_HEIGHT - 52 + index * 16;
+    const y = kind === "input" ? NODE_HEIGHT - 14 : NODE_HEIGHT - 40 + index * 13;
     const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
     polygon.setAttribute(
       "points",
-      `${x},${y - 7} ${x + 7},${y} ${x},${y + 7} ${x - 7},${y}`,
+      `${x},${y - 6} ${x + 6},${y} ${x},${y + 6} ${x - 6},${y}`,
     );
     polygon.classList.add("exec-port", `exec-port--${kind}`, `exec-port--${branch}`);
     polygon.dataset.nodeId = nodeId;
@@ -1624,12 +1646,61 @@ export class Canvas {
       const index = Math.max(0, ports.findIndex((candidate) => candidate.name === port));
       return {
         x: side === "output" ? x + NODE_WIDTH : x,
-        y: y + 32 + index * 22,
+        y: y + 27 + index * 16,
       };
     }
-    if (side === "input") return { x, y: y + NODE_HEIGHT - 20 };
+    if (side === "input") return { x, y: y + NODE_HEIGHT - 14 };
     const index = port === "success" ? 1 : port === "failure" ? 2 : 0;
-    return { x: x + NODE_WIDTH, y: y + NODE_HEIGHT - 52 + index * 16 };
+    return { x: x + NODE_WIDTH, y: y + NODE_HEIGHT - 40 + index * 13 };
+  }
+
+  private truncateNodeText(value: string, limit: number): string {
+    return value.length <= limit ? value : `${value.slice(0, Math.max(1, limit - 1))}…`;
+  }
+
+  private nodeSummary(node: WorkflowNode): string | null {
+    const config = node.config as Record<string, unknown> | undefined;
+    if (!config) return null;
+
+    const region = ["x", "y", "width", "height"].every((key) => config[key] !== undefined);
+    if (region) {
+      return this.truncateNodeText(
+        `${String(config.x)},${String(config.y)} · ${String(config.width)}×${String(config.height)}`,
+        31,
+      );
+    }
+
+    const preferred = [
+      "message",
+      "value",
+      "text",
+      "command",
+      "program",
+      "url",
+      "path",
+      "name",
+      "level",
+    ];
+    const secret = /(password|secret|token|api[_-]?key|credential)/i;
+    const keys = [
+      ...preferred.filter((key) => config[key] !== undefined),
+      ...Object.keys(config).filter((key) => !preferred.includes(key)),
+    ];
+    for (const key of keys) {
+      if (secret.test(key)) continue;
+      const value = config[key];
+      const rendered = this.formatNodeValue(value);
+      if (rendered) return this.truncateNodeText(`${key}: ${rendered}`, 31);
+    }
+    return null;
+  }
+
+  private formatNodeValue(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (Array.isArray(value)) return `[${value.length}]`;
+    return "{…}";
   }
 
   private drawPendingEdge(): void {

@@ -58,15 +58,26 @@ export class AgentPanel {
     apiKey: "",
     timeoutMs: 300_000,
   };
+  private providerOpen = false;
+  private readonly planJsonOpen = new Set<string>();
+  private sessionFingerprint = "";
 
   constructor(
     private readonly root: HTMLElement,
     private readonly handlers: AgentPanelHandlers,
     private readonly desktopAvailable = true,
-  ) {}
+  ) {
+    this.render();
+  }
 
   /** Replace the session list. Preserves the current selection when possible. */
   setSessions(list: AgentSessionList): void {
+    const fingerprint = JSON.stringify({
+      sessions: list.sessions,
+      pendingApprovals: list.pending_approvals,
+    });
+    if (fingerprint === this.sessionFingerprint) return;
+    this.sessionFingerprint = fingerprint;
     this.sessions = list.sessions;
     const pending = list.pending_approvals;
     if (this.selected && !this.sessions.some((session) => session.id === this.selected)) {
@@ -95,6 +106,15 @@ export class AgentPanel {
   }
 
   private render(): void {
+    const provider = this.root.querySelector<HTMLDetailsElement>(".agent-provider");
+    if (provider) this.providerOpen = provider.open;
+    for (const details of this.root.querySelectorAll<HTMLDetailsElement>(".agent-plan-json")) {
+      const sessionId = details.dataset.sessionId;
+      if (!sessionId) continue;
+      if (details.open) this.planJsonOpen.add(sessionId);
+      else this.planJsonOpen.delete(sessionId);
+    }
+
     const draft = this.draft;
     this.root.replaceChildren();
     const shell = document.createElement("div");
@@ -171,6 +191,10 @@ export class AgentPanel {
   private renderProviderSettings(): HTMLElement {
     const details = document.createElement("details");
     details.className = "agent-provider";
+    details.open = this.providerOpen;
+    details.addEventListener("toggle", () => {
+      this.providerOpen = details.open;
+    });
     const summary = document.createElement("summary");
     summary.textContent = t("agent.providerSettings");
     details.appendChild(summary);
@@ -437,6 +461,12 @@ export class AgentPanel {
     }
     const json = document.createElement("details");
     json.className = "agent-plan-json";
+    json.dataset.sessionId = session.id;
+    json.open = this.planJsonOpen.has(session.id);
+    json.addEventListener("toggle", () => {
+      if (json.open) this.planJsonOpen.add(session.id);
+      else this.planJsonOpen.delete(session.id);
+    });
     const jsonSummary = document.createElement("summary");
     jsonSummary.textContent = t("agent.finalWorkflowJson");
     const pre = document.createElement("pre");
