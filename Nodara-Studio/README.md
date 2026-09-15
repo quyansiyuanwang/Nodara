@@ -105,16 +105,16 @@ workflow variables marked secret are not persisted beyond the browser session.
   breakpoint actions apply to every selected node. A floating quick-config card
   edits enabled, breakpoint, condition, pre-delay, continue-on-error, retries
   and timeout, including mixed-value batch edits.
-* Use the mouse wheel to zoom and middle-drag (or hold Space and drag) to pan;
-  dragging near an edge auto-scrolls. The canvas toolbar offers zoom, Fit and
-  automatic left-to-right topology layout.
+* Use the mouse wheel to zoom and middle-drag (or hold Space and drag) to pan.
+  Moving the pointer to a viewport edge never pans on its own. The canvas toolbar
+  offers zoom, Fit and automatic left-to-right topology layout.
 * Select a node or connection and press `Delete`, or right-click it and choose
   the delete command. Connections have a wide invisible hit target. Control
   edges switch between Always, Success and Failure; data edges show explicit
   ports instead.
 * Edge arrows are always visible. Runtime `edge_activated` and
-  `data_transferred` events add a moving marker plus persistent path highlight
-  until the next run or clear.
+  `data_transferred` events add a requestAnimationFrame-driven moving arrow and
+  animated dash flow plus persistent path highlighting until the next run or clear.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.

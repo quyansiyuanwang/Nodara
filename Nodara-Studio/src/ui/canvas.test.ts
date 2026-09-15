@@ -627,8 +627,21 @@ describe("graph editing on the canvas", () => {
     workflow.edges.push({ id: "s-e", kind: "control", source: "start", target: "end" });
     canvas.render();
     canvas.setEdgeState("s-e", "active");
-    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge--active')).not.toBeNull();
-    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge-pulse')).not.toBeNull();
+    const group = document.querySelector('.edge-group[data-edge-id="s-e"]');
+    expect(group?.querySelector(".edge--active")).not.toBeNull();
+    expect(group?.querySelector(".edge-flow")).not.toBeNull();
+    expect(group?.querySelector(".edge-runner")).not.toBeNull();
     canvas.clearStates();
-    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge--active')).toBeNull();
-  });});
+    expect(group?.querySelector(".edge--active")).toBeNull();
+    expect(group?.querySelector(".edge-flow")).toBeNull();
+    expect(group?.querySelector(".edge-runner")).toBeNull();
+  });
+
+  it("does not pan when the pointer merely reaches the viewport edge", () => {
+    harness();
+    const viewport = document.getElementById("viewport")!;
+    const before = viewport.getAttribute("transform");
+    window.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 9999, clientY: 9999 }));
+    expect(viewport.getAttribute("transform")).toBe(before);
+  });
+});

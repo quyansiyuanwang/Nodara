@@ -60,6 +60,12 @@ interface MarqueeDrag {
   currentY: number;
 }
 
+interface EdgeAnimation {
+  frame: number;
+  runner: SVGPolygonElement;
+  startedAt: number;
+}
+
 type ContextTarget =
   | { kind: "node"; id: string }
   | { kind: "edge"; id: string };
@@ -71,6 +77,7 @@ export class Canvas {
   private readonly pendingEdge: SVGPathElement;
   private readonly selectionBox: SVGRectElement;
   private readonly quickConfig: HTMLDivElement;
+  private readonly edgeAnimations = new Map<string, EdgeAnimation>();
   private selected = new Set<string>();
   private primarySelected: string | null = null;
   private selectedEdge: string | null = null;
@@ -180,6 +187,7 @@ export class Canvas {
   /** Remove global listeners and transient overlays. */
   destroy(): void {
     this.paletteDragCleanup?.();
+    this.cancelAllEdgeAnimations();
     for (const cleanup of this.cleanupCallbacks.splice(0)) cleanup();
     this.contextMenu.remove();
     this.quickConfig.remove();
@@ -217,30 +225,98 @@ export class Canvas {
     if (!path) return;
     path.classList.toggle("edge--active", state === "active");
     path.classList.toggle("edge--data-active", state === "data");
-    if (!group.querySelector(".edge-pulse")) {
-      const pulse = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      pulse.classList.add("edge-pulse");
-      pulse.setAttribute("r", "4");
-      const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
-      motion.setAttribute("dur", "1.05s");
-      motion.setAttribute("repeatCount", "indefinite");
-      motion.setAttribute("path", path.getAttribute("d") ?? "");
-      motion.setAttribute("rotate", "auto");
-      pulse.appendChild(motion);
-      group.appendChild(pulse);
-    }
+    this.ensureEdgeAnimation(edgeId, group, path, state);
   }
 
   /** Clear all execution decoration. */
   clearStates(): void {
+    this.cancelAllEdgeAnimations();
     this.edgeStates.clear();
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
       element.classList.remove("node--running", "node--done", "node--failed", "node--active");
     }
     for (const group of this.edgesLayer.querySelectorAll<SVGGElement>(".edge-group")) {
-      group.querySelector(".edge-pulse")?.remove();
+      group.querySelector(".edge-flow")?.remove();
+      group.querySelector(".edge-runner")?.remove();
       group.querySelector(".edge")?.classList.remove("edge--active", "edge--data-active");
     }
+  }
+
+  /**
+   * Animate a small arrow along an activated edge with requestAnimationFrame
+   * rather than SVG SMIL. SMIL is inconsistently enabled in desktop WebViews,
+   * which made the previous `animateMotion` pulse appear to do nothing even
+   * though the edge state was correct.
+   */
+  private ensureEdgeAnimation(
+    edgeId: string,
+    group: SVGGElement,
+    path: SVGPathElement,
+    state: "active" | "data",
+  ): void {
+    this.cancelEdgeAnimation(edgeId);
+
+    const pathData = path.getAttribute("d") ?? "";
+    let flow = group.querySelector<SVGPathElement>(".edge-flow");
+    if (!flow) {
+      flow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      flow.classList.add("edge-flow");
+      group.appendChild(flow);
+    }
+    flow.classList.toggle("edge-flow--data", state === "data");
+    flow.setAttribute("d", pathData);
+
+    let runner = group.querySelector<SVGPolygonElement>(".edge-runner");
+    if (!runner) {
+      runner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      runner.classList.add("edge-runner");
+      runner.setAttribute("points", "-6,-4 8,0 -6,4");
+      group.appendChild(runner);
+    }
+    runner.classList.toggle("edge-runner--data", state === "data");
+    runner.setAttribute("transform", "translate(0 0)");
+
+    // jsdom (used by unit tests) does not implement SVG path length sampling.
+    if (
+      typeof requestAnimationFrame !== "function" ||
+      typeof path.getTotalLength !== "function" ||
+      typeof path.getPointAtLength !== "function"
+    ) {
+      return;
+    }
+
+    const animation: EdgeAnimation = { frame: 0, runner, startedAt: 0 };
+    const tick = (timestamp: number) => {
+      if (this.edgeAnimations.get(edgeId) !== animation) return;
+      if (animation.startedAt === 0) animation.startedAt = timestamp;
+
+      const length = path.getTotalLength();
+      if (length > 0) {
+        const duration = Math.max(900, Math.min(2400, length * 5));
+        const elapsed = (timestamp - animation.startedAt) % duration;
+        const distance = (elapsed / duration) * length;
+        const point = path.getPointAtLength(distance);
+        const ahead = path.getPointAtLength(Math.min(length, distance + 2));
+        const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * (180 / Math.PI);
+        runner.setAttribute("transform", `translate(${point.x} ${point.y}) rotate(${angle})`);
+      }
+
+      animation.frame = requestAnimationFrame(tick);
+    };
+    this.edgeAnimations.set(edgeId, animation);
+    animation.frame = requestAnimationFrame(tick);
+  }
+
+  private cancelEdgeAnimation(edgeId: string): void {
+    const animation = this.edgeAnimations.get(edgeId);
+    if (!animation) return;
+    cancelAnimationFrame(animation.frame);
+    this.edgeAnimations.delete(edgeId);
+  }
+
+  private cancelAllEdgeAnimations(): void {
+    for (const animation of this.edgeAnimations.values()) cancelAnimationFrame(animation.frame);
+    this.edgeAnimations.clear();
   }
 
   select(nodeId: string | null, edgeId: string | null = null): void {
@@ -602,12 +678,11 @@ export class Canvas {
       this.applyView();
       return;
     }
-    const panned = this.autoPan(event.clientX, event.clientY);
     if (this.drag) {
       const point = this.toCanvas(event.clientX, event.clientY);
       const dx = point.x - this.drag.startX;
       const dy = point.y - this.drag.startY;
-      let moved = panned;
+      let moved = false;
       for (const [id, origin] of this.drag.origins) {
         const node = this.workflow.nodes.find((candidate) => candidate.id === id);
         if (!node) continue;
@@ -699,23 +774,6 @@ export class Canvas {
     this.selectionBox.setAttribute("height", String(Math.abs(this.marquee.currentY - this.marquee.startY)));
   }
 
-  /** Edge scrolling while dragging nodes or making a marquee selection. */
-  private autoPan(clientX: number, clientY: number): boolean {
-    const margin = 38;
-    const speed = 14;
-    const rect = this.svg.getBoundingClientRect();
-    let dx = 0;
-    let dy = 0;
-    if (clientX < rect.left + margin) dx = speed;
-    else if (clientX > rect.right - margin) dx = -speed;
-    if (clientY < rect.top + margin) dy = speed;
-    else if (clientY > rect.bottom - margin) dy = -speed;
-    if (dx === 0 && dy === 0) return false;
-    this.viewX += dx;
-    this.viewY += dy;
-    this.applyView();
-    return true;
-  }
   private onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
@@ -1466,6 +1524,7 @@ export class Canvas {
     this.handlers.onChange();
   }
   private renderEdges(): void {
+    this.cancelAllEdgeAnimations();
     this.edgesLayer.replaceChildren();
     for (const edge of this.workflow.edges) {
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");

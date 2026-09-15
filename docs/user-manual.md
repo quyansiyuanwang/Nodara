@@ -87,7 +87,8 @@ copy.
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 | Collapse sections | Expand or collapse Execution, Configuration and Variables in Properties; Studio remembers the state |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
-| Navigate the canvas | The world is unbounded and supports negative coordinates; wheel to zoom, middle-drag or Space+left-drag to pan |
+| Navigate the canvas | The world is unbounded and supports negative coordinates; wheel to zoom, middle-drag or Space+left-drag to pan. Reaching a viewport edge never pans automatically |
+| Edge activity animation | Static arrowheads stay visible; runtime `edge_activated` / `data_transferred` events animate a moving arrow and dash flow along the actual traversed edge, then retain the path highlight until the next run or clear |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 
