@@ -101,7 +101,8 @@ workflow variables marked secret are not persisted beyond the browser session.
   the canvas toolbar to zoom in/out, reset to 100%, fit all nodes or apply an
   automatic left-to-right topology layout.
 * Select a node or connection and press `Delete`, or right-click it and choose
-  the delete command. Connections have a wide invisible hit target.
+  the delete command. Connections have a wide invisible hit target, and their
+  context menu can switch directly between Always, Success and Failure branches.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.

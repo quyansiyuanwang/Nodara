@@ -376,6 +376,31 @@ describe("graph editing on the canvas", () => {
     expect(workflow.edges).toHaveLength(0);
   });
 
+  it("changes connection branches from the edge context menu", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+    const outputs = document.querySelectorAll(".port--output");
+    const inputs = document.querySelectorAll(".port--input");
+    pointerDown(outputs[0]);
+    pointerUp(inputs[inputs.length - 1]);
+
+    const hit = document.querySelector<SVGPathElement>(".edge-hit")!;
+    hit.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const failure = document.querySelector<HTMLButtonElement>(
+      '.context-menu__item[data-action="branch-failure"]',
+    )!;
+    expect(failure.textContent).toContain("Failure");
+    failure.click();
+    expect(workflow.edges[0].branch).toBe("failure");
+
+    hit.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    document
+      .querySelector<HTMLButtonElement>('.context-menu__item[data-action="branch-always"]')!
+      .click();
+    expect(workflow.edges[0].branch).toBeUndefined();
+  });
+
   it("toggles a node from its context menu", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);

@@ -681,6 +681,35 @@ export class Canvas {
       }
     }
 
+    if (target.kind === "edge") {
+      const edge = this.workflow.edges.find((candidate) => candidate.id === target.id);
+      if (edge) {
+        for (const [value, key] of [
+          ["always", "inspector.edgeBranchAlways"],
+          ["success", "inspector.edgeBranchSuccess"],
+          ["failure", "inspector.edgeBranchFailure"],
+        ] as const) {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "context-menu__item";
+          option.dataset.action = `branch-${value}`;
+          const label = document.createElement("span");
+          label.textContent = t(key);
+          const current = document.createElement("span");
+          current.className = "context-menu__shortcut";
+          current.textContent = (edge.branch ?? "always") === value ? "✓" : "";
+          option.append(label, current);
+          option.addEventListener("click", () => {
+            if (value === "always") delete edge.branch;
+            else edge.branch = value;
+            this.contextMenu.hidden = true;
+            this.handlers.onChange();
+          });
+          this.contextMenu.appendChild(option);
+        }
+      }
+    }
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "context-menu__item context-menu__item--danger";

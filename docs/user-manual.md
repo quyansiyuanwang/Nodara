@@ -80,7 +80,7 @@ copy.
 | Move a node | Drag the node body |
 | Create a connection | Drag from an output port to an input port, or click the output and then the input; press `Escape` to cancel. Hover shows the port type and incompatible types are refused |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
-| Edit a connection | Select it to choose Always, Success, or Failure, then edit its label or guard condition in Properties |
+| Edit a connection | Select it to edit label and guard, or right-click it to switch directly between Always, Success and Failure; the wide hit target makes thin edges easier to select |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Locate a problem | Click a Problems row that names a node or connection; the canvas centres it and opens Properties |
 | Filter events | Use the Events toolbar to filter by type/node/message; Clear only clears the view, and Follow controls automatic scrolling |
