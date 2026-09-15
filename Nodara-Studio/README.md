@@ -116,10 +116,10 @@ workflow variables marked secret are not persisted beyond the browser session.
 * Undo and redo workflow edits with the toolbar buttons, `Ctrl+Z`, `Ctrl+Y` or
   `Ctrl+Shift+Z`; rapid typing is coalesced into a single history entry.
 * Schema-driven forms mark required fields, show a hover/keyboard `?` tooltip for
-  documented fields, use examples as
-  placeholders, render nested object schemas as grouped controls, edit arrays as
-  reorderable lists and offer a reset-to-default action when the Schema declares
-  a default.
+  documented fields, use examples as placeholders, render nested object schemas
+  as grouped controls, edit arrays as reorderable lists and offer a
+  reset-to-default action when the Schema declares a default. Typed fields have
+  a `{}` mode switch for variable templates such as `{{match.x}}`.
 * With no node selected, Properties edits workflow ID, name, description, tags,
   author and version, and manages workflow variables (default value,
   description, secret flag and session-only run overrides). The **Variables…**

@@ -102,6 +102,12 @@ The configuration keys available for a `type` are documented per node in the
 [node reference](nodes.md); the authoritative machine-readable source is
 `GET /api/v1/node-types`.
 
+An exact template in a configuration value is coerced to the field's declared
+schema type. For example, an integer field can use `"{{match.x}}"` directly and
+receives a number, while `"x={{match.x}}"` remains a string. This preserves
+numeric, boolean, array and object values across nodes without serializing and
+re-parsing them.
+
 ### `edges[]`
 
 | Field | Type | Required | Description |

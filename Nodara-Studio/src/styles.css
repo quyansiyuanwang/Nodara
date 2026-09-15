@@ -791,7 +791,8 @@ body.is-resizing-y * {
   color: var(--text-dim);
 }
 
-.field__reset {
+.field__reset,
+.field__template {
   padding: 2px 6px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -802,7 +803,8 @@ body.is-resizing-y * {
   font-size: 10px;
 }
 
-.field__reset:hover {
+.field__reset:hover,
+.field__template:hover {
   border-color: var(--accent);
   color: var(--text);
 }

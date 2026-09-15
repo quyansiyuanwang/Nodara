@@ -536,7 +536,7 @@ impl WorkflowEngine {
             // Policies see the resolved configuration, matching the
             // `CapabilityRequest::input` contract: context-sensitive rules
             // must observe the values the node will actually run with.
-            let resolved_config = context.resolve_value(&node.config);
+            let resolved_config = context.resolve_config(&node.config, &descriptor.config_schema);
             if let Err(error) = context.authorize(
                 &node.node_type,
                 &descriptor.permissions,

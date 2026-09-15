@@ -1,0 +1,38 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.template-types",
+  "metadata": {
+    "name": "Typed templates",
+    "description": "Feeds a nested numeric variable directly into an integer duration field.",
+    "tags": ["templates", "variables"]
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start" },
+    {
+      "id": "delay",
+      "type": "system.Delay",
+      "label": "Typed duration",
+      "config": { "duration_ms": "{{delay.duration}}" }
+    },
+    {
+      "id": "log",
+      "type": "core.Log",
+      "label": "Rendered text",
+      "config": { "message": "duration = {{delay.duration}}ms", "level": "info" }
+    },
+    { "id": "end", "type": "core.End" }
+  ],
+  "edges": [
+    { "id": "start-delay", "source": "start", "target": "delay" },
+    { "id": "delay-log", "source": "delay", "target": "log" },
+    { "id": "log-end", "source": "log", "target": "end" }
+  ],
+  "variables": {
+    "delay": {
+      "value": { "duration": 25 },
+      "description": "Object used by both typed and mixed templates.",
+      "secret": false
+    }
+  }
+}

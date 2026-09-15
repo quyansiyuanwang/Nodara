@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Node configuration templates now preserve JSON types according to the target
+  schema: an exact value such as `{{match.x}}` remains an integer/number/boolean,
+  while mixed strings such as `"x={{match.x}}"` still render as text. Dynamic
+  coordinates, durations, thresholds and feature flags no longer require
+  intermediate string conversion. Studio form fields numbered/binary expose a
+  `{}` mode switch so these templates can be entered without hand-editing JSON.
 - The Studio Events panel now pauses automatic follow when the operator scrolls up to inspect history and resumes follow when the list returns to the bottom.
 - Studio Events can now inspect every `node_finished` output as collapsed JSON,
   even for nodes without a dedicated renderer. Image artifacts are discovered

@@ -369,8 +369,72 @@ impl ExecutionContext {
         }
     }
 
+    /// Resolve placeholders with the target node schema.
+    ///
+    /// An exact placeholder such as `"{{match.x}}"` keeps the variable's JSON
+    /// type when the target field is numeric, boolean, array or object. This is
+    /// what lets dynamic coordinates and durations flow into later nodes without
+    /// losing their number type. String fields continue to render text, and
+    /// mixed templates such as `"x={{match.x}}"` remain strings.
+    pub fn resolve_config(
+        &self,
+        value: &serde_json::Value,
+        schema: &serde_json::Value,
+    ) -> serde_json::Value {
+        self.resolve_config_value(value, Some(schema))
+    }
+
+    fn resolve_config_value(
+        &self,
+        value: &serde_json::Value,
+        schema: Option<&serde_json::Value>,
+    ) -> serde_json::Value {
+        match value {
+            serde_json::Value::String(text) => {
+                if let Some(name) = exact_placeholder(text) {
+                    if let Some(resolved) = self.lookup_value(name) {
+                        return coerce_value_for_schema(resolved, schema);
+                    }
+                }
+                serde_json::Value::String(self.interpolate(text))
+            }
+            serde_json::Value::Array(items) => {
+                let item_schema = schema.and_then(|value| value.get("items"));
+                serde_json::Value::Array(
+                    items
+                        .iter()
+                        .map(|item| self.resolve_config_value(item, item_schema))
+                        .collect(),
+                )
+            }
+            serde_json::Value::Object(map) => {
+                let properties = schema
+                    .and_then(|value| value.get("properties"))
+                    .and_then(serde_json::Value::as_object);
+                let additional = schema
+                    .and_then(|value| value.get("additionalProperties"))
+                    .filter(|value| value.is_object());
+                serde_json::Value::Object(
+                    map.iter()
+                        .map(|(key, child)| {
+                            let child_schema = properties
+                                .and_then(|properties| properties.get(key))
+                                .or(additional);
+                            (key.clone(), self.resolve_config_value(child, child_schema))
+                        })
+                        .collect(),
+                )
+            }
+            other => other.clone(),
+        }
+    }
+
     /// Resolve a variable name, supporting dotted paths and secret masking.
     fn lookup(&self, name: &str) -> Option<String> {
+        self.lookup_value(name).map(|value| template_string(&value))
+    }
+
+    fn lookup_value(&self, name: &str) -> Option<serde_json::Value> {
         let mut segments = name.split('.');
         let head = segments.next()?;
         let mut current = self.variables.get(head)?;
@@ -378,13 +442,91 @@ impl ExecutionContext {
             current = current.get(segment)?;
         }
         if self.secrets.contains(head) {
-            return Some("***".to_string());
+            return Some(serde_json::Value::String("***".to_string()));
         }
-        Some(match current {
-            serde_json::Value::String(text) => text.clone(),
-            serde_json::Value::Null => String::new(),
-            other => other.to_string(),
-        })
+        Some(current.clone())
+    }
+}
+
+fn exact_placeholder(text: &str) -> Option<&str> {
+    let trimmed = text.trim();
+    let inner = trimmed.strip_prefix("{{")?.strip_suffix("}}")?;
+    if inner.contains("{{") || inner.contains("}}") {
+        return None;
+    }
+    let name = inner.trim();
+    (!name.is_empty()).then_some(name)
+}
+
+fn template_string(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Null => String::new(),
+        other => other.to_string(),
+    }
+}
+
+fn coerce_value_for_schema(
+    value: serde_json::Value,
+    schema: Option<&serde_json::Value>,
+) -> serde_json::Value {
+    if value.is_null() {
+        return value;
+    }
+    let Some(types) = schema.and_then(schema_types) else {
+        return value;
+    };
+    if types.contains(&"string") {
+        return serde_json::Value::String(template_string(&value));
+    }
+    if types.contains(&"integer") {
+        return match value {
+            serde_json::Value::Number(number) => number
+                .as_i64()
+                .map(serde_json::Value::from)
+                .or_else(|| number.as_u64().map(serde_json::Value::from))
+                .unwrap_or(serde_json::Value::Number(number)),
+            serde_json::Value::String(text) => text
+                .parse::<i64>()
+                .map(serde_json::Value::from)
+                .unwrap_or(serde_json::Value::String(text)),
+            other => other,
+        };
+    }
+    if types.contains(&"number") {
+        return match value {
+            serde_json::Value::Number(_) => value,
+            serde_json::Value::String(text) => text
+                .parse::<f64>()
+                .ok()
+                .and_then(serde_json::Number::from_f64)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::String(text)),
+            other => other,
+        };
+    }
+    if types.contains(&"boolean") {
+        return match value {
+            serde_json::Value::Bool(_) => value,
+            serde_json::Value::String(text) if text.eq_ignore_ascii_case("true") => {
+                serde_json::Value::Bool(true)
+            }
+            serde_json::Value::String(text) if text.eq_ignore_ascii_case("false") => {
+                serde_json::Value::Bool(false)
+            }
+            other => other,
+        };
+    }
+    value
+}
+
+fn schema_types(schema: &serde_json::Value) -> Option<Vec<&str>> {
+    match schema.get("type")? {
+        serde_json::Value::String(kind) => Some(vec![kind.as_str()]),
+        serde_json::Value::Array(kinds) => {
+            Some(kinds.iter().filter_map(serde_json::Value::as_str).collect())
+        }
+        _ => None,
     }
 }
 

@@ -83,6 +83,38 @@ describe("schema-driven configuration forms", () => {
     );
   });
 
+  it("accepts templates in numeric and boolean fields", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        retries: { type: "integer" },
+        enabled: { type: "boolean" },
+      },
+    };
+    const { host, changes } = render(schema, { retries: 3, enabled: true });
+
+    const retryMode = host
+      .querySelector<HTMLInputElement>("#field-retries")!
+      .closest(".field")!
+      .querySelector<HTMLButtonElement>('[data-action="template"]')!;
+    retryMode.click();
+    const retryTemplate = host.querySelector<HTMLInputElement>("#field-retries")!;
+    expect(retryTemplate.hidden).toBe(false);
+    retryTemplate.value = "{{point.x}}";
+    retryTemplate.dispatchEvent(new Event("input"));
+    expect(changes.retries).toBe("{{point.x}}");
+
+    const enabledMode = host
+      .querySelector<HTMLInputElement>("#field-enabled")!
+      .closest(".field")!
+      .querySelector<HTMLButtonElement>('[data-action="template"]')!;
+    enabledMode.click();
+    const enabledTemplate = host.querySelector<HTMLInputElement>("#field-enabled")!;
+    enabledTemplate.value = "{{flags.enabled}}";
+    enabledTemplate.dispatchEvent(new Event("input"));
+    expect(changes.enabled).toBe("{{flags.enabled}}");
+  });
+
   it("resets a field to its schema default", () => {
     const schema: JsonSchema = {
       type: "object",

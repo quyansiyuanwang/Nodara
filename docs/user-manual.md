@@ -296,7 +296,11 @@ cargo run -p nodara-cli -- serve --plugin-dir plugins --require-approval --audit
 ## Workflows
 
 Workflows use `schema_version: "2.0"`, namespaced node types, and a directed
-acyclic graph. Variables are referenced with `{{name}}`. The complete node and
+acyclic graph. Variables are referenced with `{{name}}`. An exact template
+keeps the target field's JSON type, so `"{{match.x}}"` works directly in a
+numeric coordinate or duration field; mixed text such as `"x={{match.x}}"`
+remains a string. Studio's numeric and boolean fields expose a `{}` button that
+switches between a direct value and a template expression. The complete node and
 permission reference is in [nodes.md](nodes.md). A running runtime publishes the
 deployment-specific schema at:
 

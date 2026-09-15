@@ -83,7 +83,9 @@ Rules worth internalising:
   `nodara-cli schema` publishes the composed workflow schema; `GET
   /api/v1/schema/workflow` serves the same document from a running runtime.
 * **Use `resolved_config`.** `input.config` is the raw document; the placeholder
-  form is already resolved for you.
+  form is already resolved for you. Exact placeholders are coerced to the JSON
+  type declared by your property schema, so `"{{point.x}}"` reaches an integer
+  field as a number, while a string field still receives text.
 * **Check cancellation in loops.** `context.check_cancelled()?` makes `cancel`
   prompt.
 * **Publish variables, don't mutate globals.** `NodeOutput::with_variable` adds

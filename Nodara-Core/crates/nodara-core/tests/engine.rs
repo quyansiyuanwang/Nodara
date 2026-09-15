@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use nodara_core::{
@@ -40,6 +40,47 @@ impl NodeExecutor for TimeoutCaptureExecutor {
     ) -> nodara_core::NodeResult<NodeOutput> {
         self.seen_ms
             .store(input.timeout_ms.unwrap_or_default(), Ordering::SeqCst);
+        Ok(NodeOutput::new())
+    }
+}
+
+/// Captures configuration after engine-level template resolution.
+#[derive(Debug)]
+struct ConfigCaptureExecutor {
+    seen: Arc<Mutex<serde_json::Value>>,
+}
+
+impl NodeExecutor for ConfigCaptureExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor {
+            config_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "x": { "type": "integer" },
+                    "y": { "type": "integer" },
+                    "threshold": { "type": "number" },
+                    "enabled": { "type": "boolean" },
+                    "label": { "type": "string" },
+                    "exact_label": { "type": "string" }
+                }
+            }),
+            ..NodeDescriptor::new("test.ConfigCapture", "Config Capture", "Test")
+        }
+    }
+
+    fn execute(
+        &self,
+        input: NodeInput,
+        _context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        *self.seen.lock().expect("config capture") = serde_json::json!({
+            "x": input.config_i64("x"),
+            "y": input.config_i64("y"),
+            "threshold": input.config_f64("threshold"),
+            "enabled": input.config_bool("enabled"),
+            "label": input.config_str("label"),
+            "exact_label": input.config_str("exact_label")
+        });
         Ok(NodeOutput::new())
     }
 }
@@ -432,6 +473,55 @@ fn node_level_delays_are_applied() {
         started.elapsed() >= Duration::from_millis(30),
         "pre/post delays should be reflected in execution time"
     );
+}
+
+#[test]
+fn exact_templates_preserve_types_expected_by_the_config_schema() {
+    let seen = Arc::new(Mutex::new(serde_json::Value::Null));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(ConfigCaptureExecutor { seen: seen.clone() });
+
+    let mut workflow = Workflow::new("wf.typed-template");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(
+        Node::new("capture", "test.ConfigCapture").with_config(serde_json::json!({
+            "x": "{{point.x}}",
+            "y": "{{point.y}}",
+            "threshold": "{{point.threshold}}",
+            "enabled": "{{point.enabled}}",
+            "label": "point {{point.x}},{{point.y}}",
+            "exact_label": "{{point.x}}"
+        })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "capture"));
+    workflow.add_edge(Edge::new("e2", "capture", "end"));
+
+    let mut variables = BTreeMap::new();
+    variables.insert(
+        "point".to_string(),
+        serde_json::json!({
+            "x": 320,
+            "y": 240,
+            "threshold": 0.75,
+            "enabled": true
+        }),
+    );
+    let engine = WorkflowEngine::new(Arc::new(registry));
+    let outcome = engine.run(
+        RunRequest::new(workflow).with_variables(variables),
+        &RunControl::new(),
+    );
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+
+    let seen = seen.lock().expect("config capture");
+    assert_eq!(seen["x"], 320);
+    assert_eq!(seen["y"], 240);
+    assert_eq!(seen["threshold"], 0.75);
+    assert_eq!(seen["enabled"], true);
+    assert_eq!(seen["label"], "point 320,240");
+    assert_eq!(seen["exact_label"], "320");
 }
 
 #[test]

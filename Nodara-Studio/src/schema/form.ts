@@ -230,21 +230,72 @@ export function renderField(
     };
     wrapper.appendChild(select);
   } else if (type === "boolean") {
+    let usingTemplate = typeof value === "string" && value.includes("{{");
+    let currentValue = value;
     const checkbox = document.createElement("input");
-    checkbox.id = id;
+    checkbox.id = `${id}-value`;
     checkbox.type = "checkbox";
     checkbox.required = options.required === true;
     checkbox.checked = Boolean(value ?? schema.default ?? false);
-    checkbox.addEventListener("change", () => options.onChange(checkbox.checked));
+
+    const template = document.createElement("input");
+    template.id = id;
+    template.className = "input";
+    template.type = "text";
+    template.placeholder = "{{variable}}";
+    template.value = usingTemplate ? String(value) : "";
+
+    const mode = document.createElement("button");
+    mode.type = "button";
+    mode.className = "field__template";
+    mode.dataset.action = "template";
+    const syncMode = () => {
+      checkbox.hidden = usingTemplate;
+      template.hidden = !usingTemplate;
+      heading.htmlFor = usingTemplate ? id : checkbox.id;
+      mode.textContent = usingTemplate ? "✓" : "{}";
+      const label = usingTemplate ? t("form.valueMode") : t("form.templateMode");
+      mode.title = label;
+      mode.setAttribute("aria-label", label);
+    };
+
+    checkbox.addEventListener("change", () => {
+      currentValue = checkbox.checked;
+      options.onChange(checkbox.checked);
+    });
+    template.addEventListener("input", () => {
+      currentValue = template.value;
+      options.onChange(template.value);
+    });
+    mode.addEventListener("click", () => {
+      usingTemplate = !usingTemplate;
+      if (usingTemplate) {
+        template.value = typeof currentValue === "string" ? currentValue : "";
+        template.focus();
+      } else {
+        const next = typeof currentValue === "boolean" ? currentValue : false;
+        checkbox.checked = next;
+        currentValue = next;
+        options.onChange(next);
+      }
+      syncMode();
+    });
     restoreDefault = () => {
       const next = Boolean(schema.default ?? false);
+      usingTemplate = false;
+      currentValue = next;
       checkbox.checked = next;
+      syncMode();
       options.onChange(next);
     };
-    wrapper.appendChild(checkbox);
+    syncMode();
+    fieldHeader.appendChild(mode);
+    wrapper.append(checkbox, template);
   } else if (type === "number" || type === "integer") {
+    let usingTemplate = typeof value === "string" && value.includes("{{");
+    let currentValue = value;
     const input = document.createElement("input");
-    input.id = id;
+    input.id = `${id}-value`;
     input.className = "input";
     input.type = "number";
     input.required = options.required === true;
@@ -253,12 +304,57 @@ export function renderField(
     if (schema.step !== undefined) input.step = String(schema.step);
     else if (type === "integer") input.step = "1";
     input.value = value === undefined || value === null ? "" : String(value);
-    input.addEventListener("input", () => options.onChange(coerce(input.value, schema)));
+
+    const template = document.createElement("input");
+    template.id = id;
+    template.className = "input";
+    template.type = "text";
+    template.inputMode = type === "integer" ? "numeric" : "decimal";
+    template.placeholder = "{{variable}}";
+    template.value = usingTemplate ? String(value) : "";
+
+    const mode = document.createElement("button");
+    mode.type = "button";
+    mode.className = "field__template";
+    mode.dataset.action = "template";
+    const syncMode = () => {
+      input.hidden = usingTemplate;
+      template.hidden = !usingTemplate;
+      heading.htmlFor = usingTemplate ? id : input.id;
+      mode.textContent = usingTemplate ? "✓" : "{}";
+      const label = usingTemplate ? t("form.valueMode") : t("form.templateMode");
+      mode.title = label;
+      mode.setAttribute("aria-label", label);
+    };
+
+    input.addEventListener("input", () => {
+      currentValue = coerce(input.value, schema);
+      options.onChange(currentValue);
+    });
+    template.addEventListener("input", () => {
+      currentValue = template.value;
+      options.onChange(template.value);
+    });
+    mode.addEventListener("click", () => {
+      usingTemplate = !usingTemplate;
+      if (usingTemplate) {
+        template.value = typeof currentValue === "string" ? currentValue : "";
+        template.focus();
+      } else {
+        input.value = typeof currentValue === "number" ? String(currentValue) : "";
+      }
+      syncMode();
+    });
     restoreDefault = () => {
+      usingTemplate = false;
+      currentValue = schema.default;
       input.value = schema.default === undefined ? "" : String(schema.default);
+      syncMode();
       options.onChange(schema.default);
     };
-    wrapper.appendChild(input);
+    syncMode();
+    fieldHeader.appendChild(mode);
+    wrapper.append(input, template);
   } else if (type === "string") {
     const long = (schema.description ?? "").length > 60 || key === "message";
     const input = document.createElement(long ? "textarea" : "input") as
