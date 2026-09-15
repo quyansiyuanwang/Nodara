@@ -286,7 +286,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 - 鼠标 `relative=true` 时，X/Y 是相对当前光标的位置；
 - 鼠标 `drag` 支持可选起点 `start_x/start_y`、终点 `x/y` 和
   `duration_ms` 平滑移动时间；
-- 后台鼠标使用窗口客户区坐标，发送 `WM_MOUSEMOVE` 和对应按键消息，不移动真实系统光标；
+- 后台鼠标使用窗口客户区坐标，发送 `WM_MOUSEMOVE` 和对应按键消息，并在操作结束后恢复原系统光标位置；
 - 双击间隔可通过 `double_click_interval_ms` 调整。
 
 `background` 必须配合标题、窗口类或进程名选择器，不能与 `focus` 同时开启；后台模式不适合所有应用，

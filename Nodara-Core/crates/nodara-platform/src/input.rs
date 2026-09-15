@@ -792,7 +792,8 @@ impl NodeExecutor for MouseExecutor {
         };
 
         if let Some(target) = target.filter(|target| target.background) {
-            return execute_background_mouse(
+            let screen_cursor = cursor_position()?;
+            let result = execute_background_mouse(
                 context,
                 &input,
                 &target,
@@ -803,6 +804,18 @@ impl NodeExecutor for MouseExecutor {
                 relative,
                 double_click_interval_ms,
             );
+            let restore = native::set_cursor(screen_cursor.0, screen_cursor.1)
+                .map_err(|error| NodeError::Execution(error.to_string()));
+            return match result {
+                Ok(output) => {
+                    restore?;
+                    Ok(output)
+                }
+                Err(error) => {
+                    let _ = restore;
+                    Err(error)
+                }
+            };
         }
 
         let origin = cursor_position()?;

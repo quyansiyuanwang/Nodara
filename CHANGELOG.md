@@ -141,7 +141,8 @@ All notable changes to this project are documented here. The format follows
   paste semantics.
 - Background mouse input now converts screen coordinates to the target window's
   client space and sends `WM_MOUSEMOVE` plus left/right/middle button messages,
-  including smooth drag, without moving the real system cursor.
+  including smooth drag. It restores the original system cursor position after
+  the operation.
 
 ### Changed
 

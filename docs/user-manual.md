@@ -150,8 +150,8 @@ Input nodes expose additional real-world timing and movement controls:
 * `relative=true` treats X/Y as offsets from the current cursor;
 * mouse `drag` supports optional `start_x/start_y`, destination `x/y` and a
   smooth `duration_ms`;
-* background mouse input uses client coordinates and sends `WM_MOUSEMOVE` and
-  button messages without moving the real cursor;
+* background mouse input uses client coordinates, sends `WM_MOUSEMOVE` and
+  button messages, and restores the original system cursor position afterward;
 * `double_click_interval_ms` controls the delay between the two clicks.
 
 `background` requires a title, class or process selector and cannot be combined
