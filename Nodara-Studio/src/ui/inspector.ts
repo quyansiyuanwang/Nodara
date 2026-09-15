@@ -342,6 +342,12 @@ export class Inspector {
             title: t("execution.condition"),
             description: t("execution.conditionDetail"),
           },
+          breakpoint: {
+            type: "boolean",
+            title: t("execution.breakpoint"),
+            description: t("execution.breakpointDetail"),
+            default: false,
+          },
           delay_before_ms: {
             type: "integer",
             title: t("execution.delayBefore"),
@@ -415,6 +421,7 @@ export class Inspector {
       {
         enabled: node.enabled ?? true,
         condition: node.condition ?? "",
+        breakpoint: node.breakpoint ?? false,
         delay_before_ms: node.delay_before_ms ?? 0,
         delay_after_ms: node.delay_after_ms ?? 0,
         continue_on_error: node.continue_on_error ?? false,
@@ -443,6 +450,10 @@ export class Inspector {
         else delete node.condition;
         break;
       }
+      case "breakpoint":
+        if (value === true) node.breakpoint = true;
+        else delete node.breakpoint;
+        break;
       case "delay_before_ms":
         if (number > 0) node.delay_before_ms = number;
         else delete node.delay_before_ms;

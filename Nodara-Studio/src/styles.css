@@ -366,6 +366,16 @@ body {
   stroke-width: 1.5;
 }
 
+.node--breakpoint .node__body {
+  stroke: var(--warn);
+}
+
+.node__breakpoint {
+  fill: var(--warn);
+  stroke: #11141c;
+  stroke-width: 1.5;
+}
+
 .node--selected .node__body {
   stroke: var(--accent);
   stroke-width: 2.5;

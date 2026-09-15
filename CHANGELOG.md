@@ -8,6 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Workflow nodes now support a persisted `breakpoint` flag. The engine pauses
+  immediately before the selected node and emits a normal `run_paused` event;
+  Studio exposes it in Execution settings and the node context menu, and draws
+  a visible marker on the canvas. Disabled and condition-pruned nodes do not
+  trigger it.
 - `nodara_schema::workflow_schema_for` composes the workflow JSON Schema from the
   installed node descriptors: `node.type` becomes an enum of the node types the
   deployment has, and each type contributes an `if`/`then` branch that points

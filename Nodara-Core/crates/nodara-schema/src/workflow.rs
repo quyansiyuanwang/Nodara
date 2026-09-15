@@ -135,6 +135,12 @@ pub struct Node {
     /// branches. The expression can read the current run scope.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
+    /// Pause automatically immediately before this node executes.
+    ///
+    /// The run remains paused until the operator resumes or grants one step.
+    /// Disabled and condition-pruned nodes do not trigger the breakpoint.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub breakpoint: bool,
     /// Delay before the executor is invoked, in milliseconds.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub delay_before_ms: u64,
@@ -185,6 +191,7 @@ impl Node {
             position: None,
             enabled: true,
             condition: None,
+            breakpoint: false,
             delay_before_ms: 0,
             delay_after_ms: 0,
             continue_on_error: false,
@@ -408,6 +415,7 @@ mod tests {
         let mut node = Node::new("log", "core.Log");
         node.enabled = false;
         node.condition = Some("enabled > 0".to_string());
+        node.breakpoint = true;
         node.delay_before_ms = 25;
         node.delay_after_ms = 50;
         node.continue_on_error = true;
@@ -423,6 +431,7 @@ mod tests {
         let back: Node = serde_json::from_str(&json).unwrap();
         assert!(!back.enabled);
         assert_eq!(back.condition.as_deref(), Some("enabled > 0"));
+        assert!(back.breakpoint);
         assert_eq!(back.delay_before_ms, 25);
         assert_eq!(back.delay_after_ms, 50);
         assert!(back.continue_on_error);

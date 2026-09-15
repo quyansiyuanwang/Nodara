@@ -125,10 +125,11 @@ workflow variables marked secret are not persisted beyond the browser session.
   description, secret flag and session-only run overrides). The **Variables…**
   toolbar action opens all run overrides in one dialog for quick testing.
 * The Properties panel exposes common execution settings for every node:
-  enabled pass-through, run condition, pre/post delay, continue-on-error,
-  retry count, retry delay and common result mapping (`result_var` /
-  `result_port`). Plugin nodes also expose a per-attempt timeout. The node
-  context menu can toggle a node on or off immediately.
+  enabled pass-through, run condition, a persisted breakpoint, pre/post delay,
+  continue-on-error, retry count and backoff, and common result mapping
+  (`result_var` / `result_port`). Plugin nodes also expose a per-attempt
+  timeout. The node context menu can toggle a node on or off and set or clear
+  its breakpoint immediately; breakpointed nodes carry a visible canvas marker.
 * Execution, Configuration and Variables are collapsible sections. Their
   expanded state is remembered locally so complex nodes remain manageable.
 * Keyboard nodes expose `type`/`press`/`release` and hold duration directly.
@@ -148,7 +149,9 @@ workflow variables marked secret are not persisted beyond the browser session.
 * **Step** remains available while idle, paused or terminal. It starts a paused
   run and executes the first node when necessary, then advances exactly one
   node per click and returns to `paused`. This makes short workflows debuggable
-  without racing the Pause button.
+  without racing the Pause button. Node-level breakpoints use the same run
+  control, so a long workflow can pause exactly before each node that needs
+  inspection.
 * Capture nodes expose **Select screen region**. The desktop shell hides itself
   while the runtime takes a fresh screenshot, then reopens a mouse-driven
   rectangle picker and writes X/Y/Width/Height back into the node.

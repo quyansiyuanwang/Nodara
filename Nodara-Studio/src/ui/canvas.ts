@@ -630,6 +630,21 @@ export class Canvas {
         });
         this.contextMenu.appendChild(duplicate);
 
+        const breakpoint = document.createElement("button");
+        breakpoint.type = "button";
+        breakpoint.className = "context-menu__item";
+        breakpoint.dataset.action = "breakpoint";
+        breakpoint.textContent = node.breakpoint
+          ? t("canvas.clearBreakpoint")
+          : t("canvas.setBreakpoint");
+        breakpoint.addEventListener("click", () => {
+          if (node.breakpoint) delete node.breakpoint;
+          else node.breakpoint = true;
+          this.contextMenu.hidden = true;
+          this.handlers.onChange();
+        });
+        this.contextMenu.appendChild(breakpoint);
+
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "context-menu__item";
@@ -682,6 +697,7 @@ export class Canvas {
       if (this.selected === node.id) group.classList.add("node--selected");
       if (descriptor?.dangerous) group.classList.add("node--gated");
       if (node.enabled === false) group.classList.add("node--disabled");
+      if (node.breakpoint) group.classList.add("node--breakpoint");
       if (this.status === "running") group.classList.add("node--ready");
 
       const x = node.position?.x ?? 0;
@@ -709,6 +725,18 @@ export class Canvas {
       type.textContent = node.type;
       group.appendChild(type);
 
+      if (node.breakpoint) {
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        marker.setAttribute("cx", "7");
+        marker.setAttribute("cy", "7");
+        marker.setAttribute("r", "4");
+        marker.classList.add("node__breakpoint");
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        title.textContent = t("canvas.nodeBreakpoint");
+        marker.appendChild(title);
+        group.appendChild(marker);
+      }
+
       if (node.enabled === false) {
         const disabled = document.createElementNS("http://www.w3.org/2000/svg", "text");
         disabled.setAttribute("x", String(NODE_WIDTH - 10));
@@ -722,6 +750,7 @@ export class Canvas {
       const executionDetails: string[] = [];
       if (node.enabled === false) executionDetails.push(t("canvas.nodeDisabled"));
       if (node.condition) executionDetails.push(`${t("execution.condition")}: ${node.condition}`);
+      if (node.breakpoint) executionDetails.push(t("execution.breakpoint"));
       if ((node.delay_before_ms ?? 0) > 0) {
         executionDetails.push(`${t("execution.delayBefore")}: ${node.delay_before_ms}`);
       }

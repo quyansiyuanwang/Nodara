@@ -19,7 +19,7 @@
 | A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
 | A10 | 发布产物 | release 包包含 NSIS 和 MSI；优化后的 exe 可运行 |
-| A11 | Studio 调试交互 | 空闲时可单步启动，后续每次只执行一个节点；截图可在模态图中框选并写回 X/Y/宽度/高度；截图和 Log 图片预览可见 |
+| A11 | Studio 调试交互 | 空闲时可单步启动，后续每次只执行一个节点；节点断点会在执行前暂停并在导出后保留；截图可框选并写回 X/Y/宽度/高度；截图和 Log 图片预览可见 |
 
 任一 A 级检查失败，应保留日志并停止发布验收；恢复后从失败步骤重新执行。
 
@@ -195,6 +195,7 @@ $plugins.plugins | Select-Object id,version
 17. 关闭 Notepad 后运行 `examples/wait-for-window.json`，Wait 节点应轮询并等待；随后打开 Notepad，工作流应在超时前继续。超时场景返回 `E_TIMEOUT`。
 18. 在隔离测试桌面上验证输入时序：Keyboard `press shift` → Text `a` → Keyboard `release shift` 应产生大写 `A`；Mouse `drag` 可配置起点、终点和持续时间，并以平滑轨迹移动。
 19. 保持目标窗口位于后台，使用 `background=true` 和进程/标题选择器发送文本与鼠标客户区消息；支持消息的控件应在不切换焦点、不移动真实光标的情况下收到输入。对不处理消息的控件，记录该限制。
+20. 打开 `examples/breakpoint-debug.json`，Calculate 节点应显示断点标记；Run 应在其执行前暂停且 `nodes_executed=2`，点击 Resume 或 Step 后工作流继续完成。
 
 ### 6.4 Audit
 

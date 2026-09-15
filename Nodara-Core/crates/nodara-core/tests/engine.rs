@@ -663,6 +663,44 @@ fn a_paused_run_steps_then_resumes() {
 }
 
 #[test]
+fn a_node_breakpoint_pauses_before_execution_and_resumes() {
+    let mut workflow = linear_workflow();
+    workflow.node_mut("calc").unwrap().breakpoint = true;
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let engine = WorkflowEngine::new(registry());
+    let running = engine.spawn(RunRequest::new(workflow).with_event_sink(sink.clone()));
+
+    let mut paused = false;
+    for _ in 0..100 {
+        if running.control().is_paused() {
+            paused = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    if !paused {
+        running.control().cancel();
+        let outcome = running.join();
+        panic!("breakpoint did not pause the run: {:?}", outcome.failure);
+    }
+
+    running.control().resume();
+    let outcome = running.join();
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.nodes_executed, 5);
+
+    let events = sink.snapshot();
+    assert!(events
+        .iter()
+        .any(|envelope| matches!(envelope.event, ExecutionEvent::RunPaused)));
+    assert!(events.iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::Log { message, .. } if message.contains("breakpoint hit before node `calc`")
+    )));
+}
+
+#[test]
 fn cancelling_a_paused_run_stops_it() {
     let engine = WorkflowEngine::new(registry());
     let control = RunControl::new();

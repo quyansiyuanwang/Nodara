@@ -166,15 +166,31 @@ describe("node execution settings", () => {
     );
     inspector.render("log");
 
-    const checkboxes = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    checkboxes[0].checked = false;
-    checkboxes[0].dispatchEvent(new Event("change"));
-    checkboxes[1].checked = true;
-    checkboxes[1].dispatchEvent(new Event("change"));
+    const labels = [...root.querySelectorAll<HTMLLabelElement>(".field__label")];
+    const enabledLabel = labels.find((label) => label.textContent === "Enabled")!;
+    const enabled = enabledLabel.closest(".field")!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    enabled.checked = false;
+    enabled.dispatchEvent(new Event("change"));
+
+    const breakpointLabel = labels.find(
+      (label) => label.textContent === "Breakpoint before node",
+    )!;
+    const breakpoint = breakpointLabel
+      .closest(".field")!
+      .querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    breakpoint.checked = true;
+    breakpoint.dispatchEvent(new Event("change"));
+
+    const continueLabel = labels.find((label) => label.textContent === "Continue on error")!;
+    const continueOnError = continueLabel
+      .closest(".field")!
+      .querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    continueOnError.checked = true;
+    continueOnError.dispatchEvent(new Event("change"));
     expect(workflow.nodes.find((node) => node.id === "log")?.enabled).toBe(false);
+    expect(workflow.nodes.find((node) => node.id === "log")?.breakpoint).toBe(true);
     expect(workflow.nodes.find((node) => node.id === "log")?.continue_on_error).toBe(true);
 
-    const labels = [...root.querySelectorAll<HTMLLabelElement>(".field__label")];
     const conditionLabel = labels.find((label) => label.textContent === "Run condition")!;
     const condition = conditionLabel.closest(".field")!.querySelector("textarea")!;
     condition.value = "allow";
@@ -201,7 +217,7 @@ describe("node execution settings", () => {
 
     expect(workflow.nodes.find((node) => node.id === "log")?.result_var).toBe("answer");
     expect(workflow.nodes.find((node) => node.id === "log")?.result_port).toBe("result");
-    expect(changes).toBe(7);
+    expect(changes).toBe(8);
   });
 
   it("remembers collapsed configuration sections", () => {

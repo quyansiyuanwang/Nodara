@@ -104,6 +104,7 @@ of the workflow document and are honored by the runtime:
 |---|---|
 | Enabled | Disable a node to skip it while passing its incoming branch through to its outgoing edges |
 | Run condition | Optional expression; a false result skips the node and prunes its outgoing branches |
+| Breakpoint before node | Pause automatically before this node executes; `Resume` continues and `Step` executes only this node |
 | Delay before (ms) | Wait before executing the node |
 | Delay after (ms) | Wait after successful execution before activating outgoing branches |
 | Continue on error | After retries are exhausted, continue through eligible Always/Failure branches instead of failing the run |
@@ -115,7 +116,7 @@ of the workflow document and are honored by the runtime:
 | Store result as | Publish one of this node's output ports under a run-scope variable for later nodes and expressions |
 | Result port | Output port selected by Store result as; blank uses `out` or the first available output |
 
-The node context menu also provides an immediate enable/disable action.
+The node context menu also provides immediate enable/disable and breakpoint actions.
 
 ### Run and debug
 
@@ -124,7 +125,7 @@ The node context menu also provides an immediate enable/disable action.
   completed, failed or cancelled state it starts a paused run and executes the
   first node. Each later click executes exactly one node and returns to
   `paused`.
-* **Pause**, **Resume** and **Cancel** steer the active run.
+* **Pause**, **Resume** and **Cancel** steer the active run. A node breakpoint pauses the run immediately before that node, even when execution started unpaused.
 * The Events tab follows the WebSocket event stream and highlights the running,
   completed and failed node on the canvas.
 

@@ -363,6 +363,33 @@ describe("graph editing on the canvas", () => {
     expect(document.querySelector<SVGGElement>('[data-node-id="log"]')?.classList.contains("node--disabled")).toBe(true);
   });
 
+  it("toggles a breakpoint from the node context menu", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    let node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const breakpoint = document.querySelector<HTMLButtonElement>(
+      '.context-menu__item[data-action="breakpoint"]',
+    )!;
+    expect(breakpoint.textContent).toContain("Set breakpoint before node");
+    breakpoint.click();
+
+    expect(workflow.nodes.find((candidate) => candidate.id === "log")?.breakpoint).toBe(true);
+    node = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    expect(node.classList.contains("node--breakpoint")).toBe(true);
+    expect(node.querySelector(".node__breakpoint")).not.toBeNull();
+
+    node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const clear = document.querySelector<HTMLButtonElement>(
+      '.context-menu__item[data-action="breakpoint"]',
+    )!;
+    expect(clear.textContent).toContain("Clear breakpoint");
+    clear.click();
+    expect(workflow.nodes.find((candidate) => candidate.id === "log")?.breakpoint).toBeUndefined();
+  });
+
   it("duplicates a configured node with Ctrl+D", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);
@@ -371,6 +398,7 @@ describe("graph editing on the canvas", () => {
     source.config = { message: "copied" };
     source.retry = 2;
     source.delay_before_ms = 15;
+    source.breakpoint = true;
     canvas.select(source.id);
     canvas.render();
 
@@ -384,6 +412,7 @@ describe("graph editing on the canvas", () => {
     expect(copy.config).not.toBe(source.config);
     expect(copy.retry).toBe(2);
     expect(copy.delay_before_ms).toBe(15);
+    expect(copy.breakpoint).toBe(true);
     expect(copy.position).toEqual({ x: 252, y: 152 });
   });
 

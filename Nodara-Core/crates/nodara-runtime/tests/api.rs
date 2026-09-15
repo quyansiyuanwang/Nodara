@@ -502,6 +502,76 @@ async fn a_run_can_start_paused_and_step_one_node_at_a_time() {
 }
 
 #[tokio::test]
+async fn a_node_breakpoint_pauses_an_unpaused_run() {
+    let state = state().await;
+    let mut workflow = valid_workflow();
+    workflow["nodes"][2]["breakpoint"] = json!(true);
+
+    let (status, created) = call(
+        &state,
+        json_request("POST", "/api/v1/runs", json!({ "workflow": workflow })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{created}");
+    let run_id = created["id"].as_str().unwrap().to_string();
+
+    let mut snapshot = created;
+    for _ in 0..100 {
+        if snapshot["status"] == "paused" {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        let (_, body) = call(
+            &state,
+            Request::builder()
+                .uri(format!("/api/v1/runs/{run_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        snapshot = body;
+    }
+    assert_eq!(snapshot["status"], "paused", "{snapshot}");
+    assert_eq!(snapshot["nodes_executed"], 2, "{snapshot}");
+
+    let events = state.runs.get(&run_id).unwrap().history();
+    assert!(events
+        .iter()
+        .any(|envelope| { matches!(envelope.event, nodara_schema::ExecutionEvent::RunPaused) }));
+    assert!(events.iter().any(|envelope| {
+        matches!(
+            &envelope.event,
+            nodara_schema::ExecutionEvent::Log { message, .. }
+                if message.contains("breakpoint hit before node `log`")
+        )
+    }));
+
+    let (status, _) = call(
+        &state,
+        json_request("POST", &format!("/api/v1/runs/{run_id}/resume"), json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    for _ in 0..100 {
+        let (_, body) = call(
+            &state,
+            Request::builder()
+                .uri(format!("/api/v1/runs/{run_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        snapshot = body;
+        if snapshot["status"] == "completed" {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(snapshot["status"], "completed", "{snapshot}");
+}
+
+#[tokio::test]
 async fn unknown_runs_produce_a_structured_404() {
     let state = state().await;
     let (status, body) = call(

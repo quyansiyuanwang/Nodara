@@ -18,7 +18,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A08 | Events/audit | Events and policy decisions are visible |
 | A09 | Debug | Matching PDB files are present and executables run |
 | A10 | Release | NSIS and MSI are present and the optimized app runs |
-| A11 | Studio debugging UX | Step works from idle and advances one node at a time; the region picker writes X/Y/width/height; screenshot and Log image previews render |
+| A11 | Studio debugging UX | Step works from idle and advances one node at a time; node breakpoints pause before execution and survive Export; the region picker writes X/Y/width/height; screenshot and Log image previews render |
 
 ## Integrity
 
@@ -99,7 +99,8 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 18. On an isolated test desktop, verify input timing: Keyboard `press shift` → Text `a` → Keyboard `release shift` produces an uppercase `A`; Mouse `drag` accepts optional start coordinates, destination coordinates and duration and moves smoothly.
 19. Keep the target window in the background and send text plus client-coordinate mouse messages with `background=true` and a title/process selector. A message-capable control should receive them without changing focus or moving the real cursor; record unsupported applications as a compatibility limitation.
 20. The Audit tab shows capability and node records.
-21. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+21. Open `examples/breakpoint-debug.json`; the Calculate node shows a breakpoint marker, Run pauses before it with `nodes_executed=2`, and Resume or Step completes the workflow.
+22. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

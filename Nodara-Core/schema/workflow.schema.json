@@ -570,6 +570,10 @@
       ],
       "description": "A node in the workflow graph.",
       "properties": {
+        "breakpoint": {
+          "description": "Pause automatically immediately before this node executes.\n\nThe run remains paused until the operator resumes or grants one step. Disabled and condition-pruned nodes do not trigger the breakpoint.",
+          "type": "boolean"
+        },
         "condition": {
           "description": "Optional expression evaluated before this node is executed.\n\nA false result skips the node and does not activate its outgoing branches. The expression can read the current run scope.",
           "type": [

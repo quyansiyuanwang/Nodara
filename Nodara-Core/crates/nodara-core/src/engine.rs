@@ -505,6 +505,20 @@ impl WorkflowEngine {
                 }
             }
 
+            if node.breakpoint && !control.is_paused() {
+                context.log(
+                    nodara_schema::LogLevel::Info,
+                    format!("breakpoint hit before node `{}`", node.id),
+                );
+                control.pause();
+                bus.emit(ExecutionEvent::RunPaused);
+            }
+            if let Err(NodeError::Cancelled) = control.await_permission() {
+                status = RunStatus::Cancelled;
+                failure = Some(cancelled_failure());
+                break;
+            }
+
             let Some(executor) = self.registry.get(&node.node_type) else {
                 let error = ExecutionError::UnknownNodeType {
                     node_id: node.id.clone(),

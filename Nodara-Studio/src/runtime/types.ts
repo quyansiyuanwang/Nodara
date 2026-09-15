@@ -68,6 +68,8 @@ export interface WorkflowNode {
   /** Disabled nodes act as transparent pass-throughs during execution. */
   enabled?: boolean;
   condition?: string;
+  /** Pause the run immediately before this node executes. */
+  breakpoint?: boolean;
   delay_before_ms?: number;
   delay_after_ms?: number;
   /** Continue through outgoing branches after all retries fail. */
