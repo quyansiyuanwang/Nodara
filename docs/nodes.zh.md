@@ -2,7 +2,7 @@
 
 > English: [nodes.md](nodes.md)
 
-这里是默认构建随附的节点类型目录：5 个核心节点、2 个系统节点、3 个输入节点、3 个窗口节点、
+这里是默认构建随附的节点类型目录：5 个核心节点、3 个系统节点、3 个输入节点、3 个窗口节点、
 桌面捕获与 2 个视觉节点。部署方可以通过安装插件扩展它们 —— 调用 `GET /api/v1/node-types`，
 或运行 `nodara-cli simulate <工作流>` 查看某个文档需要哪些节点类型 —— 发布的工作流 schema 也会随之增长。
 
@@ -27,6 +27,7 @@
 | `window.control` | `windows.Window.Focus` | 需要审批 |
 | `screen.capture` | `windows.Desktop.Capture`、`windows.Window.Capture` | 需要审批 |
 | `clipboard` | `system.Clipboard` | 需要审批 |
+| `process.execute` | `system.Command` | 需要审批 |
 | `vision.analyze` | `vision.TemplateMatch`、`vision.Ocr` | 需要审批 |
 | — | `core.*`、`system.Delay`、`windows.Window.Find` | 直接放行 |
 
@@ -41,6 +42,7 @@
 | `core.SetVariable` | Core | in `in` → out `out` | — |
 | `system.Delay` | System | in `in` → out `out` | — |
 | `system.Clipboard` | System | in `in` → out `out` | `clipboard` |
+| `system.Command` | System | in `in` → out `out`、`stderr`、`exit_code`、`success`、`pid` | `process.execute` |
 | `windows.Input.Keyboard` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Text` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Mouse` | Input | in `in` → out `out` | `input.control` |
@@ -163,6 +165,42 @@
 ```json
 { "id": "read_clip", "type": "system.Clipboard",
   "config": { "action": "read", "output_var": "clip" } }
+```
+
+### `system.Command` — Command
+
+启动外部程序或 Shell 命令，等待结束后捕获标准输出、标准错误和退出码。进程执行期间会响应
+取消与节点超时；超时或取消时会终止整个子进程树。
+
+* 端口：in `in`（any）→ out `out`（string，stdout）、`stderr`（string）、
+  `exit_code`（number）、`success`（boolean）、`pid`（number）
+* 策略：**特权节点** —— 权限 `process.execute`
+
+| 配置项 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `program` | string | **是** | — | 要启动的可执行文件；开启 `shell` 后也可以是命令或 Windows 内置命令。 |
+| `args` | string[] | 否 | `[]` | 传给程序的参数列表。 |
+| `cwd` | string | 否 | — | 工作目录；留空时使用插件进程目录。 |
+| `env` | object | 否 | `{}` | 合并到继承环境中的附加环境变量。 |
+| `shell` | boolean | 否 | `true` | Windows 使用 `cmd.exe /C`，其他系统使用 `sh -c`；关闭后直接启动程序。 |
+| `stdin` | string | 否 | — | 写入进程标准输入的文本，支持模板插值。 |
+| `check_exit_code` | boolean | 否 | `true` | 非零退出时让节点失败；关闭后由下游检查输出。 |
+| `wait` | boolean | 否 | `true` | 是否等待进程完成；关闭后立即返回 `pid`。 |
+
+```json
+{
+  "id": "command",
+  "type": "system.Command",
+  "config": {
+    "program": "echo",
+    "args": ["hello"],
+    "shell": true,
+    "check_exit_code": true,
+    "wait": true
+  },
+  "result_var": "command_output",
+  "result_port": "out"
+}
 ```
 
 ## Input（输入）

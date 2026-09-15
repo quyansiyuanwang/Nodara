@@ -11,7 +11,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A01 | Package integrity | ZIP hash and every entry in `SHA256SUMS.txt` match |
 | A02 | Versions | All components report 2.0.0 and `build-info.json` names the expected commit |
 | A03 | CLI smoke | Validate, simulate, run and `extensions --json` succeed |
-| A04 | Plugins | Runtime reports 2 plugins and 16 node types |
+| A04 | Plugins | Runtime reports 2 plugins and 17 node types |
 | A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
 | A06 | Studio | Desktop Studio connects and runs hello-world |
 | A07 | Agent mock | A canned workflow plans and runs without an API key |
@@ -73,13 +73,13 @@ $plugins.plugins | Select-Object id,version
 "plugin failures: $($plugins.failures.Count)"
 ```
 
-Require `status=ok`, 2 plugins, 0 failures, and 16 node types.
+Require `status=ok`, 2 plugins, 0 failures, and 17 node types.
 
 ## Studio
 
 With the runtime running, launch `nodara-studio.exe` and verify:
 
-1. The status badge reports `16 node types · 2 plugin(s)`.
+1. The status badge reports `17 node types · 2 plugin(s)`.
 2. Hello-world imports with the `Start → Log → End` graph.
 3. Validate and Run complete successfully.
 4. The Events tab reaches `run_completed`.
@@ -93,8 +93,9 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 12. From idle, completed, failed or cancelled state, **Step** starts paused and executes one node; each later click increments `nodes_executed` by exactly one and returns the status to `paused`.
 13. Selecting `windows.Desktop.Capture` and choosing **Select screen region** hides and restores Studio; the captured image does not contain the picker dialog, and applying a drag writes matching X/Y/width/height values.
 14. A `core.Log` message containing artifact JSON, such as `{{screenshot}}`, also renders the image inline.
-15. The Audit tab shows capability and node records.
-16. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+15. `examples/system-command.json` runs successfully; the Command node's `out` contains stdout and the following Log interpolates it. Verify non-zero exit and cancellation/timeout behavior against the documented outputs.
+16. The Audit tab shows capability and node records.
+17. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

@@ -57,7 +57,7 @@ run completed: 5 node(s) in 3ms
 
 ```bash
 cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
-# runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
+# runtime listening on http://127.0.0.1:8710/api/v1 (17 node type(s), 2 plugin(s))
 ```
 
 `--in-process` registers the official capabilities directly; omit it to launch
@@ -126,7 +126,7 @@ with descriptions, defaults and enums — regenerate it with
 | Plugin | Node types | Requires |
 |--------|-----------|----------|
 | built in | `core.Start`, `core.End`, `core.Log`, `core.Calculate`, `core.SetVariable`, `system.Delay` | — |
-| `nodara.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard` | `input.control`, `window.control`, `screen.capture`, `clipboard` |
+| `nodara.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard`, `system.Command` | `input.control`, `window.control`, `screen.capture`, `clipboard`, `process.execute` |
 | `nodara.vision` | `vision.TemplateMatch`, `vision.Ocr` | `vision.analyze` |
 
 Nodes that declare permissions are gated: policy is consulted before every

@@ -3,7 +3,7 @@
 > 中文版：[nodes.zh.md](nodes.zh.md)
 
 This is the catalogue of the node types the default build ships: five core
-nodes, two system nodes, three input nodes, three window nodes, desktop capture
+nodes, three system nodes, three input nodes, three window nodes, desktop capture
 and two vision nodes. A deployment can add more by installing plugins — call
 `GET /api/v1/node-types`, or run `nodara-cli simulate <workflow>` to see which node
 types a document needs — and the published workflow schema grows with them.
@@ -34,6 +34,7 @@ The same information is machine-readable from `GET /api/v1/node-types`, and
 | `window.control` | `windows.Window.Focus` | approval required |
 | `screen.capture` | `windows.Desktop.Capture`, `windows.Window.Capture` | approval required |
 | `clipboard` | `system.Clipboard` | approval required |
+| `process.execute` | `system.Command` | approval required |
 | `vision.analyze` | `vision.TemplateMatch`, `vision.Ocr` | approval required |
 | — | `core.*`, `system.Delay`, `windows.Window.Find` | allowed |
 
@@ -48,6 +49,7 @@ The same information is machine-readable from `GET /api/v1/node-types`, and
 | `core.SetVariable` | Core | in `in` → out `out` | — |
 | `system.Delay` | System | in `in` → out `out` | — |
 | `system.Clipboard` | System | in `in` → out `out` | `clipboard` |
+| `system.Command` | System | in `in` → out `out`, `stderr`, `exit_code`, `success`, `pid` | `process.execute` |
 | `windows.Input.Keyboard` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Text` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Mouse` | Input | in `in` → out `out` | `input.control` |
@@ -178,6 +180,43 @@ Reads the clipboard into the run, or replaces its text.
 ```json
 { "id": "read_clip", "type": "system.Clipboard",
   "config": { "action": "read", "output_var": "clip" } }
+```
+
+### `system.Command` — Command
+
+Launches an external program or shell command and captures stdout, stderr and the
+exit code. Cancellation and node timeouts are observed while the process runs;
+both terminate the complete child process tree.
+
+* Ports: in `in` (any) → out `out` (string, stdout), `stderr` (string),
+  `exit_code` (number), `success` (boolean), `pid` (number)
+* Policy: **privileged** — permission `process.execute`
+
+| Key | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `program` | string | **yes** | — | Executable to launch. With `shell` enabled this can also be a command or Windows built-in. |
+| `args` | string[] | no | `[]` | Arguments passed to the program. |
+| `cwd` | string | no | — | Working directory; blank uses the plugin process directory. |
+| `env` | object | no | `{}` | Additional environment variables merged into the inherited environment. |
+| `shell` | boolean | no | `true` | Use `cmd.exe /C` on Windows or `sh -c` elsewhere. Disable for direct execution. |
+| `stdin` | string | no | — | Text written to process standard input; supports template interpolation. |
+| `check_exit_code` | boolean | no | `true` | Fail the node on a non-zero exit. Disable to inspect output downstream. |
+| `wait` | boolean | no | `true` | Wait for completion. Disable to launch in the background and return `pid`. |
+
+```json
+{
+  "id": "command",
+  "type": "system.Command",
+  "config": {
+    "program": "echo",
+    "args": ["hello"],
+    "shell": true,
+    "check_exit_code": true,
+    "wait": true
+  },
+  "result_var": "command_output",
+  "result_port": "out"
+}
 ```
 
 ## Input

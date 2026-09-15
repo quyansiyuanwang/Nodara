@@ -12,7 +12,7 @@
 |---|---|---|
 | CLI | `nodara-cli.exe` | 校验、模拟、运行、迁移、导出 Schema、启动 runtime 的开发入口 |
 | Runtime | `nodara-runtime.exe` | 无界面 HTTP/WebSocket 服务，Studio 与 Agent 的共同服务端 |
-| Platform 插件 | `nodara-platform-plugin.exe` | 键鼠、窗口、截图、剪贴板 |
+| Platform 插件 | `nodara-platform-plugin.exe` | 键鼠、窗口、截图、剪贴板、进程执行 |
 | Vision 插件 | `nodara-vision-plugin.exe` | 模板匹配与 OCR |
 | Agent | `nodara-agent.exe` | 将自然语言目标规划为工作流，并通过 runtime 观察执行 |
 | Studio 桌面版 | `nodara-studio.exe` | 图形化工作流编辑、运行观察、审批和审计 |
@@ -289,6 +289,25 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 ```
 
 第一个接口返回元数据，第二个接口按 MIME 类型返回原始字节。artifact 在当前 runtime 保留运行记录期间可访问。
+
+### 启动外部命令
+
+`system.Command` 可直接启动程序或 Shell 命令，并将 stdout、stderr、退出码和 PID
+发布到输出端口。常用配置全部在节点属性面板中：
+
+| 配置 | 说明 |
+|---|---|
+| 程序或命令 | 要执行的程序；开启“通过 Shell 运行”后也可使用命令和 Windows 内置命令 |
+| 参数 | 参数列表，每项会自动作为独立参数传递 |
+| 工作目录 / 环境变量 | 控制进程启动目录和附加环境变量 |
+| 标准输入 | 可选文本，支持 `{{变量}}` 插值 |
+| 非零退出时失败 | 默认开启；关闭后可在下游读取 `exit_code`、`stdout`、`stderr` |
+| 等待完成 | 关闭时后台启动，只返回 `pid` |
+
+节点默认将 stdout 放在 `out` 端口，因此通用“结果存入变量”设置可直接把命令输出传给
+后续节点。Command 完成后，Events 页会直接展开 stdout、stderr、退出码和 PID。
+节点超时和运行取消都会终止整个子进程树。该节点需要
+`process.execute` 权限；`examples/system-command.json` 提供了可直接运行的示例。
 
 ### 失败恢复上下文
 

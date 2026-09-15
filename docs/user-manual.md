@@ -12,7 +12,7 @@ development and packaging, see `README.md`, `QUICKSTART.md`, and
 |---|---|---|
 | CLI | `nodara-cli.exe` | Validate, simulate, run, migrate, export schemas, and serve |
 | Runtime | `nodara-runtime.exe` | HTTP/WebSocket execution and policy service |
-| Platform plugin | `nodara-platform-plugin.exe` | Keyboard, mouse, windows, capture, clipboard |
+| Platform plugin | `nodara-platform-plugin.exe` | Keyboard, mouse, windows, capture, clipboard, process execution |
 | Vision plugin | `nodara-vision-plugin.exe` | Template matching and OCR |
 | Agent | `nodara-agent.exe` | Natural-language planning and operation through the runtime |
 | Studio | `nodara-studio.exe` | Visual editor, events, approvals, and audit |
@@ -161,6 +161,28 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 The first endpoint returns metadata; the second returns the raw bytes with the
 artifact MIME type. Artifacts remain available only while the runtime retains the
 run, so inspect them in the same session.
+
+### Running external commands
+
+`system.Command` launches a program or shell command and publishes stdout,
+stderr, the exit code and PID on output ports. Its common settings are editable
+directly in Properties:
+
+| Setting | Purpose |
+|---|---|
+| Program or command | Executable to launch; shell syntax and Windows built-ins work when **Run through shell** is enabled |
+| Arguments | Argument list; each item is passed as a separate argument |
+| Working directory / Environment variables | Control the child process working directory and additional environment |
+| Standard input | Optional text; supports `{{variable}}` interpolation |
+| Fail on non-zero exit | Enabled by default; disable it to inspect `exit_code`, `stdout` and `stderr` downstream |
+| Wait for completion | Disable to launch in the background and return only `pid` |
+
+Stdout is also exposed as `out`, so the common **Store result as** setting can
+pass command output to later nodes without custom wiring. After completion, the
+Events tab expands stdout, stderr, exit code and PID inline. Node timeout and
+run cancellation terminate the complete child process tree. This node requires
+the `process.execute` permission; `examples/system-command.json` is a runnable
+example.
 
 ### Failure recovery context
 

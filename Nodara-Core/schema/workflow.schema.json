@@ -295,6 +295,29 @@
           "if": {
             "properties": {
               "type": {
+                "const": "system.Command"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.system.Command"
+              },
+              "type": {
+                "const": "system.Command",
+                "description": "Launches an external program or shell command"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "system.Delay"
               }
             },
@@ -768,6 +791,74 @@
       "type": "object",
       "x-nodara-node-type": "system.Clipboard"
     },
+    "NodeConfig.system.Command": {
+      "additionalProperties": false,
+      "description": "Launches an external program or shell command",
+      "properties": {
+        "args": {
+          "default": [],
+          "description": "Arguments passed to the program. Each item is quoted by the operating system.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Arguments",
+          "type": "array"
+        },
+        "check_exit_code": {
+          "default": true,
+          "description": "Fail the node when the process exits non-zero. Disable to inspect exit_code, stdout and stderr in downstream nodes.",
+          "title": "Fail on non-zero exit",
+          "type": "boolean"
+        },
+        "cwd": {
+          "description": "Directory in which to launch the process. Blank uses the plugin process directory.",
+          "title": "Working directory",
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Additional environment variables merged into the inherited environment.",
+          "title": "Environment variables",
+          "type": "object"
+        },
+        "program": {
+          "description": "Executable to launch. With `shell` enabled this can also be a shell command or Windows built-in such as `dir`.",
+          "examples": [
+            "python",
+            "powershell",
+            "echo done"
+          ],
+          "title": "Program or command",
+          "type": "string"
+        },
+        "shell": {
+          "default": true,
+          "description": "Use cmd.exe on Windows or sh on other systems. Disable to launch the program directly.",
+          "title": "Run through shell",
+          "type": "boolean"
+        },
+        "stdin": {
+          "description": "Optional text written to the process standard input. Supports `{{variable}}` interpolation.",
+          "title": "Standard input",
+          "type": "string"
+        },
+        "wait": {
+          "default": true,
+          "description": "Wait for the process and capture output. Disable to launch it in the background and return its pid.",
+          "title": "Wait for completion",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "program"
+      ],
+      "title": "Command configuration",
+      "type": "object",
+      "x-nodara-node-type": "system.Command"
+    },
     "NodeConfig.system.Delay": {
       "additionalProperties": false,
       "description": "Waits for a fixed duration",
@@ -1207,6 +1298,7 @@
         "core.SetVariable",
         "core.Start",
         "system.Clipboard",
+        "system.Command",
         "system.Delay",
         "vision.Ocr",
         "vision.TemplateMatch",

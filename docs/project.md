@@ -79,7 +79,7 @@ property of the dependency graph.
 | `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `ExtensionRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes, expression evaluator | `nodara-schema` |
 | `nodara-plugin` | JSON-RPC 2.0 over stdio, in-process transport, discovery, plugin host | `nodara-schema`, `nodara-core` |
 | `nodara-runtime` | Composition root: engine + plugins + policy + audit, run manager, agent sessions, HTTP/WebSocket API | `nodara-schema`, `nodara-core`, `nodara-plugin` |
-| `nodara-platform` | Windows input, window management, screen capture, clipboard | `nodara-core`, `nodara-schema` |
+| `nodara-platform` | Windows input, window management, screen capture, clipboard and process execution | `nodara-core`, `nodara-schema` |
 | `nodara-vision` | Template matching, pluggable OCR | `nodara-core`, `nodara-schema` |
 | `nodara-cli` | `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`, `schema`, `serve` | all of the above |
 | `nodara-testkit` | Workflow builder, recording executors, in-process plugin harness | `nodara-schema`, `nodara-core`, `nodara-plugin` |
@@ -223,7 +223,7 @@ Execution never depends on a client's good behaviour:
   denies; a run bound to no session is refused.
 * Privileged permissions in the current official set: `input.control` (keyboard,
   mouse, text), `window.control` (focus), `screen.capture`, `clipboard`,
-  `vision.analyze`.
+  `process.execute` (external commands) and `vision.analyze`.
 * The audit log records every decision, node outcome and log record; `GET
   /api/v1/audit` and `nodara-agent audit` read it.
 

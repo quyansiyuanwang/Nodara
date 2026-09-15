@@ -123,6 +123,29 @@ describe("run status visualisation", () => {
     expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
   });
 
+  it("renders command stdout, stderr and exit metadata", () => {
+    log.append(
+      envelope(0, {
+        type: "node_finished",
+        node_id: "command",
+        outputs: {
+          out: "hello\n",
+          stderr: "warning\n",
+          exit_code: 0,
+          success: true,
+          pid: 1234,
+        },
+        duration_ms: 12,
+      }),
+    );
+
+    const command = document.querySelector(".event-command")!;
+    expect(command.textContent).toContain("Command output");
+    expect(command.textContent).toContain("hello");
+    expect(command.textContent).toContain("warning");
+    expect(command.textContent).toContain("Exit code 0 · PID 1234");
+  });
+
   it("marks a failed node", () => {
     log.append(
       envelope(0, {

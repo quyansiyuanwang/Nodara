@@ -102,6 +102,11 @@ const EN: Record<string, string> = {
   "runDialog.close": "Close",
   "artifact.previewAlt": "Artifact preview: {name}",
   "artifact.previewDetails": "Port {port} · {type} · {size} bytes",
+  "command.output": "Command output",
+  "command.stdout": "Standard output",
+  "command.stderr": "Standard error",
+  "command.exitCode": "Exit code {code} · PID {pid}",
+  "command.empty": "(empty)",
   "capture.selectRegion": "Select screen region",
   "capture.pickerHint": "Studio briefly hides, captures the desktop, then lets you drag a rectangle over the screenshot.",
   "capture.capturing": "Capturing the desktop…",
@@ -357,6 +362,11 @@ const ZH: Record<string, string> = {
   "runDialog.close": "关闭",
   "artifact.previewAlt": "产物预览：{name}",
   "artifact.previewDetails": "端口 {port} · {type} · {size} 字节",
+  "command.output": "命令输出",
+  "command.stdout": "标准输出",
+  "command.stderr": "标准错误",
+  "command.exitCode": "退出码 {code} · PID {pid}",
+  "command.empty": "（空）",
   "capture.selectRegion": "拖框选择截图区域",
   "capture.pickerHint": "Studio 会临时隐藏并截取桌面，随后可在截图上拖框选择区域。",
   "capture.capturing": "正在捕获桌面…",
@@ -521,6 +531,7 @@ const NODE_ZH: Record<string, { display_name: string; category: string; descript
   "core.SetVariable": { display_name: "设置变量", category: "核心", description: "向运行作用域发布值" },
   "core.Start": { display_name: "开始", category: "核心", description: "工作流入口点" },
   "system.Clipboard": { display_name: "剪贴板", category: "系统", description: "读取或替换剪贴板文本" },
+  "system.Command": { display_name: "命令", category: "系统", description: "启动外部程序或 Shell 命令并捕获输出" },
   "system.Delay": { display_name: "延时", category: "系统", description: "等待固定时长" },
   "vision.Ocr": { display_name: "OCR", category: "视觉", description: "使用已配置后端从图像中提取文本" },
   "vision.TemplateMatch": { display_name: "模板匹配", category: "视觉", description: "在截图帧中定位模板图像" },
@@ -560,6 +571,29 @@ const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
   "Foreground window": { title: "使用前台窗口", description: "直接使用当前前台窗口，优先于标题和类名条件。" },
   "Window title": { title: "窗口标题", description: "要匹配的窗口标题；默认使用包含匹配。" },
   "Focus target window": { title: "聚焦目标窗口", description: "发送输入前查找并聚焦目标窗口；关闭时向当前前台窗口发送输入。" },
+  "Program or command": { title: "程序或命令", description: "要启动的可执行文件。开启 Shell 后可执行命令或 Windows 内置命令。" },
+  "Arguments": { title: "参数", description: "传给程序的参数列表。" },
+  "Working directory": { title: "工作目录", description: "启动进程时使用的工作目录；留空时使用插件目录。" },
+  "Environment variables": { title: "环境变量", description: "合并到继承环境中的附加环境变量。" },
+  "Run through shell": { title: "通过 Shell 运行", description: "Windows 使用 cmd.exe，其他系统使用 sh；关闭后直接启动程序。" },
+  "Standard input": { title: "标准输入", description: "可选，写入进程标准输入的文本，支持 {{variable}} 插值。" },
+  "Fail on non-zero exit": { title: "非零退出时失败", description: "进程退出码非零时让节点失败；关闭后可在下游检查 exit_code、stdout 和 stderr。" },
+  "Wait for completion": { title: "等待完成", description: "等待进程结束并捕获输出；关闭后后台启动并返回 pid。" },
+};
+
+const PORT_ZH: Record<string, string> = {
+  In: "输入",
+  Out: "输出",
+  Result: "结果",
+  Artifact: "制品",
+  Window: "窗口",
+  Match: "匹配",
+  Text: "文本",
+  Stdout: "标准输出",
+  Stderr: "标准错误",
+  "Exit code": "退出码",
+  Success: "成功",
+  "Process id": "进程 ID",
 };
 
 const STATUS_ZH: Record<string, string> = {
@@ -681,6 +715,14 @@ export function localizeDescriptor(descriptor: NodeDescriptor): NodeDescriptor {
     display_name: translation?.display_name ?? descriptor.display_name,
     category: translation?.category ?? descriptor.category,
     description: translation?.description ?? descriptor.description,
+    inputs: descriptor.inputs.map((port) => ({
+      ...port,
+      display_name: PORT_ZH[port.display_name] ?? port.display_name,
+    })),
+    outputs: descriptor.outputs.map((port) => ({
+      ...port,
+      display_name: PORT_ZH[port.display_name] ?? port.display_name,
+    })),
     config_schema: localizeSchema(descriptor.config_schema),
   };
 }

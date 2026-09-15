@@ -70,7 +70,7 @@ Agent 的隔离是最极端的例子：它只依赖 `nodara-schema`，不依赖�
 | `nodara-core` | `NodeExecutor` SDK、`CapabilityRegistry`、`ExtensionRegistry`、`WorkflowEngine`、运行控制、策略、审计、事件、内置节点、表达式求值 | `nodara-schema` |
 | `nodara-plugin` | stdio 上的 JSON-RPC 2.0、进程内传输、插件发现、插件宿主 | `nodara-schema`、`nodara-core` |
 | `nodara-runtime` | 组装根：引擎 + 插件 + 策略 + 审计、运行管理、Agent 会话、HTTP/WebSocket API | `nodara-schema`、`nodara-core`、`nodara-plugin` |
-| `nodara-platform` | Windows 键鼠输入、窗口管理、屏幕捕获、剪贴板 | `nodara-core`、`nodara-schema` |
+| `nodara-platform` | Windows 键鼠输入、窗口管理、屏幕捕获、剪贴板和进程执行 | `nodara-core`、`nodara-schema` |
 | `nodara-vision` | 模板匹配、可插拔 OCR | `nodara-core`、`nodara-schema` |
 | `nodara-cli` | `validate`、`run`、`simulate`、`inspect`、`migrate`、`plugins`、`schema`、`serve` | 以上全部 |
 | `nodara-testkit` | 工作流构造器、记录型执行器、进程内插件测试夹具 | `nodara-schema`、`nodara-core`、`nodara-plugin` |
@@ -187,7 +187,7 @@ Agent 把目标变成工作流，然后操作它 —— 且始终通过运行时
 * 开启审批后，运行时会针对所属 Agent 会话发起审批请求，并**阻塞运行线程**直到操作员答复。
   超时等于拒绝；未绑定会话的运行会被直接拒绝。
 * 当前官方能力集中的特权权限：`input.control`（键盘、鼠标、文本）、`window.control`（窗口置前）、
-  `screen.capture`、`clipboard`、`vision.analyze`。
+  `screen.capture`、`clipboard`、`process.execute`（外部命令）、`vision.analyze`。
 * 审计日志记录每一次策略裁决、节点结果与日志；可用 `GET /api/v1/audit` 或 `nodara-agent audit` 读取。
 
 ## 10. 版本与迁移

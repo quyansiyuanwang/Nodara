@@ -118,6 +118,13 @@ All notable changes to this project are documented here. The format follows
 - Studio now previews artifacts logged as JSON in addition to artifacts in
   `node_finished` outputs, so logging a capture metadata variable shows the
   image inline.
+- The platform plugin now provides `system.Command`. It can launch a program or
+  shell command with arguments, working directory, environment variables and
+  stdin; captures stdout/stderr, exit code and PID; supports synchronous or
+  background execution; and terminates the full child process tree on node
+  timeout or run cancellation. The capability is registered as the separate
+  `process` plugin feature and requires `process.execute`. Studio expands its
+  stdout, stderr, exit code and PID directly in Events.
 
 ### Changed
 

@@ -78,7 +78,7 @@ audit: 20 record(s) in 4ms wall clock
 预期输出：
 
 ```text
-runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
+runtime listening on http://127.0.0.1:8710/api/v1 (17 node type(s), 2 plugin(s))
 ```
 
 在第二个 PowerShell 窗口检查服务：
@@ -89,7 +89,7 @@ Invoke-RestMethod http://127.0.0.1:8710/api/v1/plugins
 (Invoke-RestMethod http://127.0.0.1:8710/api/v1/node-types).node_types | Select-Object node_type
 ```
 
-健康检查应报告 `status=ok`、`node_types=16`。端口冲突时可在启动前设置：
+健康检查应报告 `status=ok`、`node_types=17`。端口冲突时可在启动前设置：
 
 ```powershell
 $env:NODARA_RUNTIME_PORT = "8720"
@@ -107,7 +107,7 @@ $env:NODARA_RUNTIME_PORT = "8720"
 .\nodara-studio.exe
 ```
 
-打开窗口后应看到右上角连接标记显示类似 `16 node types · 2 plugin(s)`。随后：
+打开窗口后应看到右上角连接标记显示类似 `17 node types · 2 plugin(s)`。随后：
 
 1. 点击 **Import**，选择 `examples\hello-world.json`；
 2. 确认画布显示 `Start → Log → End`；
@@ -116,8 +116,9 @@ $env:NODARA_RUNTIME_PORT = "8720"
 5. 在 Windows 上打开 `examples/capture-preview.json`，确认 Capture 事件或 Log 事件下方直接显示 PNG 预览；
 6. 选中 Capture 节点，点击配置区中的 **拖框选择截图区域**。Studio 会临时隐藏自身、截取桌面，再显示截图；拖框后点击“应用区域”，X/Y/宽度/高度会直接写入节点；
 7. 点击 **Step** 可单步调试：空闲时会自动新建暂停运行并执行第一个节点，之后每次只执行一个节点；
-8. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
-9. 打开 **Audit** 页，确认策略决策和节点结果已记录。
+8. 打开 `examples/system-command.json` 并运行，确认 `system.Command` 捕获 stdout，Events 展开显示命令输出，后续 Log 也显示命令结果；
+9. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
+10. 打开 **Audit** 页，确认策略决策和节点结果已记录。
 
 常用编辑操作：
 
@@ -133,6 +134,7 @@ $env:NODARA_RUNTIME_PORT = "8720"
 | 调整布局 | 拖动左右面板之间和底部面板上方的细条；双击细条恢复默认宽度/高度 |
 | 单步运行 | 点击 **Step**；空闲或已结束时从暂停状态启动，之后每点击一次执行一个节点 |
 | 框选截图 | 选中 `windows.Desktop.Capture`，在配置区点击 **拖框选择截图区域**，拖框后应用 |
+| 外部命令 | 添加 `system.Command`，可直接配置程序、参数、工作目录、环境变量、stdin、Shell、退出码检查和同步/后台执行 |
 
 如果连接标记仍显示 `runtime unreachable`，确认 `nodara-runtime.exe` 与
 `nodara-studio.exe` 位于同一目录且 8710 端口没有被其他程序占用。Studio 会每

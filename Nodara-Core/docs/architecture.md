@@ -36,7 +36,7 @@ Arrows point from a consumer to what it consumes. The important properties:
 | `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `ExtensionRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes | `nodara-schema` |
 | `nodara-plugin` | JSON-RPC 2.0, stdio and in-process transports, plugin client, plugin server, discovery, host | `nodara-schema`, `nodara-core` |
 | `nodara-runtime` | Runtime composition, run manager, HTTP/WebSocket API | `nodara-schema`, `nodara-core`, `nodara-plugin` |
-| `nodara-platform` | Windows input, windows, capture, clipboard | `nodara-core`, `nodara-schema`, `nodara-plugin` (for its binary) |
+| `nodara-platform` | Windows input, windows, capture, clipboard, child processes | `nodara-core`, `nodara-schema`, `nodara-plugin` (for its binary) |
 | `nodara-vision` | Template matching, pluggable OCR | `nodara-core`, `nodara-schema`, `nodara-plugin` (for its binary) |
 | `nodara-cli` | `validate`, `run`, `simulate`, `inspect`, `migrate`, `plugins`, `schema`, `serve` | everything |
 | `nodara-testkit` | Workflow builder, recording/failing executors, in-process plugin harness, static node index | `nodara-schema`, `nodara-core`, `nodara-plugin` |

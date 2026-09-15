@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "protocol_version": "1",
   "executable": "nodara-platform-plugin.exe",
-  "description": "Official host automation: keyboard, mouse, windows, screen capture and clipboard.",
+  "description": "Official host automation: keyboard, mouse, windows, screen capture, clipboard and process execution.",
   "author": "Nodara Contributors",
   "capabilities": [
     "Input.Keyboard",
@@ -14,13 +14,15 @@
     "Window.Capture",
     "Desktop.Capture",
     "Clipboard.Read",
-    "Clipboard.Write"
+    "Clipboard.Write",
+    "Process.Execute"
   ],
   "permissions": [
     "input.control",
     "window.control",
     "screen.capture",
-    "clipboard"
+    "clipboard",
+    "process.execute"
   ],
   "node_types": [
     "windows.Input.Keyboard",
@@ -30,7 +32,8 @@
     "windows.Window.Focus",
     "windows.Window.Capture",
     "windows.Desktop.Capture",
-    "system.Clipboard"
+    "system.Clipboard",
+    "system.Command"
   ],
   "features": [
     {
@@ -72,6 +75,15 @@
       "capabilities": ["Clipboard.Read", "Clipboard.Write"],
       "permissions": ["clipboard"],
       "node_types": ["system.Clipboard"]
+    },
+    {
+      "id": "process",
+      "name": "Process execution",
+      "kind": "integration",
+      "description": "Launch programs and shell commands, capture output and inspect exit codes.",
+      "capabilities": ["Process.Execute"],
+      "permissions": ["process.execute"],
+      "node_types": ["system.Command"]
     }
   ]
 }

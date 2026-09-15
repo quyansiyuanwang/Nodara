@@ -103,6 +103,39 @@ fn reports_an_error_for_an_unknown_node_type() {
 }
 
 #[test]
+fn executes_a_command_through_the_plugin_boundary() {
+    let manifest = manifest();
+    let client =
+        PluginClient::connect(&manifest, std::path::Path::new(".")).expect("plugin launches");
+
+    let result = client
+        .execute(nodara_plugin::ExecuteParams {
+            run_id: "run-command".to_string(),
+            node_id: "command".to_string(),
+            node_type: "system.Command".to_string(),
+            config: serde_json::json!({
+                "program": "echo",
+                "args": ["hello from plugin"],
+                "shell": true,
+                "check_exit_code": true,
+                "wait": true
+            }),
+            inputs: Default::default(),
+            variables: Default::default(),
+            artifacts: Vec::new(),
+            timeout_ms: Some(5_000),
+        })
+        .expect("command executes");
+
+    assert_eq!(result.outputs["exit_code"], 0);
+    assert_eq!(result.outputs["success"], true);
+    assert!(result.outputs["out"]
+        .as_str()
+        .is_some_and(|text| text.contains("hello from plugin")));
+    client.shutdown().expect("shutdown succeeds");
+}
+
+#[test]
 fn cancels_a_running_node() {
     let manifest = manifest();
     let client = std::sync::Arc::new(

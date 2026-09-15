@@ -63,7 +63,7 @@ The runtime is the process the editor and the agent talk to.
 
 ```bash
 cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
-# runtime listening on http://127.0.0.1:8710/api/v1 (16 node type(s), 2 plugin(s))
+# runtime listening on http://127.0.0.1:8710/api/v1 (17 node type(s), 2 plugin(s))
 ```
 
 Check it from another terminal:
@@ -105,7 +105,8 @@ Then:
 5. open `examples/capture-preview.json` on Windows to see the captured PNG rendered inline under the Capture or Log event;
 6. select the Capture node and click **Select screen region**. Studio briefly hides itself, captures the desktop and opens the image; drag a rectangle and click **Apply region** to write X/Y/Width/Height into the node;
 7. click **Step** to debug one node at a time; from idle it starts a paused run and executes the first node, then remains paused after every step;
-8. open **Runs**, refresh, and use **Open** to reload any recent run's event stream.
+8. open and run `examples/system-command.json` to verify `system.Command` expands stdout/stderr/exit metadata in Events and the following Log renders the captured output;
+9. open **Runs**, refresh, and use **Open** to reload any recent run's event stream.
 
 If you install a plugin and restart the runtime, reload the page: the new node
 types are simply there. Nothing in the editor needed to change.

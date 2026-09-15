@@ -59,6 +59,7 @@ export class EventLog {
     entry.className = "event-entry";
     entry.appendChild(row);
     this.appendArtifactPreviews(entry, envelope);
+    this.appendCommandOutput(entry, envelope);
     this.root.appendChild(entry);
     while (this.root.querySelectorAll(".event-entry").length > MAX_ROWS) {
       this.root.firstElementChild?.remove();
@@ -97,6 +98,35 @@ export class EventLog {
       preview.append(image, caption);
       entry.appendChild(preview);
     }
+  }
+
+  /** Show external-command output directly in the event stream. */
+  private appendCommandOutput(entry: HTMLElement, envelope: EventEnvelope): void {
+    if (envelope.event.type !== "node_finished") return;
+    const outputs = envelope.event.outputs;
+    const commandLike =
+      "exit_code" in outputs || "stderr" in outputs || "success" in outputs;
+    if (!commandLike) return;
+
+    const details = document.createElement("details");
+    details.className = "event-command";
+    details.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = t("command.output");
+    const grid = document.createElement("div");
+    grid.className = "event-command__grid";
+    grid.append(
+      outputBlock(t("command.stdout"), outputText(outputs.out)),
+      outputBlock(t("command.stderr"), outputText(outputs.stderr)),
+    );
+    const meta = document.createElement("p");
+    meta.className = "event-command__meta";
+    meta.textContent = t("command.exitCode", {
+      code: String(outputs.exit_code ?? "–"),
+      pid: String(outputs.pid ?? "–"),
+    });
+    details.append(summary, grid, meta);
+    entry.appendChild(details);
   }
 
   /** Reflect execution state on the canvas. */
@@ -177,6 +207,22 @@ function parseJson(value: string): unknown {
   } catch {
     return null;
   }
+}
+
+function outputText(value: unknown): string {
+  if (value === undefined || value === null || value === "") return t("command.empty");
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function outputBlock(label: string, text: string): HTMLElement {
+  const block = document.createElement("div");
+  block.className = "event-command__block";
+  const heading = document.createElement("strong");
+  heading.textContent = label;
+  const pre = document.createElement("pre");
+  pre.textContent = text;
+  block.append(heading, pre);
+  return block;
 }
 
 function describe(envelope: EventEnvelope): string {

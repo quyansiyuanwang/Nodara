@@ -1,7 +1,7 @@
 //! # nodara-platform
 //!
 //! The official host-automation capability set: keyboard, mouse, window
-//! management, screen capture and the clipboard.
+//! management, screen capture, the clipboard and child processes.
 //!
 //! Everything here is an ordinary [`nodara_core::NodeExecutor`]. The crate builds two
 //! artefacts from the same code:
@@ -15,6 +15,7 @@
 
 pub mod capture;
 pub mod clipboard;
+pub mod command;
 pub mod error;
 pub mod input;
 pub mod keys;
@@ -44,6 +45,7 @@ pub const NODE_TYPES: &[&str] = &[
     "windows.Window.Capture",
     "windows.Desktop.Capture",
     "system.Clipboard",
+    "system.Command",
 ];
 
 /// Capability identifiers this plugin advertises.
@@ -56,6 +58,7 @@ pub const CAPABILITIES: &[&str] = &[
     "Desktop.Capture",
     "Clipboard.Read",
     "Clipboard.Write",
+    "Process.Execute",
 ];
 
 /// Permissions this plugin requires from the host.
@@ -64,6 +67,7 @@ pub const PERMISSIONS: &[&str] = &[
     "window.control",
     "screen.capture",
     "clipboard",
+    "process.execute",
 ];
 
 /// Register every platform executor.
@@ -76,7 +80,8 @@ pub fn register_platform(registry: &mut CapabilityRegistry) {
         .register(window::FocusExecutor)
         .register(window::CaptureExecutor)
         .register(capture::DesktopCaptureExecutor)
-        .register(clipboard::ClipboardExecutor);
+        .register(clipboard::ClipboardExecutor)
+        .register(command::CommandExecutor);
 }
 
 /// True when the host operating system is supported by this build.
