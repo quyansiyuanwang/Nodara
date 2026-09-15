@@ -11,7 +11,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A01 | Package integrity | ZIP hash and every entry in `SHA256SUMS.txt` match |
 | A02 | Versions | All components report 2.0.0 and `build-info.json` names the expected commit |
 | A03 | CLI smoke | Validate, simulate, run and `extensions --json` succeed |
-| A04 | Plugins | Runtime reports 2 plugins and 18 node types |
+| A04 | Plugins | Runtime reports 2 plugins and 19 node types |
 | A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
 | A06 | Studio | Desktop Studio connects and runs hello-world |
 | A07 | Agent mock | A canned workflow plans and runs without an API key |
@@ -73,13 +73,13 @@ $plugins.plugins | Select-Object id,version
 "plugin failures: $($plugins.failures.Count)"
 ```
 
-Require `status=ok`, 2 plugins, 0 failures, and 18 node types.
+Require `status=ok`, 2 plugins, 0 failures, and 19 node types.
 
 ## Studio
 
 With the runtime running, launch `nodara-studio.exe` and verify:
 
-1. The status badge reports `18 node types · 2 plugin(s)`.
+1. The status badge reports `19 node types · 2 plugin(s)`.
 2. Hello-world imports with the `Start → Log → End` graph.
 3. Validate and Run complete successfully.
 4. The Events tab reaches `run_completed`.

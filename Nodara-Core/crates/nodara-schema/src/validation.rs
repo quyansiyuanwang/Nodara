@@ -533,6 +533,22 @@ pub fn validate_with_options(
                     declared.insert(name);
                 }
             }
+            if node.node_type == "core.CalculateMany" {
+                if let Some(expressions) = node
+                    .config
+                    .get("expressions")
+                    .and_then(serde_json::Value::as_array)
+                {
+                    for name in expressions.iter().filter_map(|expression| {
+                        expression
+                            .get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .filter(|name| !name.trim().is_empty())
+                    }) {
+                        declared.insert(name);
+                    }
+                }
+            }
         }
         let mut reported: HashSet<(String, String)> = HashSet::new();
         for node in &workflow.nodes {
@@ -989,6 +1005,37 @@ mod tests {
         let index = TestIndex(vec![
             NodeDescriptor::new("core.Start", "Start", "Core"),
             NodeDescriptor::new("test.Capture", "Capture", "Test"),
+            NodeDescriptor::new("core.Log", "Log", "Core"),
+            NodeDescriptor::new("core.End", "End", "Core"),
+        ]);
+        let report = validate_with(&wf, &index, &ValidationOptions::default());
+
+        assert!(!report.diagnostics.iter().any(|d| d.code == "WF150"));
+    }
+
+    #[test]
+    fn calculate_many_names_satisfy_later_template_references() {
+        let mut wf = Workflow::new("wf.calculate-many-reference");
+        wf.add_node(Node::new("start", "core.Start"));
+        wf.add_node(
+            Node::new("calc", "core.CalculateMany").with_config(serde_json::json!({
+                "expressions": [
+                    { "name": "base", "expression": "2 + 3" },
+                    { "name": "answer", "expression": "base * 4" }
+                ]
+            })),
+        );
+        wf.add_node(Node::new("log", "core.Log").with_config(serde_json::json!({
+            "message": "answer={{answer}}"
+        })));
+        wf.add_node(Node::new("end", "core.End"));
+        wf.add_edge(Edge::new("e1", "start", "calc"));
+        wf.add_edge(Edge::new("e2", "calc", "log"));
+        wf.add_edge(Edge::new("e3", "log", "end"));
+
+        let index = TestIndex(vec![
+            NodeDescriptor::new("core.Start", "Start", "Core"),
+            NodeDescriptor::new("core.CalculateMany", "Calculate Many", "Core"),
             NodeDescriptor::new("core.Log", "Log", "Core"),
             NodeDescriptor::new("core.End", "End", "Core"),
         ]);

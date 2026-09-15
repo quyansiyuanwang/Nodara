@@ -12,9 +12,9 @@
 | A01 | 包完整性 | ZIP SHA-256 与同名 `.sha256` 文件一致，`SHA256SUMS.txt` 校验全部通过 |
 | A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.0.0；构建信息含正确 Git commit |
 | A03 | CLI 核心流程 | `validate`、`simulate`、`run` 成功，`extensions --json` 返回统一注册列表 |
-| A04 | 插件进程模式 | runtime 报告 2 个插件、18 个节点 |
+| A04 | 插件进程模式 | runtime 报告 2 个插件、19 个节点 |
 | A05 | HTTP API | health、plugins、extensions、node-types、schema 端点可访问 |
-| A06 | Studio 桌面版 | 能连接 runtime，显示 18 个节点，导入/校验/运行 hello-world 成功 |
+| A06 | Studio 桌面版 | 能连接 runtime，显示 19 个节点，导入/校验/运行 hello-world 成功 |
 | A07 | Agent mock | 无 API Key 时可规划并运行最小工作流 |
 | A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
@@ -162,7 +162,7 @@ $plugins.plugins | Select-Object id,version
 
 ### 6.1 连接与发现
 
-- 右上角显示 `18 node types · 2 plugin(s)`；
+- 右上角显示 `19 node types · 2 plugin(s)`；
 - 左侧分类包含 Core、System、Input、Window、Desktop、Vision；
 - 不存在插件加载失败提示。
 

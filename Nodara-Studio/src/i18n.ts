@@ -564,6 +564,7 @@ const ZH: Record<string, string> = {
 
 const NODE_ZH: Record<string, { display_name: string; description: string }> = {
   "core.Calculate": { display_name: "计算", description: "计算数值表达式" },
+  "core.CalculateMany": { display_name: "批量计算", description: "按顺序计算多个具名表达式" },
   "core.End": { display_name: "结束", description: "终止工作流" },
   "core.Log": { display_name: "日志", description: "向运行日志写入消息" },
   "core.SetVariable": { display_name: "设置变量", description: "向运行作用域发布值" },
@@ -585,6 +586,9 @@ const NODE_ZH: Record<string, { display_name: string; description: string }> = {
 
 const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
   "Expression": { title: "表达式", description: "针对运行作用域计算的算术或比较表达式，支持 `+`、`-`、`*`、`/`、`%`、`^`、比较和 `&&`/`||`。" },
+  "Expressions": { title: "表达式列表", description: "按顺序求值的具名表达式；每个结果会在下一条表达式执行前发布。" },
+  "Name": { title: "名称", description: "结果对应的变量名。" },
+  "Seed variables": { title: "临时变量", description: "仅在此节点计算期间可用的数值或布尔变量。" },
   "Output variable": { title: "输出变量", description: "用于发布结果的变量名。" },
   "Exit code": { title: "退出码", description: "工作流结束时运行时报告的进程退出码。" },
   "Level": { title: "日志级别", description: "日志严重级别，默认 `info`。" },
@@ -638,6 +642,7 @@ const PORT_ZH: Record<string, string> = {
   In: "输入",
   Out: "输出",
   Result: "结果",
+  Results: "结果",
   Artifact: "制品",
   Window: "窗口",
   Match: "匹配",

@@ -63,7 +63,7 @@ The runtime is the process the editor and the agent talk to.
 
 ```bash
 cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
-# runtime listening on http://127.0.0.1:8710/api/v1 (18 node type(s), 2 plugin(s))
+# runtime listening on http://127.0.0.1:8710/api/v1 (19 node type(s), 2 plugin(s))
 ```
 
 Check it from another terminal:

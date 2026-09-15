@@ -2,7 +2,7 @@
 
 > English: [nodes.md](nodes.md)
 
-这里是默认构建随附的节点类型目录：5 个核心节点、3 个系统节点、3 个输入节点、4 个窗口节点、
+这里是默认构建随附的节点类型目录：6 个核心节点、3 个系统节点、3 个输入节点、4 个窗口节点、
 桌面捕获与 2 个视觉节点。部署方可以通过安装插件扩展它们 —— 调用 `GET /api/v1/node-types`，
 或运行 `nodara-cli simulate <工作流>` 查看某个文档需要哪些节点类型 —— 发布的工作流 schema 也会随之增长。
 
@@ -39,6 +39,7 @@
 | `core.End` | Core | in `in` | — |
 | `core.Log` | Core | in `in` → out `out` | — |
 | `core.Calculate` | Core | in `in` → out `result` | — |
+| `core.CalculateMany` | Core | in `in` → out `out` | — |
 | `core.SetVariable` | Core | in `in` → out `out` | — |
 | `system.Delay` | System | in `in` → out `out` | — |
 | `system.Clipboard` | System | in `in` → out `out` | `clipboard` |
@@ -114,6 +115,30 @@
 ```json
 { "id": "compute", "type": "core.Calculate",
   "config": { "expression": "2 + 2 * 3", "output_var": "answer" } }
+```
+
+### `core.CalculateMany` — Calculate Many
+
+按数组顺序计算多个具名算术表达式。每次计算的结果会在下一条表达式执行前发布，因此后面的表达式可以引用前面的结果。
+可选的临时变量仅在此节点计算期间可用。
+
+* 端口：in `in`（any）→ out `out`（object）
+* 策略：始终放行
+
+| 配置项 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `expressions` | array | **是** | — | 有序的 `{ "name", "expression" }` 列表，至少一项。 |
+| `variables` | object | 否 | `{}` | 仅在此节点计算期间可用的数值或布尔临时变量。 |
+| `output_var` | string | 否 | — | 可选，用于接收完整结果对象的变量名。 |
+
+```json
+{ "id": "compute", "type": "core.CalculateMany",
+  "config": { "variables": { "offset": 2 },
+              "expressions": [
+                { "name": "base", "expression": "2 + 3" },
+                { "name": "answer", "expression": "base * 4 + offset" }
+              ],
+              "output_var": "calculation" } }
 ```
 
 ### `core.SetVariable` — Set Variable

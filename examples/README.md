@@ -11,6 +11,7 @@ Every file here is a workflow document in the current format
 | `branching.json` | Edge guards (`condition`) pruning branches |
 | `result-mapping.json` | Common `result_var` / `result_port` output mapping on a built-in node |
 | `template-types.json` | Exact templates preserving numeric types plus mixed text interpolation |
+| `calculate-many.json` | Ordered named calculations with earlier results available to later expressions |
 | `breakpoint-debug.json` | A persisted node breakpoint and the Studio Resume / Step debugging flow |
 | `failure-branch.json` | A `failure` edge recovering from a node error without `continue_on_error` |
 | `capture-preview.json` | Captures the desktop and previews the PNG artifact in Studio |

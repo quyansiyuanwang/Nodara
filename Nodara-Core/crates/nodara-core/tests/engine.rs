@@ -525,6 +525,38 @@ fn exact_templates_preserve_types_expected_by_the_config_schema() {
 }
 
 #[test]
+fn calculate_many_evaluates_named_expressions_in_order() {
+    let mut workflow = Workflow::new("wf.calculate-many");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(
+        Node::new("calc", "core.CalculateMany").with_config(serde_json::json!({
+            "variables": { "offset": 1 },
+            "expressions": [
+                { "name": "base", "expression": "2 + 3" },
+                { "name": "answer", "expression": "base * 4 + offset" }
+            ],
+            "output_var": "calculation"
+        })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "calc"));
+    workflow.add_edge(Edge::new("e2", "calc", "end"));
+
+    let engine = WorkflowEngine::new(registry());
+    let outcome = engine.run(RunRequest::new(workflow), &RunControl::new());
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.variables.get("base"), Some(&serde_json::json!(5)));
+    assert_eq!(
+        outcome.variables.get("answer"),
+        Some(&serde_json::json!(21))
+    );
+    assert_eq!(
+        outcome.variables.get("calculation"),
+        Some(&serde_json::json!({ "base": 5, "answer": 21 }))
+    );
+}
+
+#[test]
 fn a_node_retries_until_it_succeeds() {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut registry = CapabilityRegistry::new();

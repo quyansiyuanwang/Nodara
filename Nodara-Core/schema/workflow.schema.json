@@ -180,6 +180,29 @@
           "if": {
             "properties": {
               "type": {
+                "const": "core.CalculateMany"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.core.CalculateMany"
+              },
+              "type": {
+                "const": "core.CalculateMany",
+                "description": "Evaluates several named expressions in order"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "core.End"
               }
             },
@@ -724,6 +747,55 @@
       "title": "Calculate configuration",
       "type": "object",
       "x-nodara-node-type": "core.Calculate"
+    },
+    "NodeConfig.core.CalculateMany": {
+      "additionalProperties": false,
+      "description": "Evaluates several named expressions in order",
+      "properties": {
+        "expressions": {
+          "description": "Named expressions evaluated in order. Each result is published before the next expression is evaluated.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "expression": {
+                "description": "Arithmetic expression; may read run-scope variables and earlier results.",
+                "title": "Expression",
+                "type": "string"
+              },
+              "name": {
+                "description": "Variable name for this result.",
+                "title": "Name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "expression"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "title": "Expressions",
+          "type": "array"
+        },
+        "output_var": {
+          "description": "Optional variable receiving the complete result object.",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "variables": {
+          "additionalProperties": true,
+          "description": "Optional numeric values available only while evaluating this node.",
+          "title": "Seed variables",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expressions"
+      ],
+      "title": "Calculate Many configuration",
+      "type": "object",
+      "x-nodara-node-type": "core.CalculateMany"
     },
     "NodeConfig.core.End": {
       "additionalProperties": false,
@@ -1658,6 +1730,7 @@
       "description": "Namespaced node type, e.g. `windows.Input.Keyboard`. One of the node types the runtime has installed.",
       "enum": [
         "core.Calculate",
+        "core.CalculateMany",
         "core.End",
         "core.Log",
         "core.SetVariable",

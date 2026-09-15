@@ -4,6 +4,7 @@
 //! touch the operating system. Anything host-specific (input, windows, OCR) lives
 //! in plugins, per the architecture document.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use nodara_schema::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
@@ -196,6 +197,130 @@ impl NodeExecutor for CalculateExecutor {
     }
 }
 
+/// One named expression in `core.CalculateMany`.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct NamedExpression {
+    name: String,
+    expression: String,
+}
+
+/// Configuration for `core.CalculateMany`.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct CalculateManyConfig {
+    expressions: Vec<NamedExpression>,
+    #[serde(default)]
+    variables: BTreeMap<String, serde_json::Value>,
+    #[serde(default)]
+    output_var: Option<String>,
+}
+
+/// `core.CalculateMany`: evaluates several named expressions in order.
+#[derive(Debug, Default)]
+pub struct CalculateManyExecutor;
+
+impl NodeExecutor for CalculateManyExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor {
+            inputs: vec![port("in", "In", PortKind::Input, ValueType::Any, false)],
+            outputs: vec![port(
+                "out",
+                "Results",
+                PortKind::Output,
+                ValueType::Object,
+                false,
+            )],
+            config_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "expressions": {
+                        "type": "array",
+                        "title": "Expressions",
+                        "description": "Named expressions evaluated in order. Each result is published before the next expression is evaluated.",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "title": "Name",
+                                    "description": "Variable name for this result."
+                                },
+                                "expression": {
+                                    "type": "string",
+                                    "title": "Expression",
+                                    "description": "Arithmetic expression; may read run-scope variables and earlier results."
+                                }
+                            },
+                            "required": ["name", "expression"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "variables": {
+                        "type": "object",
+                        "title": "Seed variables",
+                        "description": "Optional numeric values available only while evaluating this node.",
+                        "additionalProperties": true
+                    },
+                    "output_var": {
+                        "type": "string",
+                        "title": "Output variable",
+                        "description": "Optional variable receiving the complete result object."
+                    }
+                },
+                "required": ["expressions"],
+                "additionalProperties": false
+            }),
+            allows_additional_config: false,
+            ..NodeDescriptor::new("core.CalculateMany", "Calculate Many", "Core")
+                .with_description("Evaluates several named expressions in order")
+        }
+    }
+
+    fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let config: CalculateManyConfig = serde_json::from_value(input.resolved_config.clone())
+            .map_err(|error| {
+                NodeError::InvalidConfig(format!("invalid calculate config: {error}"))
+            })?;
+        if config.expressions.is_empty() {
+            return Err(NodeError::InvalidConfig(
+                "`expressions` must contain at least one entry".to_string(),
+            ));
+        }
+
+        let mut scope = context.variables().clone();
+        scope.extend(config.variables);
+        let mut results = serde_json::Map::new();
+        let mut seen = BTreeSet::new();
+        for expression in config.expressions {
+            let name = expression.name.trim();
+            if name.is_empty() {
+                return Err(NodeError::InvalidConfig(
+                    "expression names must not be empty".to_string(),
+                ));
+            }
+            if !seen.insert(name.to_string()) {
+                return Err(NodeError::InvalidConfig(format!(
+                    "duplicate expression name `{name}`"
+                )));
+            }
+            let value =
+                evaluate_expression(expression.expression.trim(), &scope).map_err(|error| {
+                    NodeError::InvalidConfig(format!("`{}`: {error}", expression.expression))
+                })?;
+            let number = number_value(value);
+            scope.insert(name.to_string(), number.clone());
+            context.set_variable(name, number.clone());
+            results.insert(name.to_string(), number);
+        }
+
+        let result = serde_json::Value::Object(results);
+        if let Some(name) = config.output_var.filter(|name| !name.trim().is_empty()) {
+            context.set_variable(name, result.clone());
+        }
+        Ok(NodeOutput::new().with_output("out", result))
+    }
+}
+
 /// Render a computed `f64` as JSON, keeping integral results as integers so that
 /// `{{result}}` interpolates to `8` rather than `8.0`.
 fn number_value(value: f64) -> serde_json::Value {
@@ -303,6 +428,7 @@ pub fn register_builtins(registry: &mut CapabilityRegistry) {
         .register(EndExecutor)
         .register(LogExecutor)
         .register(CalculateExecutor)
+        .register(CalculateManyExecutor)
         .register(DelayExecutor)
         .register(SetVariableExecutor);
 }

@@ -2,7 +2,7 @@
 
 > 中文版：[nodes.zh.md](nodes.zh.md)
 
-This is the catalogue of the node types the default build ships: five core
+This is the catalogue of the node types the default build ships: six core
 nodes, three system nodes, three input nodes, four window nodes, desktop capture
 and two vision nodes. A deployment can add more by installing plugins — call
 `GET /api/v1/node-types`, or run `nodara-cli simulate <workflow>` to see which node
@@ -46,6 +46,7 @@ The same information is machine-readable from `GET /api/v1/node-types`, and
 | `core.End` | Core | in `in` | — |
 | `core.Log` | Core | in `in` → out `out` | — |
 | `core.Calculate` | Core | in `in` → out `result` | — |
+| `core.CalculateMany` | Core | in `in` → out `out` | — |
 | `core.SetVariable` | Core | in `in` → out `out` | — |
 | `system.Delay` | System | in `in` → out `out` | — |
 | `system.Clipboard` | System | in `in` → out `out` | `clipboard` |
@@ -126,6 +127,31 @@ comparisons and `&&`/`||`.
 ```json
 { "id": "compute", "type": "core.Calculate",
   "config": { "expression": "2 + 2 * 3", "output_var": "answer" } }
+```
+
+### `core.CalculateMany` — Calculate Many
+
+Evaluates named arithmetic expressions in array order. Each result is published
+before the next expression is evaluated, so later expressions can reference
+earlier names. Optional seed variables are available only during this node.
+
+* Ports: in `in` (any) → out `out` (object)
+* Policy: always allowed
+
+| Key | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `expressions` | array | **yes** | — | Ordered `{ "name", "expression" }` entries. At least one is required. |
+| `variables` | object | no | `{}` | Numeric or boolean seed values available only while evaluating this node. |
+| `output_var` | string | no | — | Optional variable receiving the complete result object. |
+
+```json
+{ "id": "compute", "type": "core.CalculateMany",
+  "config": { "variables": { "offset": 2 },
+              "expressions": [
+                { "name": "base", "expression": "2 + 3" },
+                { "name": "answer", "expression": "base * 4 + offset" }
+              ],
+              "output_var": "calculation" } }
 ```
 
 ### `core.SetVariable` — Set Variable

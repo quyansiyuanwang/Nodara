@@ -78,7 +78,7 @@ audit: 20 record(s) in 4ms wall clock
 预期输出：
 
 ```text
-runtime listening on http://127.0.0.1:8710/api/v1 (18 node type(s), 2 plugin(s))
+runtime listening on http://127.0.0.1:8710/api/v1 (19 node type(s), 2 plugin(s))
 ```
 
 在第二个 PowerShell 窗口检查服务：
@@ -89,7 +89,7 @@ Invoke-RestMethod http://127.0.0.1:8710/api/v1/plugins
 (Invoke-RestMethod http://127.0.0.1:8710/api/v1/node-types).node_types | Select-Object node_type
 ```
 
-健康检查应报告 `status=ok`、`node_types=18`。端口冲突时可在启动前设置：
+健康检查应报告 `status=ok`、`node_types=19`。端口冲突时可在启动前设置：
 
 ```powershell
 $env:NODARA_RUNTIME_PORT = "8720"
@@ -107,7 +107,7 @@ $env:NODARA_RUNTIME_PORT = "8720"
 .\nodara-studio.exe
 ```
 
-打开窗口后应看到右上角连接标记显示类似 `18 node types · 2 plugin(s)`。随后：
+打开窗口后应看到右上角连接标记显示类似 `19 node types · 2 plugin(s)`。随后：
 
 1. 点击 **Import**，选择 `examples\hello-world.json`；
 2. 确认画布显示 `Start → Log → End`；

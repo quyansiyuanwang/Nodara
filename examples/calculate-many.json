@@ -1,0 +1,37 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.calculate-many",
+  "metadata": {
+    "name": "Named calculations",
+    "description": "Evaluates multiple ordered expressions and publishes named results.",
+    "tags": ["calculate", "variables"]
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start" },
+    {
+      "id": "calculate",
+      "type": "core.CalculateMany",
+      "config": {
+        "variables": { "offset": 2 },
+        "expressions": [
+          { "name": "base", "expression": "2 + 3" },
+          { "name": "answer", "expression": "base * 4 + offset" }
+        ],
+        "output_var": "calculation"
+      }
+    },
+    {
+      "id": "log",
+      "type": "core.Log",
+      "config": { "message": "answer={{answer}} all={{calculation}}" }
+    },
+    { "id": "end", "type": "core.End" }
+  ],
+  "edges": [
+    { "id": "start-calculate", "source": "start", "target": "calculate" },
+    { "id": "calculate-log", "source": "calculate", "target": "log" },
+    { "id": "log-end", "source": "log", "target": "end" }
+  ],
+  "variables": {}
+}
