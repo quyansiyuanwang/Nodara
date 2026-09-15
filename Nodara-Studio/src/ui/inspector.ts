@@ -96,6 +96,10 @@ export class Inspector {
             .split(",")
             .map((tag) => tag.trim())
             .filter(Boolean);
+        } else if (key === "workflow-author") {
+          this.workflow.metadata.author = input.value || undefined;
+        } else if (key === "workflow-version") {
+          this.workflow.metadata.version = input.value || undefined;
         }
         this.handlers.onChange();
       });
@@ -118,6 +122,16 @@ export class Inspector {
       this.workflow.metadata.tags.join(", "),
     );
     tags.title = t("inspector.workflowTagsHint");
+    addField(
+      "workflow-author",
+      t("inspector.workflowAuthor"),
+      this.workflow.metadata.author ?? "",
+    );
+    addField(
+      "workflow-version",
+      t("inspector.workflowVersion"),
+      this.workflow.metadata.version ?? "",
+    );
   }
 
   private renderEdge(edge: WorkflowEdge): void {

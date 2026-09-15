@@ -115,6 +115,37 @@ describe("schema-driven configuration forms", () => {
     expect(changes.window).toEqual({ title: "Settings" });
   });
 
+  it("edits array items with add, remove, and reorder controls", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        keys: {
+          type: "array",
+          minItems: 1,
+          maxItems: 3,
+          items: { type: "string" },
+        },
+      },
+    };
+    const { host, changes } = render(schema, { keys: ["a", "b"] });
+
+    const inputs = host.querySelectorAll<HTMLInputElement>(".array input");
+    inputs[1].value = "b2";
+    inputs[1].dispatchEvent(new Event("input"));
+    expect(changes.keys).toEqual(["a", "b2"]);
+
+    const upButtons = host.querySelectorAll<HTMLButtonElement>('[data-action="up"]');
+    upButtons[1].click();
+    expect(changes.keys).toEqual(["b2", "a"]);
+
+    host.querySelector<HTMLButtonElement>('[data-action="add"]')!.click();
+    expect((changes.keys as unknown[]).length).toBe(3);
+    expect(host.querySelector<HTMLButtonElement>('[data-action="add"]')!.disabled).toBe(true);
+
+    host.querySelector<HTMLButtonElement>('[data-action="remove"]')!.click();
+    expect((changes.keys as unknown[]).length).toBe(2);
+  });
+
   it("falls back to a JSON editor for anything it cannot render", () => {
     const schema: JsonSchema = {
       type: "object",

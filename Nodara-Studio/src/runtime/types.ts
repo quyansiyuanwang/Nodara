@@ -39,6 +39,8 @@ export interface JsonSchema {
   required?: string[];
   additionalProperties?: boolean | JsonSchema;
   items?: JsonSchema;
+  minItems?: number;
+  maxItems?: number;
 }
 
 export interface NodeDescriptor {
@@ -117,6 +119,7 @@ export interface Workflow {
     description?: string;
     tags: string[];
     author?: string;
+    version?: string;
   };
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];

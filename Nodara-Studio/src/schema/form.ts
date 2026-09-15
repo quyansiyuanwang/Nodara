@@ -42,6 +42,44 @@ function examplePlaceholder(schema: JsonSchema): string {
   return "";
 }
 
+function cloneValue<T>(value: T): T {
+  return typeof structuredClone === "function"
+    ? structuredClone(value)
+    : JSON.parse(JSON.stringify(value)) as T;
+}
+
+function defaultArrayItem(schema: JsonSchema): unknown {
+  if (schema.default !== undefined) return cloneValue(schema.default);
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  switch (type) {
+    case "number":
+    case "integer":
+      return 0;
+    case "boolean":
+      return false;
+    case "array":
+      return [];
+    case "object":
+      return {};
+    default:
+      return "";
+  }
+}
+
+function arrayButton(action: string, label: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "array__button";
+  button.dataset.action = action;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.textContent =
+    action === "add" || action === "remove"
+      ? action === "add" ? "+" : "×"
+      : action === "up" ? "↑" : "↓";
+  return button;
+}
+
 /** Render one field, appending it to `parent`. */
 export function renderField(
   parent: HTMLElement,
@@ -68,7 +106,82 @@ export function renderField(
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
   let restoreDefault: (() => void) | null = null;
 
-  if (type === "object" && schema.properties && Object.keys(schema.properties).length > 0) {
+  if (type === "array") {
+    wrapper.classList.add("field--array");
+    let items: unknown[] = Array.isArray(value)
+      ? value.slice()
+      : Array.isArray(schema.default) ? cloneValue(schema.default) : [];
+    const list = document.createElement("div");
+    list.className = "array";
+    const add = arrayButton("add", t("form.addItem"));
+    add.addEventListener("click", () => {
+      items.push(defaultArrayItem(schema.items ?? {}));
+      options.onChange(items.slice());
+      renderItems();
+    });
+    fieldHeader.appendChild(add);
+
+    const renderItems = () => {
+      list.replaceChildren();
+      add.disabled = schema.maxItems !== undefined && items.length >= schema.maxItems;
+      if (items.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "muted array__empty";
+        empty.textContent = t("form.emptyArray");
+        list.appendChild(empty);
+        return;
+      }
+      items.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "array__item";
+        row.dataset.index = String(index);
+        const control = document.createElement("div");
+        control.className = "array__control";
+        renderField(control, String(index + 1), schema.items ?? {}, item, {
+          idPrefix: `${id}-${index}`,
+          onChange: (next) => {
+            items[index] = next;
+            options.onChange(items.slice());
+          },
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "array__actions";
+        const up = arrayButton("up", t("form.moveItemUp"));
+        up.disabled = index === 0;
+        up.addEventListener("click", () => {
+          [items[index - 1], items[index]] = [items[index], items[index - 1]];
+          options.onChange(items.slice());
+          renderItems();
+        });
+        const down = arrayButton("down", t("form.moveItemDown"));
+        down.disabled = index === items.length - 1;
+        down.addEventListener("click", () => {
+          [items[index + 1], items[index]] = [items[index], items[index + 1]];
+          options.onChange(items.slice());
+          renderItems();
+        });
+        const remove = arrayButton("remove", t("form.removeItem"));
+        remove.disabled = schema.minItems !== undefined && items.length <= schema.minItems;
+        remove.addEventListener("click", () => {
+          items.splice(index, 1);
+          options.onChange(items.slice());
+          renderItems();
+        });
+        actions.append(up, down, remove);
+        row.append(control, actions);
+        list.appendChild(row);
+      });
+    };
+
+    restoreDefault = () => {
+      items = Array.isArray(schema.default) ? cloneValue(schema.default) : [];
+      options.onChange(items.slice());
+      renderItems();
+    };
+    renderItems();
+    wrapper.appendChild(list);
+  } else if (type === "object" && schema.properties && Object.keys(schema.properties).length > 0) {
     wrapper.classList.add("field--group");
     const objectValue =
       value && typeof value === "object" && !Array.isArray(value)

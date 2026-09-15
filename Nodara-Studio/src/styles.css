@@ -717,6 +717,75 @@ body.is-resizing-y * {
   color: var(--text);
 }
 
+.field--array .field__header {
+  align-items: center;
+}
+
+.field--array .field__header .array__button {
+  margin-left: auto;
+}
+
+.array {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.array__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: start;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.array__control {
+  min-width: 0;
+}
+
+.array__control .field {
+  margin-bottom: 0;
+}
+
+.array__actions {
+  display: flex;
+  gap: 3px;
+  padding-top: 17px;
+}
+
+.array__button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.array__button:hover:not(:disabled),
+.field--array .field__header .array__button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.array__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.array__empty {
+  padding: 7px;
+  margin: 0;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
 .field__hint {
   margin: 4px 0 0;
   font-size: 11px;

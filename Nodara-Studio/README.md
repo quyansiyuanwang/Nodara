@@ -108,11 +108,12 @@ known validation code has a Studio translation.
 * Undo and redo workflow edits with the toolbar buttons, `Ctrl+Z`, `Ctrl+Y` or
   `Ctrl+Shift+Z`; rapid typing is coalesced into a single history entry.
 * Schema-driven forms mark required fields, show descriptions, use examples as
-  placeholders, render nested object schemas as grouped controls and offer a
-  reset-to-default action when the Schema declares a default.
-* With no node selected, Properties edits workflow ID, name, description and
-  tags, and manages workflow variables (default value, description, secret flag
-  and session-only run overrides).
+  placeholders, render nested object schemas as grouped controls, edit arrays as
+  reorderable lists and offer a reset-to-default action when the Schema declares
+  a default.
+* With no node selected, Properties edits workflow ID, name, description, tags,
+  author and version, and manages workflow variables (default value,
+  description, secret flag and session-only run overrides).
 * The Properties panel exposes common execution settings for every node:
   enabled pass-through, run condition, pre/post delay, continue-on-error,
   retry count, retry delay and common result mapping (`result_var` /

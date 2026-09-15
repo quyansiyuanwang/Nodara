@@ -51,17 +51,25 @@ describe("node execution settings", () => {
     const tags = root.querySelector<HTMLInputElement>("#workflow-tags")!;
     tags.value = "smoke, windows";
     tags.dispatchEvent(new Event("input"));
+    const author = root.querySelector<HTMLInputElement>("#workflow-author")!;
+    author.value = "QA";
+    author.dispatchEvent(new Event("input"));
+    const version = root.querySelector<HTMLInputElement>("#workflow-version")!;
+    version.value = "1.2.0";
+    version.dispatchEvent(new Event("input"));
 
     expect(workflow.id).toBe("workflow.test");
     expect(workflow.metadata.name).toBe("Test flow");
     expect(workflow.metadata.tags).toEqual(["smoke", "windows"]);
+    expect(workflow.metadata.author).toBe("QA");
+    expect(workflow.metadata.version).toBe("1.2.0");
 
     const add = [...root.querySelectorAll<HTMLButtonElement>("button")].find(
       (button) => button.textContent?.includes("Add variable"),
     )!;
     add.click();
     expect(workflow.variables.variable1).toEqual({ value: "", secret: false });
-    expect(changes).toBe(4);
+    expect(changes).toBe(6);
   });
 
   it("edits run overrides without changing workflow defaults", () => {

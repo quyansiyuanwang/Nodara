@@ -37,6 +37,11 @@ All notable changes to this project are documented here. The format follows
   Properties and colors/labels the branch on the canvas.
 - Regenerated the published workflow and agent-session schemas so editor hints
   include current execution controls and edge branches.
+- Studio schema-driven forms now render array-valued configuration as an
+  editable list with add, remove, reorder, default-reset, minimum and maximum
+  item controls instead of falling back to a raw JSON textarea.
+- Workflow Properties now edit the metadata author and workflow version fields,
+  so these common document settings no longer require the JSON tab.
 - Studio now has a **Runs** tab that lists runtime run history. Any entry can be
   opened directly into its event stream, with status, workflow, node count and
   start time shown in the table.
