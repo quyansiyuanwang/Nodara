@@ -16,6 +16,16 @@ import {
   nodeTypeAdmission,
   valueTypesCompatible,
 } from "../model/workflow";
+import {
+  createWorkflowGroup,
+  deleteWorkflowGroup,
+  getWorkflowGroups,
+  groupBoundingBox,
+  groupForNode,
+  pruneWorkflowGroups,
+  removeNodesFromGroups,
+  renameWorkflowGroup,
+} from "../model/groups";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
 const NODE_WIDTH = 200;
@@ -68,12 +78,14 @@ interface EdgeAnimation {
 
 type ContextTarget =
   | { kind: "node"; id: string }
-  | { kind: "edge"; id: string };
+  | { kind: "edge"; id: string }
+  | { kind: "group"; id: string };
 
 export class Canvas {
   private readonly viewport: SVGGElement;
   private readonly nodesLayer: SVGGElement;
   private readonly edgesLayer: SVGGElement;
+  private readonly groupsLayer: SVGGElement;
   private readonly pendingEdge: SVGPathElement;
   private readonly selectionBox: SVGRectElement;
   private readonly quickConfig: HTMLDivElement;
@@ -104,6 +116,9 @@ export class Canvas {
     this.viewport = svg.querySelector("#viewport")!;
     this.nodesLayer = svg.querySelector("#nodes")!;
     this.edgesLayer = svg.querySelector("#edges")!;
+    this.groupsLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    this.groupsLayer.classList.add("groups");
+    this.viewport.insertBefore(this.groupsLayer, this.edgesLayer);
     this.pendingEdge = svg.querySelector("#pending-edge")!;
     this.selectionBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     this.selectionBox.classList.add("canvas-selection-box", "is-hidden");
@@ -329,6 +344,43 @@ export class Canvas {
     return [...this.selected];
   }
 
+  /** Select an explicit set of node identifiers. */
+  selectNodes(ids: string[]): void {
+    const valid = ids.filter((id) => this.workflow.nodes.some((node) => node.id === id));
+    if (valid.length > 0) this.setSelection(valid, valid[0]);
+  }
+
+  /** Select every node in a persistent group. */
+  selectGroup(groupId: string): void {
+    const group = getWorkflowGroups(this.workflow).find((candidate) => candidate.id === groupId);
+    if (!group) return;
+    const ids = group.node_ids.filter((id) => this.workflow.nodes.some((node) => node.id === id));
+    if (ids.length > 0) this.setSelection(ids, ids[0]);
+  }
+
+  /** Create a persistent group from the current selection. */
+  createGroupFromSelection(name: string): string | null {
+    const ids = [...this.selected];
+    if (ids.length === 0) return null;
+    const group = createWorkflowGroup(this.workflow, ids, name);
+    this.handlers.onChange();
+    this.selectGroup(group.id);
+    return group.id;
+  }
+
+  /** Remove the current selection from all persistent groups. */
+  removeSelectionFromGroups(): void {
+    if (this.selected.size === 0) return;
+    removeNodesFromGroups(this.workflow, [...this.selected]);
+    this.handlers.onChange();
+  }
+
+  /** Identifier of the group containing the primary selected node, if any. */
+  selectedGroupId(): string | null {
+    const nodeId = this.primarySelected ?? this.selected.values().next().value ?? null;
+    return nodeId ? groupForNode(this.workflow, nodeId)?.id ?? null : null;
+  }
+
   private setSelection(ids: Iterable<string>, primary: string | null): void {
     this.selected = new Set(ids);
     this.primarySelected = primary && this.selected.has(primary)
@@ -347,6 +399,15 @@ export class Canvas {
     }
     for (const element of this.edgesLayer.querySelectorAll<SVGPathElement>(".edge")) {
       element.classList.toggle("edge--selected", element.dataset.edgeId === this.selectedEdge);
+    }
+    for (const group of getWorkflowGroups(this.workflow)) {
+      const element = this.groupsLayer.querySelector<SVGGElement>(
+        `[data-group-id="${group.id}"]`,
+      );
+      element?.classList.toggle(
+        "node-group--selected",
+        group.node_ids.length > 0 && group.node_ids.every((id) => this.selected.has(id)),
+      );
     }
     this.renderQuickConfig();
     this.handlers.onSelect(this.primarySelected);
@@ -547,6 +608,7 @@ export class Canvas {
 
   /** Re-render everything. Called after any document mutation. */
   render(): void {
+    this.renderGroups();
     this.renderEdges();
     this.renderNodes();
   }
@@ -876,6 +938,7 @@ export class Canvas {
       this.workflow.edges = this.workflow.edges.filter(
         (edge) => !ids.has(edge.source) && !ids.has(edge.target),
       );
+      pruneWorkflowGroups(this.workflow);
       this.select(null);
       this.handlers.onChange();
     }
@@ -886,8 +949,10 @@ export class Canvas {
     event.stopPropagation();
     if (target.kind === "node") {
       if (!this.selected.has(target.id)) this.select(target.id);
-    } else {
+    } else if (target.kind === "edge") {
       this.select(null, target.id);
+    } else {
+      this.selectGroup(target.id);
     }
 
     this.contextMenu.replaceChildren();
@@ -895,7 +960,9 @@ export class Canvas {
     title.className = "context-menu__title";
     title.textContent = target.kind === "node"
       ? t("canvas.nodeTitle", { id: target.id })
-      : t("canvas.connectionTitle", { id: target.id });
+      : target.kind === "edge"
+        ? t("canvas.connectionTitle", { id: target.id })
+        : t("groups.menuTitle");
     this.contextMenu.appendChild(title);
 
     if (target.kind === "node") {
@@ -961,6 +1028,87 @@ export class Canvas {
           this.handlers.onChange();
         });
         this.contextMenu.appendChild(toggle);
+
+        const membership = groupForNode(this.workflow, node.id);
+        if (membership) {
+          const selectGroup = document.createElement("button");
+          selectGroup.type = "button";
+          selectGroup.className = "context-menu__item";
+          selectGroup.dataset.action = "select-group";
+          selectGroup.textContent = t("groups.selectAll");
+          selectGroup.addEventListener("click", () => {
+            this.contextMenu.hidden = true;
+            this.selectGroup(membership.id);
+          });
+          this.contextMenu.appendChild(selectGroup);
+
+          const removeFromGroup = document.createElement("button");
+          removeFromGroup.type = "button";
+          removeFromGroup.className = "context-menu__item";
+          removeFromGroup.dataset.action = "remove-from-group";
+          removeFromGroup.textContent = t("groups.removeMembers");
+          removeFromGroup.addEventListener("click", () => {
+            removeNodesFromGroups(this.workflow, [...this.selected]);
+            this.contextMenu.hidden = true;
+            this.handlers.onChange();
+          });
+          this.contextMenu.appendChild(removeFromGroup);
+        } else {
+          const createGroup = document.createElement("button");
+          createGroup.type = "button";
+          createGroup.className = "context-menu__item";
+          createGroup.dataset.action = "create-group";
+          createGroup.textContent = t("groups.create");
+          createGroup.addEventListener("click", () => {
+            const name = t("groups.defaultName", { index: getWorkflowGroups(this.workflow).length + 1 });
+            this.createGroupFromSelection(name);
+            this.contextMenu.hidden = true;
+          });
+          this.contextMenu.appendChild(createGroup);
+        }
+      }
+    }
+
+    if (target.kind === "group") {
+      const group = getWorkflowGroups(this.workflow).find((candidate) => candidate.id === target.id);
+      if (group) {
+        const select = document.createElement("button");
+        select.type = "button";
+        select.className = "context-menu__item";
+        select.dataset.action = "select-group";
+        select.textContent = t("groups.selectAll");
+        select.addEventListener("click", () => {
+          this.contextMenu.hidden = true;
+          this.selectGroup(group.id);
+        });
+        this.contextMenu.appendChild(select);
+
+        const rename = document.createElement("button");
+        rename.type = "button";
+        rename.className = "context-menu__item";
+        rename.dataset.action = "rename-group";
+        rename.textContent = t("groups.rename");
+        rename.addEventListener("click", () => {
+          const next = window.prompt(t("groups.renamePrompt"), group.name)?.trim();
+          if (next) {
+            renameWorkflowGroup(this.workflow, group.id, next);
+            this.handlers.onChange();
+          }
+          this.contextMenu.hidden = true;
+        });
+        this.contextMenu.appendChild(rename);
+
+        const removeGroup = document.createElement("button");
+        removeGroup.type = "button";
+        removeGroup.className = "context-menu__item context-menu__item--danger";
+        removeGroup.dataset.action = "delete-group";
+        removeGroup.textContent = t("groups.removeGroup");
+        removeGroup.addEventListener("click", () => {
+          deleteWorkflowGroup(this.workflow, group.id);
+          this.contextMenu.hidden = true;
+          this.handlers.onChange();
+        });
+        this.contextMenu.appendChild(removeGroup);
       }
     }
 
@@ -993,20 +1141,22 @@ export class Canvas {
       }
     }
 
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "context-menu__item context-menu__item--danger";
-    remove.dataset.action = "delete";
-    const label = document.createElement("span");
-    label.textContent = target.kind === "node"
-      ? t("canvas.deleteNode")
-      : t("canvas.deleteConnection");
-    const shortcut = document.createElement("span");
-    shortcut.className = "context-menu__shortcut";
-    shortcut.textContent = "Del";
-    remove.append(label, shortcut);
-    remove.addEventListener("click", () => this.deleteSelection());
-    this.contextMenu.appendChild(remove);
+    if (target.kind !== "group") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "context-menu__item context-menu__item--danger";
+      remove.dataset.action = "delete";
+      const label = document.createElement("span");
+      label.textContent = target.kind === "node"
+        ? t("canvas.deleteNode")
+        : t("canvas.deleteConnection");
+      const shortcut = document.createElement("span");
+      shortcut.className = "context-menu__shortcut";
+      shortcut.textContent = "Del";
+      remove.append(label, shortcut);
+      remove.addEventListener("click", () => this.deleteSelection());
+      this.contextMenu.appendChild(remove);
+    }
 
     this.contextMenu.hidden = false;
     const bounds = this.contextMenu.getBoundingClientRect();
@@ -1014,6 +1164,71 @@ export class Canvas {
     const top = Math.max(8, Math.min(event.clientY, window.innerHeight - bounds.height - 8));
     this.contextMenu.style.left = `${left}px`;
     this.contextMenu.style.top = `${top}px`;
+  }
+
+  private renderGroups(): void {
+    this.groupsLayer.replaceChildren();
+    for (const group of getWorkflowGroups(this.workflow)) {
+      const ids = group.node_ids.filter((id) => this.workflow.nodes.some((node) => node.id === id));
+      if (ids.length === 0) continue;
+      const box = groupBoundingBox(this.workflow, group, NODE_WIDTH, NODE_HEIGHT);
+      if (!box) continue;
+
+      const element = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      element.classList.add("node-group");
+      element.dataset.groupId = group.id;
+      element.style.setProperty("--group-color", group.color);
+      if (ids.every((id) => this.selected.has(id))) element.classList.add("node-group--selected");
+
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      body.setAttribute("x", String(box.x));
+      body.setAttribute("y", String(box.y));
+      body.setAttribute("width", String(box.width));
+      body.setAttribute("height", String(box.height));
+      body.setAttribute("rx", "12");
+      body.classList.add("node-group__body");
+
+      const header = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      header.setAttribute(
+        "d",
+        `M ${box.x} ${box.y + 28} V ${box.y + 12} Q ${box.x} ${box.y} ${box.x + 12} ${box.y} H ${box.x + box.width - 12} Q ${box.x + box.width} ${box.y} ${box.x + box.width} ${box.y + 12} V ${box.y + 28} Z`,
+      );
+      header.classList.add("node-group__header");
+
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", String(box.x + 12));
+      label.setAttribute("y", String(box.y + 18));
+      label.classList.add("node-group__label");
+      label.textContent = group.name;
+
+      const count = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      count.setAttribute("x", String(box.x + box.width - 12));
+      count.setAttribute("y", String(box.y + 18));
+      count.setAttribute("text-anchor", "end");
+      count.classList.add("node-group__count");
+      count.textContent = t("groups.nodeCount", { count: ids.length });
+
+      element.append(body, header, label, count);
+      element.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || this.spaceDown) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.setSelection(ids, ids[0]);
+        const point = this.toCanvas(event.clientX, event.clientY);
+        const origins = new Map<string, { x: number; y: number }>();
+        for (const id of ids) {
+          const node = this.workflow.nodes.find((candidate) => candidate.id === id);
+          if (!node) continue;
+          origins.set(id, { x: node.position?.x ?? 0, y: node.position?.y ?? 0 });
+        }
+        this.drag = { primaryId: ids[0], startX: point.x, startY: point.y, origins, moved: false };
+        document.body.classList.add("is-canvas-dragging");
+      });
+      element.addEventListener("contextmenu", (event) => {
+        this.showContextMenu(event, { kind: "group", id: group.id });
+      });
+      this.groupsLayer.appendChild(element);
+    }
   }
 
   private renderNodes(): void {

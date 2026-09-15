@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { getWorkflowGroups } from "../model/groups";
 import { Inspector } from "./inspector";
 import { emptyWorkflow } from "../model/workflow";
 import { NodeDescriptor } from "../runtime/types";
@@ -263,4 +264,41 @@ describe("node execution settings", () => {
     expect(root.textContent).toContain("start.out");
     expect(root.querySelector("select.input")).toBeNull();
     expect(root.querySelector("textarea.input")).toBeNull();
-  });});
+  });
+  it("renders unified bulk settings and creates a group for a selection", () => {
+    const workflow = emptyWorkflow();
+    workflow.nodes = [
+      { id: "start", type: "core.Start", config: {} },
+      { id: "log", type: "core.Log", config: {} },
+    ];
+    workflow.nodes[0].retry = 1;
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const selected: string[][] = [];
+    const inspector = new Inspector(
+      root,
+      workflow,
+      () => descriptor(),
+      {
+        onChange: () => undefined,
+        onSelectNodes: (ids) => selected.push(ids),
+      },
+    );
+
+    inspector.renderSelection(["start", "log"]);
+    expect(root.querySelector(".inspector__title")?.textContent).toContain("2");
+    const retry = root.querySelector<HTMLInputElement>('[data-field="execution.retries"]')!;
+    expect(retry.placeholder).toBe("Multiple values");
+    retry.value = "3";
+    retry.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(workflow.nodes.every((node) => node.retry === 3)).toBe(true);
+
+    const create = [...root.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent?.includes("Create group"),
+    )!;
+    create.click();
+    expect(getWorkflowGroups(workflow)).toHaveLength(1);
+    expect(getWorkflowGroups(workflow)[0].node_ids).toEqual(["start", "log"]);
+    expect(selected[0]).toEqual(["start", "log"]);
+  });
+});

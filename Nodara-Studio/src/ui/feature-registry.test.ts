@@ -5,14 +5,15 @@ import { FeatureRegistry } from "./feature-registry";
 describe("Studio feature registry", () => {
   it("sorts panels by order and supports replacement", () => {
     const registry = new FeatureRegistry();
-    registry.registerPanel({ id: "events", labelKey: "tabs.events", panelId: "panel-events", order: 20 });
-    registry.registerPanel({ id: "runs", labelKey: "tabs.runs", panelId: "panel-runs", order: 10 });
+    registry.registerPanel({ id: "events", labelKey: "tabs.events", panelId: "panel-events", group: "observe", order: 20 });
+    registry.registerPanel({ id: "runs", labelKey: "tabs.runs", panelId: "panel-runs", group: "observe", order: 10 });
     expect(registry.panels().map((panel) => panel.id)).toEqual(["runs", "events"]);
 
-    registry.registerPanel({ id: "runs", labelKey: "tabs.extensions", panelId: "panel-extensions", order: 5 });
+    registry.registerPanel({ id: "runs", labelKey: "tabs.extensions", panelId: "panel-extensions", group: "tools", order: 5 });
     expect(registry.getPanel("runs")).toMatchObject({
       labelKey: "tabs.extensions",
       panelId: "panel-extensions",
+      group: "tools",
     });
     expect(registry.size).toBe(2);
   });

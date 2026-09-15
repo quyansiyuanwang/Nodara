@@ -1,9 +1,11 @@
 export type FeatureSource = "builtin" | "host" | "plugin";
+export type DrawerGroup = "observe" | "flow" | "agent" | "tools";
 
 export interface DrawerFeature {
   id: string;
   labelKey: string;
   panelId: string;
+  group?: DrawerGroup;
   order?: number;
   source?: FeatureSource;
 }

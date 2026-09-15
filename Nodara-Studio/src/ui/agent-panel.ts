@@ -61,6 +61,7 @@ export class AgentPanel {
   private providerOpen = false;
   private readonly planJsonOpen = new Set<string>();
   private sessionFingerprint = "";
+  private sessionFilter = "";
 
   constructor(
     private readonly root: HTMLElement,
@@ -122,6 +123,11 @@ export class AgentPanel {
 
     const sidebar = document.createElement("div");
     sidebar.className = "agent-sidebar";
+    const sidebarHeader = document.createElement("div");
+    sidebarHeader.className = "agent-sidebar__header";
+    const sessionCount = document.createElement("span");
+    sessionCount.className = "agent-sidebar__count";
+    sessionCount.textContent = t("agent.sessionCount", { count: this.sessions.length });
     const newChat = document.createElement("button");
     newChat.type = "button";
     newChat.className = "btn btn--small";
@@ -132,36 +138,23 @@ export class AgentPanel {
       this.localError = "";
       this.render();
     });
-    sidebar.appendChild(newChat);
+    sidebarHeader.append(sessionCount, newChat);
+    sidebar.appendChild(sidebarHeader);
+
+    const search = document.createElement("input");
+    search.className = "input input--small agent-search";
+    search.type = "search";
+    search.placeholder = t("agent.searchSessions");
+    search.value = this.sessionFilter;
+    sidebar.appendChild(search);
     const list = document.createElement("div");
     list.className = "sessions";
-    for (const session of this.sessions) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "session";
-      if (session.id === this.selected) item.classList.add("session--selected");
-      if (session.approvals.some((approval) => !approval.decision)) {
-        item.classList.add("session--attention");
-      }
-      const goal = document.createElement("span");
-      goal.className = "session__goal";
-      goal.textContent = session.goal;
-      const status = document.createElement("span");
-      status.className = `session__status session__status--${session.status}`;
-      status.textContent = localizeAgentStatus(session.status);
-      item.append(goal, status);
-      item.addEventListener("click", () => {
-        this.selected = session.id;
-        this.render();
-      });
-      list.appendChild(item);
-    }
-    if (this.sessions.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = t("agent.empty");
-      list.appendChild(empty);
-    }
+    const renderSessions = () => this.renderSessionItems(list);
+    search.addEventListener("input", () => {
+      this.sessionFilter = search.value;
+      renderSessions();
+    });
+    renderSessions();
     sidebar.appendChild(list);
     shell.appendChild(sidebar);
 
@@ -188,6 +181,41 @@ export class AgentPanel {
     this.root.appendChild(shell);
   }
 
+  private renderSessionItems(list: HTMLElement): void {
+    list.replaceChildren();
+    const query = this.sessionFilter.trim().toLocaleLowerCase();
+    const sessions = query
+      ? this.sessions.filter((session) => session.goal.toLocaleLowerCase().includes(query))
+      : this.sessions;
+    for (const session of sessions) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "session";
+      if (session.id === this.selected) item.classList.add("session--selected");
+      if (session.approvals.some((approval) => !approval.decision)) {
+        item.classList.add("session--attention");
+      }
+      const goal = document.createElement("span");
+      goal.className = "session__goal";
+      goal.textContent = session.goal;
+      const status = document.createElement("span");
+      status.className = `session__status session__status--${session.status}`;
+      status.textContent = localizeAgentStatus(session.status);
+      item.append(goal, status);
+      item.addEventListener("click", () => {
+        this.selected = session.id;
+        this.render();
+      });
+      list.appendChild(item);
+    }
+    if (sessions.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = query ? t("agent.noSessionsMatch") : t("agent.empty");
+      list.appendChild(empty);
+    }
+  }
+
   private renderProviderSettings(): HTMLElement {
     const details = document.createElement("details");
     details.className = "agent-provider";
@@ -196,7 +224,11 @@ export class AgentPanel {
       this.providerOpen = details.open;
     });
     const summary = document.createElement("summary");
-    summary.textContent = t("agent.providerSettings");
+    const summaryTitle = document.createElement("span");
+    summaryTitle.textContent = t("agent.providerSettings");
+    const summaryModel = document.createElement("code");
+    summaryModel.textContent = this.provider.model;
+    summary.append(summaryTitle, summaryModel);
     details.appendChild(summary);
     const grid = document.createElement("div");
     grid.className = "agent-provider__grid";
@@ -253,6 +285,11 @@ export class AgentPanel {
       this.mode = mode.value as AgentExecutionMode;
       this.render();
     });
+    const modeLabel = document.createElement("label");
+    modeLabel.className = "agent-control";
+    const modeText = document.createElement("span");
+    modeText.textContent = t("agent.modeLabel");
+    modeLabel.append(modeText, mode);
     const base = document.createElement("select");
     base.className = "input input--small";
     for (const [value, key] of [
@@ -269,7 +306,12 @@ export class AgentPanel {
     base.addEventListener("change", () => {
       this.baseMode = base.value as AgentBaseMode;
     });
-    controls.append(mode, base);
+    const baseLabel = document.createElement("label");
+    baseLabel.className = "agent-control";
+    const baseText = document.createElement("span");
+    baseText.textContent = t("agent.baseLabel");
+    baseLabel.append(baseText, base);
+    controls.append(modeLabel, baseLabel);
     return controls;
   }
 
@@ -284,17 +326,26 @@ export class AgentPanel {
     input.addEventListener("input", () => {
       this.draft = input.value;
     });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
     const row = document.createElement("div");
     row.className = "agent-composer__actions";
     const status = document.createElement("span");
     status.className = "muted";
     status.textContent = this.busy ? t("agent.running") : t("agent.ready");
+    const shortcut = document.createElement("span");
+    shortcut.className = "agent-composer__hint";
+    shortcut.textContent = t("agent.ctrlEnterHint");
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "btn btn--primary";
     submit.disabled = !this.desktopAvailable || this.busy || draft.trim() === "";
     submit.textContent = this.busy ? t("agent.running") : t("agent.send");
-    row.append(status, submit);
+    row.append(status, shortcut, submit);
     form.append(input, row);
     form.addEventListener("submit", (event) => {
       event.preventDefault();

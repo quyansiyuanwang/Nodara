@@ -91,6 +91,8 @@ copy.
 | Edge activity animation | Static arrowheads stay visible; runtime `edge_activated` / `data_transferred` events animate a moving arrow and dash flow along the actual traversed edge, then retain the path highlight until the next run or clear |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
+| Bulk configuration | Use the Properties bulk form or floating quick card to set enabled, breakpoint, condition, delays, continue-on-error, retry and timeout together |
+| Node groups | Create a persistent group from a selection, drag the group frame as a unit, and rename, recolor, remove members or select the group from Properties |
 
 ### Compact layout and motion
 
@@ -106,6 +108,10 @@ Motion is part of execution feedback, not decoration:
 - completed paths keep their highlight until the next run or **Clear**.
 
 If a desktop policy disables general operating-system animations, Studio still keeps its workflow-edge motion enabled so execution direction remains visible.
+
+#### Node groups and unified configuration
+
+Group definitions are stored in `metadata.extensions["studio.groups"]`, so they survive Studio import/export, Runtime validation and Agent-returned workflow JSON. A multi-selection exposes bulk execution settings and group membership in Properties. Group frames can be selected and moved as a unit; the context menu can rename or delete them, and the no-selection Properties view provides a workflow-wide group manager.
 
 ### Workflow settings and variables
 

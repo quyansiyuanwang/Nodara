@@ -7,6 +7,18 @@
 
 import { localizeDiagnostic, t } from "../i18n";
 import { renderConfigForm } from "../schema/form";
+import {
+  assignNodesToGroup,
+  createWorkflowGroup,
+  deleteWorkflowGroup,
+  getWorkflowGroups,
+  groupForNode,
+  GROUP_COLORS,
+  removeNodesFromGroups,
+  renameNodeInGroups,
+  renameWorkflowGroup,
+  setWorkflowGroupColor,
+} from "../model/groups";
 import type { ScreenRegion } from "./region-picker";
 import {
   Diagnostic,
@@ -22,6 +34,7 @@ export interface InspectorHandlers {
   setRunOverride?: (name: string, value: unknown) => void;
   clearRunOverride?: (name: string) => void;
   pickCaptureRegion?: () => Promise<ScreenRegion | null>;
+  onSelectNodes?: (nodeIds: string[]) => void;
 }
 
 export class Inspector {
@@ -74,6 +87,7 @@ export class Inspector {
     }
     if (!nodeId) {
       this.renderWorkflow();
+      this.renderGroups();
       this.renderVariables(diagnostics);
       return;
     }
@@ -87,8 +101,346 @@ export class Inspector {
     this.renderHeader(node, descriptor);
     this.renderIdentity(node);
     this.renderExecution(node, descriptor);
+    this.renderNodeGroup(node);
     this.renderConfig(node, descriptor);
     this.renderDiagnostics(diagnostics.filter((item) => item.node_id === node.id));
+  }
+
+  /** Render bulk execution settings and group management for a multi-selection. */
+  renderSelection(nodeIds: string[], diagnostics: Diagnostic[] = []): void {
+    this.root.replaceChildren();
+    const nodes = this.workflow.nodes.filter((node) => nodeIds.includes(node.id));
+    if (nodes.length === 0) {
+      this.root.appendChild(muted(t("inspector.nodeMissing")));
+      return;
+    }
+
+    const title = document.createElement("h3");
+    title.className = "inspector__title";
+    title.textContent = t("inspector.selectionTitle", { count: nodes.length });
+    this.root.appendChild(title);
+
+    const subtitle = document.createElement("p");
+    subtitle.className = "muted";
+    subtitle.textContent = t("inspector.selectionSubtitle");
+    this.root.appendChild(subtitle);
+
+    this.renderGroupMembership(nodes);
+    this.renderBulkExecution(nodes);
+    const relevant = diagnostics.filter(
+      (item) => item.node_id !== undefined && nodeIds.includes(item.node_id),
+    );
+    this.renderDiagnostics(relevant);
+  }
+
+  /** Persistent group manager shown when the canvas has no active selection. */
+  private renderGroups(): void {
+    const content = this.section("inspector.groups", "groups", true);
+    const hint = document.createElement("p");
+    hint.className = "field__hint";
+    hint.textContent = t("groups.workflowHint");
+    content.appendChild(hint);
+
+    const groups = getWorkflowGroups(this.workflow);
+    if (groups.length === 0) {
+      content.appendChild(muted(t("groups.empty")));
+      return;
+    }
+
+    const list = document.createElement("div");
+    list.className = "group-manager";
+    for (const group of groups) {
+      const card = document.createElement("div");
+      card.className = "group-manager__card";
+      card.dataset.groupId = group.id;
+      card.style.setProperty("--group-color", group.color);
+
+      const heading = document.createElement("div");
+      heading.className = "group-manager__heading";
+      const select = document.createElement("button");
+      select.type = "button";
+      select.className = "group-manager__select";
+      select.textContent = group.name;
+      select.title = t("groups.selectAll");
+      select.addEventListener("click", () => this.handlers.onSelectNodes?.(group.node_ids));
+      const count = document.createElement("span");
+      count.className = "badge";
+      count.textContent = t("groups.nodeCount", { count: group.node_ids.length });
+      heading.append(select, count);
+      card.appendChild(heading);
+
+      const name = document.createElement("input");
+      name.className = "input";
+      name.value = group.name;
+      name.setAttribute("aria-label", t("groups.name"));
+      name.addEventListener("change", () => {
+        renameWorkflowGroup(this.workflow, group.id, name.value);
+        this.handlers.onChange();
+      });
+      card.appendChild(name);
+
+      const actions = document.createElement("div");
+      actions.className = "group-manager__actions";
+      const colors = document.createElement("div");
+      colors.className = "group-colors";
+      for (const color of GROUP_COLORS) {
+        const swatch = document.createElement("button");
+        swatch.type = "button";
+        swatch.className = "group-color";
+        swatch.style.setProperty("--group-color", color);
+        swatch.classList.toggle("group-color--active", color === group.color);
+        swatch.setAttribute("aria-label", color);
+        swatch.addEventListener("click", () => {
+          setWorkflowGroupColor(this.workflow, group.id, color);
+          this.handlers.onChange();
+        });
+        colors.appendChild(swatch);
+      }
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "btn btn--small";
+      remove.textContent = t("groups.removeGroup");
+      remove.addEventListener("click", () => {
+        deleteWorkflowGroup(this.workflow, group.id);
+        this.handlers.onChange();
+      });
+      actions.append(colors, remove);
+      card.append(name, actions);
+      list.appendChild(card);
+    }
+    content.appendChild(list);
+  }
+
+  private renderNodeGroup(node: WorkflowNode): void {
+    this.renderGroupMembership([node]);
+  }
+
+  private renderGroupMembership(nodes: WorkflowNode[]): void {
+    const content = this.section("inspector.groupMembership", "group-membership", true);
+    const groups = getWorkflowGroups(this.workflow);
+    const memberships = nodes.map((node) => groupForNode(this.workflow, node.id)?.id ?? null);
+    const commonId = memberships.every((id) => id === memberships[0]) ? memberships[0] : null;
+    const nodeIds = nodes.map((node) => node.id);
+
+    const assignment = document.createElement("div");
+    assignment.className = "group-assignment";
+    const select = document.createElement("select");
+    select.className = "input";
+    select.setAttribute("aria-label", t("groups.assignment"));
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = t("groups.none");
+    select.appendChild(none);
+    for (const group of groups) {
+      const option = document.createElement("option");
+      option.value = group.id;
+      option.textContent = group.name;
+      select.appendChild(option);
+    }
+    select.value = commonId ?? "";
+    select.addEventListener("change", () => {
+      if (select.value) assignNodesToGroup(this.workflow, select.value, nodeIds);
+      else removeNodesFromGroups(this.workflow, nodeIds);
+      this.handlers.onChange();
+    });
+
+    const createRow = document.createElement("div");
+    createRow.className = "group-assignment__create";
+    const name = document.createElement("input");
+    name.className = "input";
+    name.placeholder = t("groups.newName");
+    const create = document.createElement("button");
+    create.type = "button";
+    create.className = "btn btn--small";
+    create.textContent = t("groups.create");
+    create.disabled = nodes.length === 0;
+    create.addEventListener("click", () => {
+      const group = createWorkflowGroup(
+        this.workflow,
+        nodeIds,
+        name.value.trim() || t("groups.defaultName", { index: groups.length + 1 }),
+      );
+      this.handlers.onChange();
+      this.handlers.onSelectNodes?.(group.node_ids);
+    });
+    createRow.append(name, create);
+
+    assignment.append(select, createRow);
+    content.appendChild(assignment);
+
+    if (commonId) {
+      const group = groups.find((candidate) => candidate.id === commonId);
+      if (group) {
+        const actions = document.createElement("div");
+        actions.className = "group-assignment__actions";
+        const color = document.createElement("div");
+        color.className = "group-colors";
+        for (const value of GROUP_COLORS) {
+          const swatch = document.createElement("button");
+          swatch.type = "button";
+          swatch.className = "group-color";
+          swatch.style.setProperty("--group-color", value);
+          swatch.classList.toggle("group-color--active", value === group.color);
+          swatch.setAttribute("aria-label", value);
+          swatch.addEventListener("click", () => {
+            setWorkflowGroupColor(this.workflow, group.id, value);
+            this.handlers.onChange();
+          });
+          color.appendChild(swatch);
+        }
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "btn btn--small";
+        remove.textContent = t("groups.removeMembers");
+        remove.addEventListener("click", () => {
+          removeNodesFromGroups(this.workflow, nodeIds);
+          this.handlers.onChange();
+        });
+        actions.append(color, remove);
+        content.appendChild(actions);
+      }
+    }
+  }
+
+  private renderBulkExecution(nodes: WorkflowNode[]): void {
+    const content = this.section("inspector.bulkExecution", "bulk-execution", true);
+    const hint = document.createElement("p");
+    hint.className = "field__hint";
+    hint.textContent = t("inspector.bulkExecutionHint");
+    content.appendChild(hint);
+
+    const booleanField = (
+      labelKey: string,
+      read: (node: WorkflowNode) => boolean,
+      apply: (node: WorkflowNode, value: boolean) => void,
+    ) => {
+      const values = nodes.map(read);
+      const mixed = values.some((value) => value !== values[0]);
+      const label = document.createElement("label");
+      label.className = "group-bulk-field group-bulk-field--check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.field = labelKey;
+      input.checked = !mixed && values[0];
+      input.indeterminate = mixed;
+      input.addEventListener("change", () => {
+        for (const node of nodes) apply(node, input.checked);
+        this.handlers.onChange();
+      });
+      const text = document.createElement("span");
+      text.textContent = mixed ? t("canvas.multipleValues") : t(labelKey);
+      label.append(input, text);
+      content.appendChild(label);
+    };
+
+    const numberField = (
+      labelKey: string,
+      read: (node: WorkflowNode) => number,
+      apply: (node: WorkflowNode, value: number) => void,
+    ) => {
+      const values = nodes.map(read);
+      const mixed = values.some((value) => value !== values[0]);
+      const label = document.createElement("label");
+      label.className = "group-bulk-field";
+      const text = document.createElement("span");
+      text.textContent = t(labelKey);
+      const input = document.createElement("input");
+      input.className = "input input--small";
+      input.dataset.field = labelKey;
+      input.type = "number";
+      input.min = "0";
+      input.value = mixed ? "" : String(values[0]);
+      input.placeholder = mixed ? t("canvas.multipleValues") : "";
+      input.addEventListener("change", () => {
+        const value = Math.max(0, Number(input.value) || 0);
+        for (const node of nodes) apply(node, value);
+        this.handlers.onChange();
+      });
+      label.append(text, input);
+      content.appendChild(label);
+    };
+
+    const textField = (
+      labelKey: string,
+      read: (node: WorkflowNode) => string,
+      apply: (node: WorkflowNode, value: string) => void,
+    ) => {
+      const values = nodes.map(read);
+      const mixed = values.some((value) => value !== values[0]);
+      const label = document.createElement("label");
+      label.className = "group-bulk-field";
+      const text = document.createElement("span");
+      text.textContent = t(labelKey);
+      const input = document.createElement("input");
+      input.className = "input input--small";
+      input.dataset.field = labelKey;
+      input.value = mixed ? "" : values[0];
+      input.placeholder = mixed ? t("canvas.multipleValues") : "";
+      input.addEventListener("change", () => {
+        for (const node of nodes) apply(node, input.value);
+        this.handlers.onChange();
+      });
+      label.append(text, input);
+      content.appendChild(label);
+    };
+
+    booleanField(
+      "execution.enabled",
+      (node) => node.enabled ?? true,
+      (node, value) => {
+        if (value) delete node.enabled;
+        else node.enabled = false;
+      },
+    );
+    booleanField(
+      "execution.breakpoint",
+      (node) => node.breakpoint ?? false,
+      (node, value) => {
+        if (value) node.breakpoint = true;
+        else delete node.breakpoint;
+      },
+    );
+    textField(
+      "execution.condition",
+      (node) => node.condition ?? "",
+      (node, value) => {
+        const next = value.trim();
+        if (next) node.condition = next;
+        else delete node.condition;
+      },
+    );
+    numberField(
+      "execution.delayBefore",
+      (node) => node.delay_before_ms ?? 0,
+      (node, value) => {
+        if (value > 0) node.delay_before_ms = value;
+        else delete node.delay_before_ms;
+      },
+    );
+    booleanField(
+      "execution.continueOnError",
+      (node) => node.continue_on_error ?? false,
+      (node, value) => {
+        if (value) node.continue_on_error = true;
+        else delete node.continue_on_error;
+      },
+    );
+    numberField(
+      "execution.retries",
+      (node) => node.retry ?? 0,
+      (node, value) => {
+        if (value > 0) node.retry = Math.floor(value);
+        else delete node.retry;
+      },
+    );
+    numberField(
+      "execution.timeout",
+      (node) => node.timeout_ms ?? 0,
+      (node, value) => {
+        if (value > 0) node.timeout_ms = value;
+        else delete node.timeout_ms;
+      },
+    );
   }
 
   private renderWorkflow(): void {
@@ -305,6 +657,7 @@ export class Inspector {
         if (edge.source === previous) edge.source = next;
         if (edge.target === previous) edge.target = next;
       }
+      renameNodeInGroups(this.workflow, previous, next);
       this.handlers.onChange();
     });
     identity.appendChild(idLabel);

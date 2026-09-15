@@ -118,6 +118,11 @@ workflow variables marked secret are not persisted beyond the browser session.
   the Core category starts open. Graph nodes use a 200x108 layout and surface a
   short common-config summary instead of empty space, and Agent Provider/final-JSON
   expanders stay open across session polling.
+* Multi-selection exposes unified execution settings and persistent node groups in
+  Properties. Group definitions live in `metadata.extensions["studio.groups"]`,
+  group frames can be moved as a unit, and the no-selection Properties view is a
+  workflow-wide group manager. Drawer tabs are grouped into Run, Agent, Workflow
+  and Tools, remember the last selection, and expose Runs/Problems/Agent badges.
 * Motion is built into the interaction surface: nodes pulse while running and pop
   when complete or glow when failed; ports lift on hover; panels, menus and event
   rows animate in. Edge arrows are always visible, and runtime

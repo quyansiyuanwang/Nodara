@@ -52,6 +52,26 @@ describe("AgentPanel settings", () => {
     expect(provider!.open).toBe(true);
   });
 
+  it("filters the visible session list locally", () => {
+    const root = document.createElement("div");
+    const panel = new AgentPanel(root, handlers);
+    const list = sessionList("capture desktop");
+    list.sessions.push({
+      ...list.sessions[0],
+      id: "session-2",
+      goal: "write a report",
+    });
+    panel.setSessions(list);
+
+    const search = root.querySelector<HTMLInputElement>(".agent-search")!;
+    search.value = "report";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const sessions = root.querySelectorAll(".session");
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].textContent).toContain("write a report");
+  });
+
   it("keeps provider details open when session data changes", () => {
     const root = document.createElement("div");
     const panel = new AgentPanel(root, handlers);

@@ -17,6 +17,7 @@ import {
   t,
   toggleLocale,
 } from "./i18n";
+import { pruneWorkflowGroups } from "./model/groups";
 import { WorkflowHistory } from "./model/history";
 import { loadDraft, saveDraft } from "./model/draft";
 import {
@@ -40,7 +41,7 @@ import type { AgentSubmitRequest } from "./ui/agent-panel";
 import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
-import { FeatureRegistry } from "./ui/feature-registry";
+import { DrawerGroup, FeatureRegistry } from "./ui/feature-registry";
 import { ExtensionPanel } from "./ui/extension-panel";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
@@ -69,6 +70,15 @@ function element<T extends Element = HTMLElement>(id: string): T {
 applyStaticTranslations();
 
 const restoredDraft = loadDraft();
+const DRAWER_TAB_KEY = "nodara.drawer.tab";
+
+function storedDrawerTab(): string {
+  try {
+    return localStorage.getItem(DRAWER_TAB_KEY) ?? "events";
+  } catch {
+    return "events";
+  }
+}
 
 class Studio {
   private readonly client = new RuntimeClient(defaultRuntimeBaseUrl());
@@ -107,6 +117,7 @@ class Studio {
   private readonly runDialog: RunDialog;
   private readonly regionPicker: RegionPicker;
   private readonly features = new FeatureRegistry();
+  private activeTab = storedDrawerTab();
   private agentPoll: number | null = null;
   private stepStarting = false;
   private history!: WorkflowHistory;
@@ -143,6 +154,7 @@ class Studio {
         setRunOverride: (name, value) => this.runOverrides.set(name, value),
         clearRunOverride: (name) => this.runOverrides.delete(name),
         pickCaptureRegion: () => this.regionPicker.pick(),
+        onSelectNodes: (nodeIds) => this.canvas.selectNodes(nodeIds),
       },
     );
     this.log = new EventLog(
@@ -185,6 +197,7 @@ class Studio {
 
     this.registerBuiltinFeatures();
     this.renderFeatureTabs();
+    this.showTab(this.activeTab);
     this.bindToolbar();
     this.bindResizers();
     this.updateHistoryControls();
@@ -244,30 +257,67 @@ class Studio {
 
   private registerBuiltinFeatures(): void {
     const panels = [
-      ["events", "tabs.events", "panel-events", 10],
-      ["runs", "tabs.runs", "panel-runs", 20],
-      ["extensions", "tabs.extensions", "panel-extensions", 30],
-      ["agent", "tabs.agent", "panel-agent", 40],
-      ["audit", "tabs.audit", "panel-audit", 50],
-      ["problems", "tabs.problems", "panel-problems", 60],
-      ["json", "tabs.json", "panel-json", 70],
+      ["events", "tabs.events", "panel-events", "observe", 10],
+      ["runs", "tabs.runs", "panel-runs", "observe", 20],
+      ["audit", "tabs.audit", "panel-audit", "observe", 30],
+      ["agent", "tabs.agent", "panel-agent", "agent", 40],
+      ["problems", "tabs.problems", "panel-problems", "flow", 50],
+      ["json", "tabs.json", "panel-json", "flow", 60],
+      ["extensions", "tabs.extensions", "panel-extensions", "tools", 70],
     ] as const;
-    for (const [id, labelKey, panelId, order] of panels) {
-      this.features.registerPanel({ id, labelKey, panelId, order });
+    for (const [id, labelKey, panelId, group, order] of panels) {
+      this.features.registerPanel({ id, labelKey, panelId, group, order });
     }
   }
 
   private renderFeatureTabs(): void {
     const nav = element("drawer-tabs");
     nav.replaceChildren();
-    for (const [index, feature] of this.features.panels().entries()) {
-      const tab = document.createElement("button");
-      tab.type = "button";
-      tab.className = `tab${index === 0 ? " tab--active" : ""}`;
-      tab.dataset.tab = feature.id;
-      tab.textContent = t(feature.labelKey);
-      nav.appendChild(tab);
+    const groups: Array<[DrawerGroup, string]> = [
+      ["observe", "tabs.groupObserve"],
+      ["agent", "tabs.groupAgent"],
+      ["flow", "tabs.groupFlow"],
+      ["tools", "tabs.groupTools"],
+    ];
+    for (const [group, labelKey] of groups) {
+      const features = this.features.panels().filter((feature) => feature.group === group);
+      if (features.length === 0) continue;
+      const cluster = document.createElement("div");
+      cluster.className = "tab-cluster";
+      const label = document.createElement("span");
+      label.className = "tab-cluster__label";
+      label.textContent = t(labelKey);
+      const items = document.createElement("div");
+      items.className = "tab-cluster__items";
+      for (const feature of features) {
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.className = `tab${feature.id === this.activeTab ? " tab--active" : ""}`;
+        tab.dataset.tab = feature.id;
+        tab.setAttribute("role", "tab");
+        tab.setAttribute("aria-selected", String(feature.id === this.activeTab));
+        const text = document.createElement("span");
+        text.className = "tab__label";
+        text.textContent = t(feature.labelKey);
+        const badge = document.createElement("span");
+        badge.className = "tab__badge";
+        badge.hidden = true;
+        tab.append(text, badge);
+        items.appendChild(tab);
+      }
+      cluster.append(label, items);
+      nav.appendChild(cluster);
     }
+  }
+
+  private setTabBadge(name: string, value: string, tone: "default" | "warn" | "error" = "default"): void {
+    const tab = document.querySelector<HTMLButtonElement>(`.tab[data-tab="${name}"]`);
+    const badge = tab?.querySelector<HTMLElement>(".tab__badge");
+    if (!tab || !badge) return;
+    badge.hidden = value === "";
+    badge.textContent = value;
+    badge.dataset.tone = tone;
+    tab.dataset.badge = value;
   }
 
   private bindToolbar(): void {
@@ -467,6 +517,7 @@ class Studio {
       return false;
     }
     applyWorkflow(this.workflow, next);
+    pruneWorkflowGroups(this.workflow);
     this.runOverrides.clear();
     this.canvas.select(null);
     this.workflowChanged();
@@ -474,16 +525,27 @@ class Studio {
   }
 
   private showTab(name: string): void {
-    const feature = this.features.getPanel(name);
+    const feature = this.features.getPanel(name) ?? this.features.getPanel("events");
+    if (!feature) return;
+    this.activeTab = feature.id;
+    try {
+      localStorage.setItem(DRAWER_TAB_KEY, feature.id);
+    } catch {
+      // Tab persistence is optional.
+    }
     for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
-      tab.classList.toggle("tab--active", tab.dataset.tab === name);
+      const active = tab.dataset.tab === feature.id;
+      tab.classList.toggle("tab--active", active);
+      tab.setAttribute("aria-selected", String(active));
     }
     for (const panel of document.querySelectorAll<HTMLElement>(".drawer__panel")) {
-      panel.hidden = panel.id !== feature?.panelId;
+      panel.hidden = panel.id !== feature.panelId;
     }
-    if (name === "json") this.renderJson();
-    if (name === "runs") void this.refreshRuns();
-    if (name === "extensions") void this.refreshExtensions();
+    if (feature.id === "json") this.renderJson();
+    if (feature.id === "runs") void this.refreshRuns();
+    if (feature.id === "extensions") void this.refreshExtensions();
+    if (feature.id === "audit") void this.refreshAudit();
+    if (feature.id === "agent") void this.pollAgentSessions();
   }
 
   private updateZoomLabel(scale: number): void {
@@ -560,11 +622,13 @@ class Studio {
   }
 
   private renderInspector(): void {
-    this.inspector.render(
-      this.canvas.selectedNodeId(),
-      this.diagnostics,
-      this.canvas.selectedEdgeId(),
-    );
+    const edgeId = this.canvas.selectedEdgeId();
+    const selected = this.canvas.selectedNodeIds();
+    if (!edgeId && selected.length > 1) {
+      this.inspector.renderSelection(selected, this.diagnostics);
+      return;
+    }
+    this.inspector.render(this.canvas.selectedNodeId(), this.diagnostics, edgeId);
   }
 
   /** Render without treating a health poll as a document mutation. */
@@ -631,9 +695,12 @@ class Studio {
       })),
     ];
     const problemsTab = document.querySelector<HTMLButtonElement>('.tab[data-tab="problems"]');
-    problemsTab?.classList.toggle(
-      "tab--attention",
-      problems.some((problem) => problem.severity === "error"),
+    const problemErrors = problems.filter((problem) => problem.severity === "error").length;
+    problemsTab?.classList.toggle("tab--attention", problemErrors > 0);
+    this.setTabBadge(
+      "problems",
+      problems.length > 0 ? String(problems.length) : "",
+      problemErrors > 0 ? "error" : "warn",
     );
     if (problems.length === 0) {
       const ok = document.createElement("p");
@@ -875,6 +942,8 @@ class Studio {
       const list = await this.client.agentSessions();
       this.agents.setSessions(list);
       this.lastAgentPollError = null;
+      const pending = list.pending_approvals.length;
+      this.setTabBadge("agent", pending > 0 ? String(pending) : "", "warn");
       if (AgentPanel.needsAttention(list)) {
         this.pulseAgentTab(true);
       }
@@ -1078,6 +1147,7 @@ class Studio {
       const runs = await this.client.listRuns();
       if (token !== this.runsToken) return;
       this.runsPanel.setRuns(runs);
+      this.setTabBadge("runs", runs.length > 0 ? String(runs.length) : "");
     } catch (error) {
       if (token === this.runsToken) this.reportError(error);
     }

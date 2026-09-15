@@ -3053,3 +3053,360 @@ body {
 .agent-composer textarea {
   background: #10131b;
 }
+
+
+/* Persistent workflow groups ------------------------------------------- */
+.node-group__body {
+  fill: var(--group-color);
+  fill-opacity: 0.035;
+  stroke: var(--group-color);
+  stroke-opacity: 0.5;
+  stroke-width: 1.25;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+  transition: fill-opacity var(--motion-fast) ease, stroke-opacity var(--motion-fast) ease;
+}
+
+.node-group__header {
+  fill: var(--group-color);
+  fill-opacity: 0.15;
+  stroke: var(--group-color);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+}
+
+.node-group:hover .node-group__body,
+.node-group--selected .node-group__body {
+  fill-opacity: 0.075;
+  stroke-opacity: 0.9;
+}
+
+.node-group--selected .node-group__header {
+  fill-opacity: 0.27;
+  stroke-opacity: 0.95;
+}
+
+.node-group__label {
+  fill: #e9edf7;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.node-group__count {
+  fill: var(--group-color);
+  font-family: var(--mono);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.group-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.group-manager__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 7px 7px 10px;
+  border: 1px solid #272d3f;
+  border-radius: 7px;
+  background: rgb(20 24 33 / 70%);
+}
+
+.group-manager__card::before {
+  content: "";
+  position: absolute;
+  inset: 6px auto 6px 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--group-color);
+}
+
+.group-manager__heading,
+.group-manager__actions,
+.group-assignment__actions,
+.group-assignment__create {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.group-manager__select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-manager__select:hover {
+  color: var(--accent);
+}
+
+.group-manager__actions {
+  justify-content: space-between;
+}
+
+.group-colors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.group-color {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 2px solid #151923;
+  border-radius: 50%;
+  background: var(--group-color);
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 10%);
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+
+.group-color:hover,
+.group-color--active {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 1px var(--group-color), 0 0 5px var(--group-color);
+}
+
+.group-assignment {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.group-assignment__create .input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.group-bulk-field {
+  display: grid;
+  grid-template-columns: minmax(92px, 1fr) minmax(0, 120px);
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  color: #aeb7ca;
+  font-size: 10px;
+}
+
+.group-bulk-field--check {
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+.group-bulk-field input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+
+/* Grouped drawer navigation -------------------------------------------- */
+.drawer__tabs {
+  align-items: center;
+  gap: 7px;
+  padding: 3px 7px;
+}
+
+.tab-cluster {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  min-height: 27px;
+  padding-right: 7px;
+  border-right: 1px solid #252b3c;
+}
+
+.tab-cluster:last-child {
+  border-right: 0;
+}
+
+.tab-cluster__label {
+  color: #68738c;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.tab-cluster__items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 25px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.tab:hover {
+  border-color: #2b3247;
+  background: #191e2a;
+}
+
+.tab--active {
+  border-color: #303950;
+  background: #1c2230;
+  border-bottom-color: #303950;
+}
+
+.tab[data-badge] {
+  color: var(--text);
+}
+
+.tab__badge {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #2b3247;
+  color: #bac2d4;
+  font-family: var(--mono);
+  font-size: 8px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.tab__badge[data-tone="warn"] {
+  background: #493a19;
+  color: var(--warn);
+}
+
+.tab__badge[data-tone="error"] {
+  background: #4b2020;
+  color: var(--error);
+}
+
+/* Agent interaction polish --------------------------------------------- */
+.agent-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.agent-sidebar__count {
+  color: #8e98ae;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agent-search {
+  min-height: 25px;
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.agent-provider > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-provider > summary code {
+  margin-left: auto;
+  overflow: hidden;
+  color: #7f8aa2;
+  font-family: var(--mono);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-control {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.agent-control > span {
+  flex: 0 0 auto;
+  color: #8490a8;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.agent-control .input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.agent-composer__hint {
+  margin-left: auto;
+  color: #68738a;
+  font-size: 9px;
+}
+
+.agent .message {
+  padding: 5px 7px;
+  border: 1px solid #242a3a;
+  border-radius: 6px;
+  background: rgb(16 19 27 / 48%);
+}
+
+.agent .message--user {
+  border-color: #303950;
+  background: rgb(49 65 105 / 22%);
+}
+
+.agent .message--agent {
+  border-color: #284c40;
+  background: rgb(28 67 55 / 18%);
+}
+
+.agent .message--runtime {
+  border-color: #4b3f22;
+  background: rgb(74 58 25 / 16%);
+}
+
+/* Dense tab content and sticky table headers --------------------------- */
+.runs__table th,
+.audit__table th,
+.extensions__table th {
+  position: sticky;
+  top: -6px;
+  z-index: 3;
+  background: #151922;
+}
+
+.runs__table,
+.audit__table,
+.extensions__table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.runs__table td,
+.audit__table td,
+.extensions__table td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Canvas } from "./canvas";
+import { createWorkflowGroup } from "../model/groups";
 import { emptyWorkflow } from "../model/workflow";
 import { NodeDescriptor, Workflow } from "../runtime/types";
 
@@ -620,6 +621,28 @@ describe("graph editing on the canvas", () => {
     retry.value = "4";
     retry.dispatchEvent(new Event("change", { bubbles: true }));
     expect(workflow.nodes.filter((node) => node.id.startsWith("log")).every((node) => node.retry === 4)).toBe(true);
+  });
+
+  it("renders persistent groups, selects their nodes, and moves them together", () => {
+    const { canvas, workflow } = harness();
+    const group = createWorkflowGroup(workflow, ["start", "end"], "Main flow");
+    canvas.render();
+
+    const frame = document.querySelector<SVGGElement>(`.node-group[data-group-id="${group.id}"]`);
+    expect(frame).not.toBeNull();
+    expect(frame!.querySelector(".node-group__label")?.textContent).toBe("Main flow");
+    expect(frame!.querySelector(".node-group__count")?.textContent).toContain("2");
+
+    canvas.selectGroup(group.id);
+    expect(canvas.selectedNodeIds()).toEqual(["start", "end"]);
+
+    const beforeStart = { ...workflow.nodes.find((node) => node.id === "start")!.position! };
+    const beforeEnd = { ...workflow.nodes.find((node) => node.id === "end")!.position! };
+    frame!.dispatchEvent(pointerEvent("pointerdown", 200, 120));
+    window.dispatchEvent(pointerEvent("pointermove", 236, 148));
+    window.dispatchEvent(pointerEvent("pointerup"));
+    expect(workflow.nodes.find((node) => node.id === "start")!.position!.x).toBeGreaterThan(beforeStart.x);
+    expect(workflow.nodes.find((node) => node.id === "end")!.position!.y).toBeGreaterThan(beforeEnd.y);
   });
 
   it("keeps an active edge decorated until states are cleared", () => {

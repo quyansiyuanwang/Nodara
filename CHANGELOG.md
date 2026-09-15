@@ -8,6 +8,7 @@
 - Desktop Studio adds a conversational Agent panel backed by `nodara-agent studio`, shared runtime sessions, provider settings, current/previous-plan baselines, and plan-only/manual/partial/automatic execution modes.
 - Runtime `POST /runs` accepts per-run `approval: auto|session`; manual Agent runs start paused and automatic runs retain capability audit records.
 - Studio Agent Provider/final-JSON expanders persist across polling and the page renders local controls before the runtime is reachable; the Properties rail uses denser card groups, and graph nodes are reduced to 200x108 with common-config summaries.
+- Studio adds persistent workflow node groups in the metadata extension bag, group-frame selection/movement, unified multi-selection execution configuration, a workflow-wide group manager, grouped/persistent drawer tabs, tab badges and local Agent session search.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses

@@ -129,6 +129,7 @@ export interface Workflow {
     tags: string[];
     author?: string;
     version?: string;
+    extensions?: Record<string, unknown>;
   };
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
