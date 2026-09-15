@@ -87,6 +87,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | `delay_before_ms` | integer | no | Defaults to `0`. Wait before invoking the node; cancellation remains responsive. |
 | `delay_after_ms` | integer | no | Defaults to `0`. Wait after successful execution before activating outgoing branches. |
 | `continue_on_error` | boolean | no | Defaults to `false`. After retries are exhausted, activate outgoing branches instead of failing the run. Policy denials and validation errors still stop execution. |
+| `timeout_ms` | integer | no | Optional maximum time for one plugin execution attempt. Core built-in nodes ignore process-level timeouts. |
 | `retry` | integer | no | Defaults to `0`. Additional attempts after the first failed execution. |
 | `retry_delay_ms` | integer | no | Defaults to `0`. Wait between failed attempts. |
 | `metadata` | object | no | Extension bag preserved on round-trip. |

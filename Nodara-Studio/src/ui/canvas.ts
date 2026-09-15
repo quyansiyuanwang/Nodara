@@ -676,6 +676,7 @@ export class Canvas {
         executionDetails.push(`${t("execution.delayAfter")}: ${node.delay_after_ms}`);
       }
       if (node.continue_on_error) executionDetails.push(t("execution.continueOnError"));
+      if ((node.timeout_ms ?? 0) > 0) executionDetails.push(`${t("execution.timeout")}: ${node.timeout_ms}`);
       if ((node.retry ?? 0) > 0) executionDetails.push(`${t("execution.retries")}: ${node.retry}`);
       if ((node.retry_delay_ms ?? 0) > 0) {
         executionDetails.push(`${t("execution.retryDelay")}: ${node.retry_delay_ms}`);

@@ -127,6 +127,9 @@ pub struct Node {
     /// this escape hatch.
     #[serde(default, skip_serializing_if = "is_false")]
     pub continue_on_error: bool,
+    /// Maximum time an executor may spend on one attempt, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
     /// Number of additional attempts after the first failed execution.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub retry: u32,
@@ -152,6 +155,7 @@ impl Node {
             delay_before_ms: 0,
             delay_after_ms: 0,
             continue_on_error: false,
+            timeout_ms: None,
             retry: 0,
             retry_delay_ms: 0,
             metadata: BTreeMap::new(),
@@ -336,6 +340,7 @@ mod tests {
         node.delay_before_ms = 25;
         node.delay_after_ms = 50;
         node.continue_on_error = true;
+        node.timeout_ms = Some(2_500);
         node.retry = 3;
         node.retry_delay_ms = 100;
 
@@ -346,6 +351,7 @@ mod tests {
         assert_eq!(back.delay_before_ms, 25);
         assert_eq!(back.delay_after_ms, 50);
         assert!(back.continue_on_error);
+        assert_eq!(back.timeout_ms, Some(2_500));
         assert_eq!(back.retry, 3);
         assert_eq!(back.retry_delay_ms, 100);
     }

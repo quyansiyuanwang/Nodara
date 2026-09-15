@@ -541,6 +541,7 @@ impl WorkflowEngine {
                 config: node.config.clone(),
                 resolved_config,
                 inputs,
+                timeout_ms: node.timeout_ms,
             };
 
             bus.emit(ExecutionEvent::NodeStarted {

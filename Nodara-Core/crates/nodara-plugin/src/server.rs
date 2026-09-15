@@ -250,6 +250,7 @@ impl PluginServer {
             config: params.config.clone(),
             resolved_config: params.config.clone(),
             inputs: params.inputs.clone(),
+            timeout_ms: params.timeout_ms,
         };
 
         let outcome = executor.execute(input, &mut context);

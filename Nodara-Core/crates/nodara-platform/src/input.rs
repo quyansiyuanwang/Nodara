@@ -308,6 +308,7 @@ mod tests {
             config: config.clone(),
             resolved_config: config,
             inputs: Default::default(),
+            timeout_ms: None,
         }
     }
 

@@ -110,7 +110,7 @@ known validation code has a Studio translation.
   and session-only run overrides).
 * The Properties panel exposes common execution settings for every node:
   enabled pass-through, run condition, pre/post delay, continue-on-error, retry
-  count and retry delay.
+  count and retry delay. Plugin nodes also expose a per-attempt timeout.
   The node context menu can toggle a node on or off immediately.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors

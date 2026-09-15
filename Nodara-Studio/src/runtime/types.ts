@@ -70,6 +70,8 @@ export interface WorkflowNode {
   delay_after_ms?: number;
   /** Continue through outgoing branches after all retries fail. */
   continue_on_error?: boolean;
+  /** Maximum time the executor may spend per attempt, in milliseconds. */
+  timeout_ms?: number;
   /** Additional attempts after the first failed execution. */
   retry?: number;
   retry_delay_ms?: number;

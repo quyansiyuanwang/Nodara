@@ -88,7 +88,7 @@ impl NodeExecutor for PluginExecutor {
             // Crosses a process boundary, so secrets stay masked; a plugin
             // receives resolved config values through `config`, not the scope.
             variables: context.redacted_variables(),
-            timeout_ms: None,
+            timeout_ms: input.timeout_ms,
         };
         match self.client.execute(params) {
             Ok(result) => Ok(NodeOutput {

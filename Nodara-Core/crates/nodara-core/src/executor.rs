@@ -25,6 +25,8 @@ pub struct NodeInput {
     pub resolved_config: serde_json::Value,
     /// Values arriving on input ports, keyed by port name.
     pub inputs: BTreeMap<String, serde_json::Value>,
+    /// Maximum time an executor may spend on this attempt.
+    pub timeout_ms: Option<u64>,
 }
 
 impl NodeInput {

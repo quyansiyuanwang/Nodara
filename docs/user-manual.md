@@ -100,6 +100,7 @@ of the workflow document and are honored by the runtime:
 | Delay before (ms) | Wait before executing the node |
 | Delay after (ms) | Wait after successful execution before activating outgoing branches |
 | Continue on error | After retries are exhausted, continue through outgoing branches instead of failing the run |
+| Timeout (ms) | Optional time limit for one plugin execution attempt |
 | Retries | Number of additional attempts after a failed execution |
 | Retry delay (ms) | Wait between failed attempts |
 

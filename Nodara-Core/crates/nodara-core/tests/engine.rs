@@ -1,7 +1,7 @@
 //! End-to-end tests for the execution engine.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,6 +18,28 @@ fn registry() -> Arc<CapabilityRegistry> {
     assert!(registry.can_execute("core.Log"));
     assert!(registry.can_execute("system.Delay"));
     Arc::new(registry)
+}
+
+/// Captures the timeout the engine passed into the executor.
+#[derive(Debug)]
+struct TimeoutCaptureExecutor {
+    seen_ms: Arc<AtomicU64>,
+}
+
+impl NodeExecutor for TimeoutCaptureExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor::new("test.TimeoutCapture", "Timeout Capture", "Test")
+    }
+
+    fn execute(
+        &self,
+        input: NodeInput,
+        _context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        self.seen_ms
+            .store(input.timeout_ms.unwrap_or_default(), Ordering::SeqCst);
+        Ok(NodeOutput::new())
+    }
 }
 
 /// Test executor that fails a fixed number of times before succeeding.
@@ -219,6 +241,30 @@ fn an_invalid_node_condition_fails_with_config_error() {
         WorkflowEngine::new(registry()).run(RunRequest::new(workflow), &RunControl::new());
     assert_eq!(outcome.status, RunStatus::Failed);
     assert_eq!(outcome.failure.unwrap().code, "E_INVALID_CONFIG");
+}
+
+#[test]
+fn node_timeout_is_passed_to_the_executor() {
+    let seen = Arc::new(AtomicU64::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(TimeoutCaptureExecutor {
+        seen_ms: seen.clone(),
+    });
+
+    let mut workflow = Workflow::new("wf.timeout");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut timed = Node::new("timed", "test.TimeoutCapture");
+    timed.timeout_ms = Some(250);
+    workflow.add_node(timed);
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "timed"));
+    workflow.add_edge(Edge::new("e2", "timed", "end"));
+
+    let outcome =
+        WorkflowEngine::new(Arc::new(registry)).run(RunRequest::new(workflow), &RunControl::new());
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(seen.load(Ordering::SeqCst), 250);
 }
 
 #[test]

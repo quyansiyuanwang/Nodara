@@ -56,7 +56,7 @@ export class Inspector {
     const descriptor = this.descriptorFor(node.type);
     this.renderHeader(node, descriptor);
     this.renderIdentity(node);
-    this.renderExecution(node);
+    this.renderExecution(node, descriptor);
     this.renderConfig(node, descriptor);
     this.renderDiagnostics(diagnostics.filter((item) => item.node_id === node.id));
   }
@@ -248,7 +248,7 @@ export class Inspector {
     this.root.appendChild(identity);
   }
 
-  private renderExecution(node: WorkflowNode): void {
+  private renderExecution(node: WorkflowNode, descriptor?: NodeDescriptor): void {
     const heading = document.createElement("h4");
     heading.className = "inspector__section";
     heading.textContent = t("inspector.execution");
@@ -284,6 +284,16 @@ export class Inspector {
             minimum: 0,
             default: 0,
           },
+          ...(descriptor?.plugin_id
+            ? {
+                timeout_ms: {
+                  type: "integer" as const,
+                  title: t("execution.timeout"),
+                  description: t("execution.timeoutDetail"),
+                  minimum: 0,
+                },
+              }
+            : {}),
           continue_on_error: {
             type: "boolean",
             title: t("execution.continueOnError"),
@@ -312,6 +322,7 @@ export class Inspector {
         delay_before_ms: node.delay_before_ms ?? 0,
         delay_after_ms: node.delay_after_ms ?? 0,
         continue_on_error: node.continue_on_error ?? false,
+        timeout_ms: node.timeout_ms ?? 0,
         retry: node.retry ?? 0,
         retry_delay_ms: node.retry_delay_ms ?? 0,
       },
@@ -339,6 +350,10 @@ export class Inspector {
       case "delay_after_ms":
         if (number > 0) node.delay_after_ms = number;
         else delete node.delay_after_ms;
+        break;
+      case "timeout_ms":
+        if (number > 0) node.timeout_ms = number;
+        else delete node.timeout_ms;
         break;
       case "continue_on_error":
         if (value === true) node.continue_on_error = true;
