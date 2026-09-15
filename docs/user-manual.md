@@ -142,9 +142,10 @@ Input nodes expose additional real-world timing and movement controls:
 
 * keyboard `action=type` taps the chord and supports `hold_ms`; `press` and
   `release` keep or release a chord explicitly;
-* keyboard and text nodes can enable `background` to post `WM_KEY*`/`WM_CHAR`
+* keyboard and text nodes can enable `background` to send `WM_KEY*`/`WM_CHAR`
   messages to a selected window without changing focus; text also offers the
-  direct `set_text` fallback;
+  direct `set_text` fallback and a clipboard-paste strategy that restores the
+  previous clipboard contents;
 * mouse actions choose `left`, `right` or `middle` buttons;
 * `relative=true` treats X/Y as offsets from the current cursor;
 * mouse `drag` supports optional `start_x/start_y`, destination `x/y` and a
@@ -153,7 +154,9 @@ Input nodes expose additional real-world timing and movement controls:
 
 `background` requires a title, class or process selector and cannot be combined
 with `focus`. Not every application consumes posted messages, so test the target
-control; background mouse messages are not enabled yet.
+control; background mouse messages are not enabled yet. The clipboard strategy
+uses `SendMessageTimeoutW` and restores the previous clipboard value, but some
+modern packaged applications still ignore background input.
 
 Capture nodes publish artifact metadata such as `{ "id", "name", "content_type", "size" }`.
 The image bytes are transferred from the plugin process into the run's artifact

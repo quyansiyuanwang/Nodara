@@ -138,7 +138,7 @@ fn tap(context: &ExecutionContext, key: KeyStroke, hold_ms: u64) -> NodeResult<(
 }
 
 fn post_key(window: native::WindowId, virtual_key: u8, down: bool) -> NodeResult<()> {
-    native::post_key(window, virtual_key, down)
+    native::send_key(window, virtual_key, down)
         .map_err(|error| NodeError::Execution(error.to_string()))
 }
 
@@ -422,9 +422,16 @@ impl NodeExecutor for TextExecutor {
                         "background_method": {
                             "type": "string",
                             "title": "Background method",
-                            "description": "How background text is delivered. `wm_char` posts one character message at a time; `set_text` replaces the window text directly.",
-                            "enum": ["wm_char", "set_text"],
+                            "description": "How background text is delivered. `wm_char` sends one character message at a time; `set_text` replaces the window text directly; `clipboard` pastes through the clipboard and restores its previous value.",
+                            "enum": ["wm_char", "set_text", "clipboard"],
                             "default": "wm_char"
+                        },
+                        "paste_delay_ms": {
+                            "type": "integer",
+                            "title": "Clipboard paste delay (ms)",
+                            "description": "Time allowed for the target to process Ctrl+V before the previous clipboard value is restored.",
+                            "minimum": 0,
+                            "default": 100
                         }
                     }),
                     &["text"],
@@ -449,7 +456,7 @@ impl NodeExecutor for TextExecutor {
                         context.check_cancelled()?;
                         let mut units = [0u16; 2];
                         for unit in character.encode_utf16(&mut units) {
-                            native::post_text(target.window, *unit)
+                            native::send_text(target.window, *unit)
                                 .map_err(|error| NodeError::Execution(error.to_string()))?;
                         }
                         wait_interruptible(context, interval)?;
@@ -457,6 +464,37 @@ impl NodeExecutor for TextExecutor {
                 }
                 "set_text" => native::set_window_text(target.window, &text)
                     .map_err(|error| NodeError::Execution(error.to_string()))?,
+                "clipboard" => {
+                    let previous = native::clipboard_read()
+                        .map_err(|error| NodeError::Execution(error.to_string()))?;
+                    native::clipboard_write(&text)
+                        .map_err(|error| NodeError::Execution(error.to_string()))?;
+                    let paste_target = InputTarget {
+                        window: target.window,
+                        background: true,
+                    };
+                    let (modifiers, stroke) = keys::parse_chord("ctrl+v")
+                        .ok_or_else(|| NodeError::Execution("internal ctrl+v chord".to_string()))?;
+                    let send = background_keyboard_action(
+                        context,
+                        &paste_target,
+                        &modifiers,
+                        stroke,
+                        "type",
+                        0,
+                    );
+                    let delay = input.config_i64("paste_delay_ms").unwrap_or(100).max(0) as u64;
+                    let wait = wait_interruptible(context, delay);
+                    let restore = previous
+                        .map_or_else(
+                            || native::clipboard_write(""),
+                            |value| native::clipboard_write(&value),
+                        )
+                        .map_err(|error| NodeError::Execution(error.to_string()));
+                    send?;
+                    wait?;
+                    restore?;
+                }
                 other => {
                     return Err(NodeError::InvalidConfig(format!(
                         "unknown background text method `{other}`"

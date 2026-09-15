@@ -1213,10 +1213,11 @@
         },
         "background_method": {
           "default": "wm_char",
-          "description": "How background text is delivered. `wm_char` posts one character message at a time; `set_text` replaces the window text directly.",
+          "description": "How background text is delivered. `wm_char` sends one character message at a time; `set_text` replaces the window text directly; `clipboard` pastes through the clipboard and restores its previous value.",
           "enum": [
             "wm_char",
-            "set_text"
+            "set_text",
+            "clipboard"
           ],
           "title": "Background method",
           "type": "string"
@@ -1246,6 +1247,13 @@
           "description": "Delay between keystrokes. `0` types as fast as the window accepts input.",
           "minimum": 0,
           "title": "Key interval (ms)",
+          "type": "integer"
+        },
+        "paste_delay_ms": {
+          "default": 100,
+          "description": "Time allowed for the target to process Ctrl+V before the previous clipboard value is restored.",
+          "minimum": 0,
+          "title": "Clipboard paste delay (ms)",
           "type": "integer"
         },
         "process": {

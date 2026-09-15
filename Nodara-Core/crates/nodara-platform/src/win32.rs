@@ -25,9 +25,9 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
-    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, PostMessageW,
-    SetCursorPos, SetForegroundWindow, SetWindowTextW, SM_CXSCREEN, SM_CYSCREEN, WM_CHAR,
-    WM_KEYDOWN, WM_KEYUP,
+    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
+    SendMessageTimeoutW, SetCursorPos, SetForegroundWindow, SetWindowTextW, SMTO_ABORTIFHUNG,
+    SM_CXSCREEN, SM_CYSCREEN, WM_CHAR, WM_KEYDOWN, WM_KEYUP,
 };
 
 use crate::error::{PlatformError, PlatformResult};
@@ -122,10 +122,14 @@ pub fn cursor_position() -> PlatformResult<(i32, i32)> {
     }
 }
 
-/// Post a key transition to a specific window without changing focus.
-pub fn post_key(window: WindowId, virtual_key: u8, down: bool) -> PlatformResult<()> {
-    // SAFETY: both calls accept plain integer arguments. `PostMessageW` only
-    // queues a message to a system-owned window handle.
+/// Send a key transition to a specific window without changing focus.
+///
+/// `SendMessageTimeoutW` gives better compatibility than `PostMessageW` for
+/// controls that validate input synchronously, while avoiding an unbounded wait
+/// if the target is hung.
+pub fn send_key(window: WindowId, virtual_key: u8, down: bool) -> PlatformResult<()> {
+    // SAFETY: all arguments are plain integers or a pointer to a stack result
+    // that remains valid for the duration of the call.
     unsafe {
         let scan = MapVirtualKeyW(u32::from(virtual_key), MAPVK_VK_TO_VSC);
         let mut lparam = 1isize | ((scan as isize) << 16);
@@ -134,20 +138,42 @@ pub fn post_key(window: WindowId, virtual_key: u8, down: bool) -> PlatformResult
             lparam |= 1isize << 31;
         }
         let message = if down { WM_KEYDOWN } else { WM_KEYUP };
-        if PostMessageW(window, message, usize::from(virtual_key), lparam) == 0 {
-            Err(last_error("PostMessageW(WM_KEY)"))
+        let mut result = 0usize;
+        if SendMessageTimeoutW(
+            window,
+            message,
+            usize::from(virtual_key),
+            lparam,
+            SMTO_ABORTIFHUNG,
+            1_000,
+            &mut result,
+        ) == 0
+        {
+            Err(last_error("SendMessageTimeoutW(WM_KEY)"))
         } else {
             Ok(())
         }
     }
 }
 
-/// Post one UTF-16 code unit as `WM_CHAR` to a specific window.
-pub fn post_text(window: WindowId, code_unit: u16) -> PlatformResult<()> {
-    // SAFETY: `PostMessageW` only queues a message to a system-owned handle.
-    let ok = unsafe { PostMessageW(window, WM_CHAR, usize::from(code_unit), 0) };
+/// Send one UTF-16 code unit as `WM_CHAR` to a specific window.
+pub fn send_text(window: WindowId, code_unit: u16) -> PlatformResult<()> {
+    // SAFETY: the destination handle is system-owned and the result pointer is
+    // valid for the synchronous call.
+    let mut result = 0usize;
+    let ok = unsafe {
+        SendMessageTimeoutW(
+            window,
+            WM_CHAR,
+            usize::from(code_unit),
+            0,
+            SMTO_ABORTIFHUNG,
+            1_000,
+            &mut result,
+        )
+    };
     if ok == 0 {
-        Err(last_error("PostMessageW(WM_CHAR)"))
+        Err(last_error("SendMessageTimeoutW(WM_CHAR)"))
     } else {
         Ok(())
     }

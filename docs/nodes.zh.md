@@ -245,7 +245,8 @@
 | `interval_ms` | integer | 否 | `10` | 按键间隔；`0` 表示以窗口能接受的最快速度输入。最小 `0`。 |
 | `focus` | boolean | 否 | `false` | 输入文本前查找并聚焦目标窗口。 |
 | `background` | boolean | 否 | `false` | 不改变焦点，直接向目标窗口发送文本；必须有选择器，且不能与 `focus` 同时启用。 |
-| `background_method` | string | 否 | `wm_char` | `wm_char` 逐字符发送消息；`set_text` 直接替换窗口文本。 |
+| `background_method` | string | 否 | `wm_char` | `wm_char` 逐字符发送消息；`set_text` 直接替换窗口文本；`clipboard` 发送 Ctrl+V 并恢复原剪贴板。 |
+| `paste_delay_ms` | integer | 否 | `100` | 恢复原剪贴板前，允许目标窗口处理 Ctrl+V 的时间。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
 | `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
 | `process` | string | 否 | — | `focus` 为 true 时匹配的目标进程名，例如 `notepad.exe`；不区分大小写。 |

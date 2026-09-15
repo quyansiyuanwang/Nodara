@@ -281,7 +281,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 - 键盘 `action=type` 会按下并释放；可设置 `hold_ms` 控制按住时长；`press`/`release`
   可显式保持和释放组合键；
 - 键盘和文本节点可开启 `background`，通过 `WM_KEY*`/`WM_CHAR` 向指定窗口发送输入而不改变当前焦点；
-  文本节点还可选择 `set_text` 直接替换窗口文本；
+  文本节点还可选择 `set_text` 直接替换窗口文本，或 `clipboard` 临时写入剪贴板、发送 Ctrl+V，再恢复原剪贴板；
 - 鼠标可选 `left/right/middle` 按钮；
 - 鼠标 `relative=true` 时，X/Y 是相对当前光标的位置；
 - 鼠标 `drag` 支持可选起点 `start_x/start_y`、终点 `x/y` 和

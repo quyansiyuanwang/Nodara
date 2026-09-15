@@ -134,9 +134,11 @@ All notable changes to this project are documented here. The format follows
   buttons, relative coordinates, configurable click/double-click timing and
   smooth `drag` with optional start coordinates and destination duration.
 - Keyboard and text nodes can now target a window in the background without
-  changing focus. Keyboard input posts `WM_KEYDOWN`/`WM_KEYUP`; text uses
+  changing focus. Keyboard input sends `WM_KEYDOWN`/`WM_KEYUP`; text uses
   `WM_CHAR` by default and offers a direct `WM_SETTEXT` fallback for controls
-  that ignore posted character messages.
+  that ignore posted character messages. A clipboard-paste strategy writes and
+  restores the clipboard around a posted Ctrl+V for applications that require
+  paste semantics.
 
 ### Changed
 

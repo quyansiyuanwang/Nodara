@@ -67,12 +67,12 @@ pub fn cursor_position() -> PlatformResult<(i32, i32)> {
 }
 
 /// Unsupported on this host.
-pub fn post_key(_window: WindowId, _virtual_key: u8, _down: bool) -> PlatformResult<()> {
+pub fn send_key(_window: WindowId, _virtual_key: u8, _down: bool) -> PlatformResult<()> {
     Err(unsupported())
 }
 
 /// Unsupported on this host.
-pub fn post_text(_window: WindowId, _code_unit: u16) -> PlatformResult<()> {
+pub fn send_text(_window: WindowId, _code_unit: u16) -> PlatformResult<()> {
     Err(unsupported())
 }
 

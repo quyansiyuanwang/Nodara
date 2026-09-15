@@ -262,7 +262,8 @@ Types literal text into the focused window.
 | `interval_ms` | integer | no | `10` | Delay between keystrokes; `0` types as fast as the window accepts input. Minimum `0`. |
 | `focus` | boolean | no | `false` | Find and focus a target window before typing. |
 | `background` | boolean | no | `false` | Send text to the target window without changing focus; requires a selector and cannot be combined with `focus`. |
-| `background_method` | string | no | `wm_char` | `wm_char` posts character messages; `set_text` replaces the window text directly. |
+| `background_method` | string | no | `wm_char` | `wm_char` posts character messages; `set_text` replaces window text directly; `clipboard` pastes Ctrl+V and restores the previous clipboard value. |
+| `paste_delay_ms` | integer | no | `100` | Time allowed for the target to process Ctrl+V before the previous clipboard value is restored. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
 | `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |
