@@ -78,7 +78,7 @@ copy.
 |---|---|
 | Add a node | **Click** it in the palette, or drag it to an exact canvas position; exactly one `core.Start` is allowed |
 | Move a node | Drag the node body |
-| Create a connection | Drag from an output port to an input port |
+| Create a connection | Drag from an output port to an input port, or click the output and then the input; press `Escape` to cancel |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
 | Edit a connection | Select it to choose Always, Success, or Failure, then edit its label or guard condition in Properties |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |

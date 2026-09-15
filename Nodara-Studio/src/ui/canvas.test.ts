@@ -278,6 +278,21 @@ describe("graph editing on the canvas", () => {
     expect(workflow.edges).toHaveLength(1);
   });
 
+  it("connects ports by clicking output then input", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+    const outputs = document.querySelectorAll<SVGCircleElement>(".port--output");
+    const inputs = document.querySelectorAll<SVGCircleElement>(".port--input");
+
+    outputs[0].dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+    inputs[inputs.length - 1].dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+    );
+
+    expect(workflow.edges).toHaveLength(1);
+  });
+
   it("deletes the selected node and its edges", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);

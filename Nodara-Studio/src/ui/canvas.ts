@@ -38,6 +38,9 @@ interface PendingConnection {
   sourcePort: string;
   x: number;
   y: number;
+  originX: number;
+  originY: number;
+  mode: "drag" | "click";
 }
 
 interface NodeDrag {
@@ -60,6 +63,7 @@ export class Canvas {
   private selected: string | null = null;
   private selectedEdge: string | null = null;
   private pending: PendingConnection | null = null;
+  private pendingDragMoved = false;
   private drag: NodeDrag | null = null;
   private paletteDragCleanup: (() => void) | null = null;
   private status: RunStatus | null = null;
@@ -467,6 +471,11 @@ export class Canvas {
     }
     if (this.pending) {
       const point = this.toCanvas(event.clientX, event.clientY);
+      if (
+        Math.hypot(point.x - this.pending.originX, point.y - this.pending.originY) >= 5
+      ) {
+        this.pendingDragMoved = true;
+      }
       this.pending.x = point.x;
       this.pending.y = point.y;
       this.drawPendingEdge();
@@ -497,6 +506,13 @@ export class Canvas {
     if (event.key === " ") {
       this.spaceDown = true;
       event.preventDefault();
+      return;
+    }
+    if (event.key === "Escape" && this.pending) {
+      event.preventDefault();
+      this.pending = null;
+      this.pendingEdge.classList.add("is-hidden");
+      this.pendingEdge.removeAttribute("d");
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key === "0") {
@@ -784,17 +800,55 @@ export class Canvas {
         if (event.button !== 0 || this.spaceDown) return;
         event.stopPropagation();
         const point = this.toCanvas(event.clientX, event.clientY);
-        this.pending = { sourceId: nodeId, sourcePort: portName, x: point.x, y: point.y };
+        this.pendingDragMoved = false;
+        this.pending = {
+          sourceId: nodeId,
+          sourcePort: portName,
+          x: point.x,
+          y: point.y,
+          originX: point.x,
+          originY: point.y,
+          mode: "drag",
+        };
+        this.pendingEdge.classList.remove("is-hidden");
+        this.drawPendingEdge();
+      });
+      circle.addEventListener("click", (event) => {
+        if (event.button !== 0 || this.spaceDown) return;
+        event.stopPropagation();
+        if (this.pendingDragMoved) {
+          this.pendingDragMoved = false;
+          return;
+        }
+        const point = this.toCanvas(event.clientX, event.clientY);
+        this.pending = {
+          sourceId: nodeId,
+          sourcePort: portName,
+          x: point.x,
+          y: point.y,
+          originX: point.x,
+          originY: point.y,
+          mode: "click",
+        };
         this.pendingEdge.classList.remove("is-hidden");
         this.drawPendingEdge();
       });
     } else {
+      circle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !this.pending || this.pending.mode !== "click") return;
+        event.stopPropagation();
+        this.connect(this.pending.sourceId, nodeId, this.pending.sourcePort, portName);
+        this.pending = null;
+        this.pendingEdge.classList.add("is-hidden");
+        this.pendingEdge.removeAttribute("d");
+      });
       circle.addEventListener("pointerup", (event) => {
         if (event.button !== 0 || !this.pending) return;
         event.stopPropagation();
         this.connect(this.pending.sourceId, nodeId, this.pending.sourcePort, portName);
         this.pending = null;
         this.pendingEdge.classList.add("is-hidden");
+        this.pendingEdge.removeAttribute("d");
       });
     }
     return circle;

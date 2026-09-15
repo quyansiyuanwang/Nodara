@@ -151,6 +151,9 @@ All notable changes to this project are documented here. The format follows
 - Studio now keeps an unsaved workflow draft in `sessionStorage`; language
   switches and accidental reloads restore the current tab's document, while
   closing the tab clears the session-only copy.
+- Canvas connections can now be made by clicking an output port and then an
+  input port, in addition to drag-and-drop. `Escape` cancels the pending
+  connection.
 
 ### Changed
 
