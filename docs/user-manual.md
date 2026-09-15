@@ -83,6 +83,7 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
 | Navigate the canvas | Wheel to zoom, middle-drag or Space-drag to pan, and use Fit / 100% controls in the canvas toolbar |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
+| Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 
 ### Workflow settings and variables
 
@@ -105,6 +106,13 @@ of the workflow document and are honored by the runtime:
 | Retry delay (ms) | Wait between failed attempts |
 
 The node context menu also provides an immediate enable/disable action.
+
+### Runs and events
+
+The **Runs** tab lists the runtime's execution history with status, workflow,
+node count, and start time. Select **Open** on any row to load its full event
+stream into the **Events** tab. Refresh the list after starting or controlling a
+run; completed, failed, and running rows are visually distinguished.
 
 ## CLI
 

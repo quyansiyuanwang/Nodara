@@ -101,7 +101,8 @@ Then:
    automatically after the edit settles;
 3. the new document already contains `Start → Log → End`; check the status
    beside **Validate**, and fix any errors listed in **Problems**;
-4. press **Run** and watch the Events tab; nodes light up as they execute.
+4. press **Run** and watch the Events tab; nodes light up as they execute;
+5. open **Runs**, refresh, and use **Open** to reload any recent run's event stream.
 
 If you install a plugin and restart the runtime, reload the page: the new node
 types are simply there. Nothing in the editor needed to change.

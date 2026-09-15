@@ -113,6 +113,20 @@ export function nodeTypeAdmission(
   return { allowed: true };
 }
 
+/** Document-level admission rules shared by import, JSON apply and agent plans. */
+export function workflowAdmission(
+  workflow: Pick<Workflow, "nodes">,
+): NodeTypeAdmission {
+  const startNodes = workflow.nodes.filter((node) => node.type === "core.Start");
+  if (startNodes.length > 1) {
+    return {
+      allowed: false,
+      reason: `workflow declares ${startNodes.length} core.Start nodes; only one is allowed`,
+    };
+  }
+  return { allowed: true };
+}
+
 let nodeCounter = 0;
 
 /** A unique node id derived from the node type, readable in a diff. */

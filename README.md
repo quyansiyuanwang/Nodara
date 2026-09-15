@@ -78,6 +78,9 @@ cd ../Nodara-Agent
 NODARA_LLM_API_KEY=sk-... cargo run -p nodara-agent -- plan "open Notepad and type a greeting"
 ```
 
+The desktop Studio starts its bundled runtime automatically. In the editor,
+use the **Runs** tab to reopen any previous execution and its event stream.
+
 Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 
 ## The three contracts

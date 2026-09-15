@@ -500,6 +500,11 @@ export class Canvas {
   private duplicateNode(id: string): void {
     const source = this.workflow.nodes.find((node) => node.id === id);
     if (!source) return;
+    const admission = nodeTypeAdmission(this.workflow, source.type);
+    if (!admission.allowed) {
+      this.handlers.onStatus(localizeProblem(admission.reason ?? ""));
+      return;
+    }
     const descriptor = this.handlers.descriptorFor(source.type);
     if (!descriptor) {
       this.handlers.onStatus(`cannot duplicate unknown node type \`${source.type}\``);
@@ -565,6 +570,11 @@ export class Canvas {
         duplicate.type = "button";
         duplicate.className = "context-menu__item";
         duplicate.dataset.action = "duplicate";
+        const admission = nodeTypeAdmission(this.workflow, node.type);
+        duplicate.disabled = !admission.allowed;
+        duplicate.title = admission.allowed
+          ? ""
+          : localizeProblem(admission.reason ?? "");
         const duplicateLabel = document.createElement("span");
         duplicateLabel.textContent = t("canvas.duplicateNode");
         const duplicateShortcut = document.createElement("span");

@@ -21,6 +21,7 @@ import {
   localProblems,
   starterWorkflow,
   nodeTypeAdmission,
+  workflowAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./model/workflow";
 import { defaultRuntimeBaseUrl, RuntimeClient, RuntimeError } from "./runtime/client";
@@ -37,6 +38,7 @@ import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
 import { installResizer } from "./ui/resizer";
+import { RunPanel } from "./ui/run-panel";
 import { deriveRunControls, ValidationState } from "./ui/run-controls";
 
 function element<T extends Element = HTMLElement>(id: string): T {
@@ -65,6 +67,7 @@ class Studio {
   private validationState: ValidationState = "unknown";
   private workflowRevision = 0;
   private auditToken = 0;
+  private runsToken = 0;
   private lastAgentPollError: string | null = null;
   private connected = false;
   private currentRunStatus: RunStatus | null = null;
@@ -77,6 +80,7 @@ class Studio {
   private readonly log: EventLog;
   private readonly agents: AgentPanel;
   private readonly audit: AuditPanel;
+  private readonly runsPanel: RunPanel;
   private agentPoll: number | null = null;
   private history!: WorkflowHistory;
   private historyTimer: number | null = null;
@@ -117,6 +121,9 @@ class Studio {
       onOpenRun: (runId) => void this.openRun(runId),
     });
     this.audit = new AuditPanel(element("audit"));
+    this.runsPanel = new RunPanel(element("runs"), {
+      onOpenRun: (runId) => void this.openRun(runId),
+    });
     this.history = new WorkflowHistory(JSON.stringify(this.workflow));
 
     this.bindToolbar();
@@ -245,12 +252,14 @@ class Studio {
 
     element("audit-refresh").addEventListener("click", () => void this.refreshAudit());
     element("audit-current-run").addEventListener("change", () => void this.refreshAudit());
+    element("runs-refresh").addEventListener("click", () => void this.refreshRuns());
 
     element("btn-apply-json").addEventListener("click", () => {
       try {
-        this.replaceWorkflow(
+        const replaced = this.replaceWorkflow(
           JSON.parse(element<HTMLTextAreaElement>("json-view").value) as Partial<Workflow>,
         );
+        if (!replaced) return;
         this.pushLocal(t("status.workflowReplaced"));
       } catch (error) {
         this.pushLocal(t("status.invalidWorkflowJson", { message: (error as Error).message }));
@@ -315,11 +324,17 @@ class Studio {
     return `${window.location.origin}/api/v1/schema/workflow`;
   }
 
-  private replaceWorkflow(next: Partial<Workflow> | null): void {
+  private replaceWorkflow(next: Partial<Workflow> | null): boolean {
+    const admission = workflowAdmission({ nodes: next?.nodes ?? [] });
+    if (!admission.allowed) {
+      this.pushLocal(localizeProblem(admission.reason ?? ""));
+      return false;
+    }
     applyWorkflow(this.workflow, next);
     this.runOverrides.clear();
     this.canvas.select(null);
     this.workflowChanged();
+    return true;
   }
 
   private showTab(name: string): void {
@@ -330,6 +345,7 @@ class Studio {
       panel.hidden = panel.id !== `panel-${name}`;
     }
     if (name === "json") this.renderJson();
+    if (name === "runs") void this.refreshRuns();
   }
 
   private updateZoomLabel(scale: number): void {
@@ -606,6 +622,7 @@ class Studio {
         },
         onClose: () => {
           if (this.runId === snapshot.id) void this.refreshRun();
+          void this.refreshRunsIfVisible();
         },
       });
     } catch (error) {
@@ -651,6 +668,7 @@ class Studio {
     try {
       const snapshot = await this.client[action](this.runId);
       this.setStatus(snapshot.status);
+      void this.refreshRunsIfVisible();
     } catch (error) {
       this.reportError(error);
     }
@@ -724,7 +742,7 @@ class Studio {
       this.pushLocal(t("status.noPlan"));
       return;
     }
-    this.replaceWorkflow(session.plan.workflow);
+    if (!this.replaceWorkflow(session.plan.workflow)) return;
     this.showTab("json");
     this.pushLocal(t("status.planLoaded", { id: sessionId.slice(0, 8) }));
   }
@@ -745,6 +763,7 @@ class Studio {
         },
         onClose: () => {
           if (this.runId === runId) void this.refreshRun();
+          void this.refreshRunsIfVisible();
         },
       });
     } catch (error) {
@@ -767,6 +786,22 @@ class Studio {
     } catch (error) {
       this.reportError(error);
     }
+  }
+
+  /** Load the runtime's run catalogue for the Runs tab. */
+  private async refreshRuns(): Promise<void> {
+    const token = ++this.runsToken;
+    try {
+      const runs = await this.client.listRuns();
+      if (token !== this.runsToken) return;
+      this.runsPanel.setRuns(runs);
+    } catch (error) {
+      if (token === this.runsToken) this.reportError(error);
+    }
+  }
+
+  private async refreshRunsIfVisible(): Promise<void> {
+    if (!element("panel-runs").hidden) await this.refreshRuns();
   }
 
   private async refreshRun(): Promise<void> {

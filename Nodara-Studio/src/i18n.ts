@@ -18,6 +18,7 @@ const EN: Record<string, string> = {
   "actions.step": "Step",
   "actions.cancel": "Cancel",
   "actions.refresh": "Refresh",
+  "actions.open": "Open",
   "actions.applyJson": "Apply JSON",
   "actions.runtimeSchema": "Point $schema at the runtime",
   "actions.approve": "Approve",
@@ -146,6 +147,7 @@ const EN: Record<string, string> = {
   "tabs.agent": "Agent",
   "tabs.audit": "Audit",
   "tabs.problems": "Problems",
+  "tabs.runs": "Runs",
   "tabs.json": "Workflow JSON",
   "audit.currentRun": "this run only",
   "event.studio": "studio",
@@ -176,6 +178,13 @@ const EN: Record<string, string> = {
   "agent.planRejected": "Plan rejected ({errors} error(s))",
   "agent.planSummary": "{nodes} node(s), {edges} edge(s), {warnings} warning(s)",
   "audit.empty": "No audit records yet.",
+  "runs.empty": "No runs yet.",
+  "runs.id": "Run",
+  "runs.workflow": "Workflow",
+  "runs.status": "Status",
+  "runs.nodes": "Nodes",
+  "runs.started": "Started",
+  "runs.open": "Open",
   "audit.time": "time",
   "audit.run": "run",
   "audit.category": "category",
@@ -205,6 +214,7 @@ const ZH: Record<string, string> = {
   "actions.step": "单步",
   "actions.cancel": "取消",
   "actions.refresh": "刷新",
+  "actions.open": "打开",
   "actions.applyJson": "应用 JSON",
   "actions.runtimeSchema": "将 $schema 指向运行时",
   "actions.approve": "批准",
@@ -333,6 +343,7 @@ const ZH: Record<string, string> = {
   "tabs.agent": "智能体",
   "tabs.audit": "审计",
   "tabs.problems": "问题",
+  "tabs.runs": "运行记录",
   "tabs.json": "工作流 JSON",
   "audit.currentRun": "仅当前运行",
   "event.studio": "工作台",
@@ -363,6 +374,13 @@ const ZH: Record<string, string> = {
   "agent.planRejected": "计划被拒绝（{errors} 个错误）",
   "agent.planSummary": "{nodes} 个节点，{edges} 条连线，{warnings} 个警告",
   "audit.empty": "尚无审计记录。",
+  "runs.empty": "尚无运行记录。",
+  "runs.id": "运行",
+  "runs.workflow": "工作流",
+  "runs.status": "状态",
+  "runs.nodes": "节点数",
+  "runs.started": "开始时间",
+  "runs.open": "打开",
   "audit.time": "时间",
   "audit.run": "运行",
   "audit.category": "类别",
@@ -597,6 +615,19 @@ export function localizeProblem(problem: string): string {
   if (problem === "no core.Start node") return t("problems.noStart");
   if (problem === "no core.End node") return t("problems.noEnd");
   return problem;
+}
+
+const RUN_STATUS_ZH: Record<string, string> = {
+  pending: "等待中",
+  running: "运行中",
+  paused: "已暂停",
+  completed: "已完成",
+  failed: "失败",
+  cancelled: "已取消",
+};
+
+export function localizeRunStatus(status: string): string {
+  return activeLocale === "zh-CN" ? (RUN_STATUS_ZH[status] ?? status) : status;
 }
 
 export function localizeAgentStatus(status: string): string {

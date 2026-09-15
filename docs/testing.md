@@ -82,9 +82,10 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 2. Hello-world imports with the `Start → Log → End` graph.
 3. Validate and Run complete successfully.
 4. The Events tab reaches `run_completed`.
-5. Pause, Resume, and Cancel work with a delayed workflow.
-6. The Audit tab shows capability and node records.
-7. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+5. Runs lists the execution and **Open** reloads its event stream.
+6. Pause, Resume, and Cancel work with a delayed workflow.
+7. The Audit tab shows capability and node records.
+8. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

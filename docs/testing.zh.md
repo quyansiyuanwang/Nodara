@@ -16,7 +16,7 @@
 | A05 | HTTP API | health、plugins、node-types、schema 端点可访问 |
 | A06 | Studio 桌面版 | 能连接 runtime，显示 16 个节点，导入/校验/运行 hello-world 成功 |
 | A07 | Agent mock | 无 API Key 时可规划并运行最小工作流 |
-| A08 | 事件与审计 | Studio/CLI 可看到事件，Audit 页或 API 可看到策略与节点记录 |
+| A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
 | A10 | 发布产物 | release 包包含 NSIS 和 MSI；优化后的 exe 可运行 |
 
@@ -177,9 +177,10 @@ $plugins.plugins | Select-Object id,version
 
 1. Run；
 2. Events 页最终显示 `run_completed`；
-3. 画布运行状态与事件一致；
-4. Pause/Resume 对延迟工作流有效；
-5. Cancel 能终止延迟节点。
+3. Runs 页刷新后能看到该运行，点击“打开”可重新载入完整事件；
+4. 画布运行状态与事件一致；
+5. Pause/Resume 对延迟工作流有效；
+6. Cancel 能终止延迟节点。
 
 ### 6.4 Audit
 

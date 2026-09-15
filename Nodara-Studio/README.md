@@ -95,7 +95,8 @@ known validation code has a Studio translation.
 * Select a node or connection and press `Delete`, or right-click it and choose
   the delete command. Connections have a wide invisible hit target.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
-  and execution settings are preserved and the copy receives a fresh id.
+  and execution settings are preserved and the copy receives a fresh id. Start
+  is single-instance, so it cannot be duplicated or imported more than once.
 * Selecting a connection opens its Properties: edit the edge label or guard
   expression directly, and the workflow revalidates automatically.
 * Drag the dividers between the left/right panels or above the bottom drawer to
@@ -151,8 +152,9 @@ src/
 * `Validate` calls the runtime, so diagnostics match exactly what execution
   would enforce — including unknown node types and missing configuration;
 * `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control;
-* the **Events** tab streams the same events the CLI prints, and highlights the
-  running, finished and failed nodes on the canvas.
+* the **Runs** tab lists runtime history and opens a selected run in the
+  **Events** tab; the event stream highlights the running, finished and failed
+  nodes on the canvas.
 
 ## The Agent tab
 

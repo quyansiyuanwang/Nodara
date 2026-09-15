@@ -88,6 +88,23 @@ describe("graph editing on the canvas", () => {
     expect(workflow.nodes.filter((node) => node.type === "core.Start")).toHaveLength(1);
   });
 
+  it("refuses to duplicate a Start node", () => {
+    const { canvas, workflow, changes } = harness();
+    canvas.select("start");
+    canvas.render();
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "d", ctrlKey: true }));
+    expect(workflow.nodes.filter((node) => node.type === "core.Start")).toHaveLength(1);
+    expect(changes()).toBe(0);
+
+    const start = document.querySelector<SVGGElement>('[data-node-id="start"]')!;
+    start.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
+    const duplicate = document.querySelector<HTMLButtonElement>(
+      '.context-menu__item[data-action="duplicate"]'
+    )!;
+    expect(duplicate.disabled).toBe(true);
+  });
+
   it("adds a node from the palette", () => {
     const { canvas, workflow } = harness();
     const before = workflow.nodes.length;

@@ -631,8 +631,14 @@ body.is-resizing-y * {
   text-align: left;
 }
 
-.context-menu__item:hover {
+.context-menu__item:hover:not(:disabled) {
   background: #2b3144;
+}
+
+.context-menu__item:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .context-menu__item--danger {
@@ -1011,6 +1017,55 @@ body.is-resizing-y * {
 
 .message--runtime .message__who {
   color: var(--ok);
+}
+
+/* Runs view -------------------------------------------------------------- */
+.runs-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.runs {
+  overflow: auto;
+  max-height: 190px;
+}
+
+.runs__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.runs__table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--text-dim);
+  text-align: left;
+  font-weight: 500;
+  padding: 3px 8px 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.runs__table td {
+  padding: 3px 8px 3px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid #1c2030;
+}
+
+.run-row--failed td {
+  color: var(--error);
+}
+
+.run-row--completed td {
+  color: var(--ok);
+}
+
+.run-row--running td,
+.run-row--paused td {
+  color: var(--accent);
 }
 
 /* Audit view ------------------------------------------------------------- */

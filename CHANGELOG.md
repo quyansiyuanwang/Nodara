@@ -26,6 +26,9 @@ All notable changes to this project are documented here. The format follows
   `description`, `default`, `enum`, bounds and examples per property.
 - Studio opens a runnable `Start → Log → End` starter workflow on first
   launch and when creating a new document, so Run can be exercised immediately.
+- Studio now has a **Runs** tab that lists runtime run history. Any entry can be
+  opened directly into its event stream, with status, workflow, node count and
+  start time shown in the table.
 - Studio now supports bounded workflow undo/redo snapshots through
   `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` and toolbar buttons. Edits are coalesced so
   continuous typing does not create one history entry per character.
@@ -145,9 +148,10 @@ All notable changes to this project are documented here. The format follows
 - Studio validates automatically after every workflow edit (debounced while
   typing), displays the result beside Validate, disables Run on errors, and
   validates again immediately before starting a run.
-- Studio admits at most one `core.Start` node. The palette disables Start once
-  one exists, direct additions are rejected, and imported duplicate Starts are
-  reported as errors and cannot run.
+- Studio enforces exactly one `core.Start` node at every editing boundary.
+  The palette disables Start once one exists, direct additions and duplicates
+  are rejected, and import/JSON/agent documents with multiple Starts are not
+  applied.
 
 ### Fixed (continued)
 

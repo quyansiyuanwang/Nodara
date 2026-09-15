@@ -10,6 +10,7 @@ import {
   nextEdgeId,
   nextNodeId,
   nodeTypeAdmission,
+  workflowAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./workflow";
 import { NodeDescriptor, Workflow } from "../runtime/types";
@@ -81,6 +82,13 @@ describe("workflow model", () => {
 
     workflow.nodes = workflow.nodes.filter((node) => node.type !== "core.Start");
     expect(nodeTypeAdmission(workflow, "core.Start").allowed).toBe(true);
+  });
+
+  it("rejects a document that declares multiple core.Start nodes", () => {
+    const workflow = emptyWorkflow();
+    workflow.nodes.push({ id: "start2", type: "core.Start", config: {} });
+    expect(workflowAdmission(workflow).allowed).toBe(false);
+    expect(workflowAdmission(workflow).reason).toContain("2 core.Start nodes");
   });
 
   it("generates unique ids", () => {
