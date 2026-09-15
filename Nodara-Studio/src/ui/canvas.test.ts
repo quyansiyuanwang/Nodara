@@ -163,6 +163,26 @@ describe("graph editing on the canvas", () => {
     expect(control2Y).not.toBe(targetY);
   });
 
+  it("lays out a graph in topological columns", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 500, 500);
+    canvas.addNode(descriptor("core.Log"), 200, 700);
+    const logs = workflow.nodes.filter((node) => node.type === "core.Log");
+    workflow.edges.push(
+      { id: "e1", source: "start", target: logs[0].id },
+      { id: "e2", source: logs[0].id, target: logs[1].id },
+      { id: "e3", source: logs[1].id, target: "end" },
+    );
+    workflow.nodes.forEach((node) => { node.position = { x: 900, y: 900 }; });
+    canvas.autoLayout();
+
+    const start = workflow.nodes.find((node) => node.id === "start")!;
+    const end = workflow.nodes.find((node) => node.id === "end")!;
+    expect(start.position!.x).toBeLessThan(logs[0].position!.x);
+    expect(logs[0].position!.x).toBeLessThan(logs[1].position!.x);
+    expect(logs[1].position!.x).toBeLessThan(end.position!.x);
+  });
+
   it("zooms, resets and fits the canvas view", () => {
     const { canvas, workflow } = harness();
     const svg = document.getElementById("canvas") as unknown as SVGSVGElement;

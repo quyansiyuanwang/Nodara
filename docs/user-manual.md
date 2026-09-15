@@ -82,6 +82,7 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
 | Navigate the canvas | Wheel to zoom, middle-drag or Space-drag to pan, and use Fit / 100% controls in the canvas toolbar |
+| Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 
 ### Workflow settings and variables
 

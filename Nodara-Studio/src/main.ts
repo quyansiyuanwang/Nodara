@@ -227,6 +227,7 @@ class Studio {
     element("canvas-zoom-in").addEventListener("click", () => this.canvas.zoomIn());
     element("canvas-zoom-level").addEventListener("click", () => this.canvas.resetView());
     element("canvas-fit").addEventListener("click", () => this.canvas.fitToContent());
+    element("canvas-layout").addEventListener("click", () => this.canvas.autoLayout());
 
     element<HTMLInputElement>("palette-filter").addEventListener("input", (event) => {
       this.palette.filter((event.target as HTMLInputElement).value);

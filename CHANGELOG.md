@@ -27,6 +27,8 @@ All notable changes to this project are documented here. The format follows
 - Studio now supports bounded workflow undo/redo snapshots through
   `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` and toolbar buttons. Edits are coalesced so
   continuous typing does not create one history entry per character.
+- The Studio canvas can automatically arrange nodes into deterministic
+  left-to-right topology columns, preserving branches side by side.
 - The Studio canvas now supports wheel zoom, middle/space-drag panning,
   fit-to-content and reset-to-100% controls, with the current zoom shown in the
   canvas toolbar.

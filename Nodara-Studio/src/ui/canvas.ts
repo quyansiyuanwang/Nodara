@@ -186,6 +186,71 @@ export class Canvas {
     return this.viewScale;
   }
 
+  /** Arrange nodes in deterministic left-to-right topology levels. */
+  autoLayout(): void {
+    if (this.workflow.nodes.length === 0) return;
+    const known = new Set(this.workflow.nodes.map((node) => node.id));
+    const outgoing = new Map<string, string[]>();
+    const indegree = new Map<string, number>();
+    for (const node of this.workflow.nodes) {
+      outgoing.set(node.id, []);
+      indegree.set(node.id, 0);
+    }
+    for (const edge of this.workflow.edges) {
+      if (!known.has(edge.source) || !known.has(edge.target)) continue;
+      outgoing.get(edge.source)!.push(edge.target);
+      indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    }
+
+    const nodeOrder = new Map(this.workflow.nodes.map((node, index) => [node.id, index]));
+    const ready = this.workflow.nodes
+      .filter((node) => indegree.get(node.id) === 0)
+      .map((node) => node.id);
+    const levels = new Map<string, number>();
+    for (const id of ready) levels.set(id, 0);
+
+    while (ready.length > 0) {
+      ready.sort((a, b) => (nodeOrder.get(a) ?? 0) - (nodeOrder.get(b) ?? 0));
+      const id = ready.shift()!;
+      const level = levels.get(id) ?? 0;
+      for (const target of outgoing.get(id) ?? []) {
+        levels.set(target, Math.max(levels.get(target) ?? 0, level + 1));
+        const next = (indegree.get(target) ?? 0) - 1;
+        indegree.set(target, next);
+        if (next === 0) ready.push(target);
+      }
+    }
+
+    let fallbackLevel = Math.max(0, ...levels.values()) + 1;
+    for (const node of this.workflow.nodes) {
+      if (!levels.has(node.id)) levels.set(node.id, fallbackLevel++);
+    }
+
+    const groups = new Map<number, string[]>();
+    for (const [id, level] of levels) {
+      const group = groups.get(level) ?? [];
+      group.push(id);
+      groups.set(level, group);
+    }
+    const positions = new Map(this.workflow.nodes.map((node) => [node.id, node.position]));
+    for (const [level, ids] of [...groups.entries()].sort(([a], [b]) => a - b)) {
+      ids.sort((a, b) => {
+        const left = positions.get(a);
+        const right = positions.get(b);
+        return (left?.y ?? 0) - (right?.y ?? 0) || (nodeOrder.get(a) ?? 0) - (nodeOrder.get(b) ?? 0);
+      });
+      ids.forEach((id, row) => {
+        const node = this.workflow.nodes.find((candidate) => candidate.id === id);
+        if (!node) return;
+        node.position = {
+          x: 80 + level * (NODE_WIDTH + 90),
+          y: 80 + row * (NODE_HEIGHT + 50),
+        };
+      });
+    }
+    this.handlers.onChange();
+  }
+
   zoomIn(): void {
     this.zoomBy(1.2);
   }
