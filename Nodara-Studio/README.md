@@ -105,7 +105,8 @@ known validation code has a Studio translation.
   placeholders, render nested object schemas as grouped controls and offer a
   reset-to-default action when the Schema declares a default.
 * With no node selected, Properties edits workflow ID, name, description and
-  tags, and manages workflow variables (value, description and secret flag).
+  tags, and manages workflow variables (default value, description, secret flag
+  and session-only run overrides).
 * The Properties panel exposes common execution settings for every node:
   enabled pass-through, run condition, pre/post delay, continue-on-error, retry
   count and retry delay.

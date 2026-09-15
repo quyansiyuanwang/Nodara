@@ -64,6 +64,36 @@ describe("node execution settings", () => {
     expect(changes).toBe(4);
   });
 
+  it("edits run overrides without changing workflow defaults", () => {
+    const workflow = emptyWorkflow();
+    workflow.variables.token = { value: "default", secret: false };
+    const overrides = new Map<string, unknown>();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inspector = new Inspector(
+      root,
+      workflow,
+      () => undefined,
+      {
+        onChange: () => undefined,
+        getRunOverride: (name) => overrides.get(name),
+        setRunOverride: (name, value) => overrides.set(name, value),
+        clearRunOverride: (name) => overrides.delete(name),
+      },
+    );
+    inspector.render(null);
+
+    const label = [...root.querySelectorAll<HTMLLabelElement>(".field__label")].find(
+      (item) => item.textContent === "Run value override",
+    )!;
+    const input = label.closest(".field")!.querySelector("textarea")!;
+    input.value = "override";
+    input.dispatchEvent(new Event("change"));
+
+    expect(overrides.get("token")).toBe("override");
+    expect(workflow.variables.token.value).toBe("default");
+  });
+
   it("edits connection labels and conditions directly", () => {
     const workflow = emptyWorkflow();
     workflow.edges.push({ id: "e1", source: "start", target: "end" });

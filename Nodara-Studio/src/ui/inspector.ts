@@ -17,6 +17,9 @@ import {
 
 export interface InspectorHandlers {
   onChange: () => void;
+  getRunOverride?: (name: string) => unknown;
+  setRunOverride?: (name: string, value: unknown) => void;
+  clearRunOverride?: (name: string) => void;
 }
 
 export class Inspector {
@@ -422,6 +425,7 @@ export class Inspector {
       remove.className = "btn btn--small";
       remove.textContent = t("actions.deleteVariable");
       remove.addEventListener("click", () => {
+        this.handlers.clearRunOverride?.(name);
         delete this.workflow.variables[name];
         this.handlers.onChange();
         this.render(null, diagnostics);
@@ -450,6 +454,50 @@ export class Inspector {
         variable.description = description.value || undefined;
         this.handlers.onChange();
       });
+
+      const override = this.handlers.getRunOverride?.(name);
+      if (this.handlers.setRunOverride) {
+        const overrideField = document.createElement("div");
+        overrideField.className = "field";
+        const overrideLabel = document.createElement("label");
+        overrideLabel.className = "field__label";
+        overrideLabel.textContent = t("inspector.runOverride");
+        const overrideValue = document.createElement("textarea");
+        overrideValue.className = "input input--code";
+        overrideValue.rows = 2;
+        overrideValue.placeholder = t("inspector.runOverrideHint");
+        overrideValue.value =
+          override === undefined
+            ? ""
+            : typeof override === "string"
+              ? override
+              : JSON.stringify(override);
+        overrideValue.addEventListener("change", () => {
+          let next: unknown = overrideValue.value;
+          try {
+            next = JSON.parse(overrideValue.value);
+          } catch {
+            // Plain strings are a valid override.
+          }
+          this.handlers.setRunOverride?.(name, next);
+        });
+        const overrideHint = document.createElement("p");
+        overrideHint.className = "field__hint";
+        overrideHint.textContent = t("inspector.runOverrideHint");
+        overrideField.append(overrideLabel, overrideValue, overrideHint);
+        if (override !== undefined && this.handlers.clearRunOverride) {
+          const clear = document.createElement("button");
+          clear.type = "button";
+          clear.className = "btn btn--small";
+          clear.textContent = t("actions.clearOverride");
+          clear.addEventListener("click", () => {
+            this.handlers.clearRunOverride?.(name);
+            overrideValue.value = "";
+          });
+          overrideField.appendChild(clear);
+        }
+        card.appendChild(overrideField);
+      }
 
       const secretLabel = document.createElement("label");
       secretLabel.className = "field__check";

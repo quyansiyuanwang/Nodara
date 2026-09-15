@@ -37,6 +37,9 @@ All notable changes to this project are documented here. The format follows
 - Studio can duplicate a node with `Ctrl+D` or the node context menu,
   preserving configuration, enabled state, delays and retry settings while
   assigning a fresh node id.
+- Studio variables now support session-only run overrides. The workflow keeps
+  its default value while `POST /runs` receives the overridden scope for the
+  next executions.
 - Studio can edit workflow metadata and variables without opening JSON: ID,
   name, description, tags, variable values, descriptions and secret flags are
   available in Properties, with add/delete actions for variables.

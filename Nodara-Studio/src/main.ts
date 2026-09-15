@@ -69,6 +69,7 @@ class Studio {
   private connected = false;
   private currentRunStatus: RunStatus | null = null;
   private runStarting = false;
+  private readonly runOverrides = new Map<string, unknown>();
 
   private readonly palette: Palette;
   private readonly canvas: Canvas;
@@ -101,7 +102,12 @@ class Studio {
       element("inspector"),
       this.workflow,
       (nodeType) => this.descriptors.get(nodeType),
-      { onChange: () => this.workflowChanged() },
+      {
+        onChange: () => this.workflowChanged(),
+        getRunOverride: (name) => this.runOverrides.get(name),
+        setRunOverride: (name, value) => this.runOverrides.set(name, value),
+        clearRunOverride: (name) => this.runOverrides.delete(name),
+      },
     );
     this.log = new EventLog(element("events"), this.canvas);
     this.agents = new AgentPanel(element("agent"), {
@@ -310,6 +316,7 @@ class Studio {
 
   private replaceWorkflow(next: Partial<Workflow> | null): void {
     applyWorkflow(this.workflow, next);
+    this.runOverrides.clear();
     this.canvas.select(null);
     this.workflowChanged();
   }
@@ -370,6 +377,7 @@ class Studio {
 
   private restoreHistory(snapshot: string): void {
     applyWorkflow(this.workflow, JSON.parse(snapshot) as Workflow);
+    this.runOverrides.clear();
     this.diagnostics = [];
     this.workflowRevision += 1;
     this.canvas.select(null);
@@ -579,7 +587,10 @@ class Studio {
       this.log.clear();
       this.canvas.clearStates();
       this.setStatus("pending");
-      const snapshot = await this.client.createRun(this.workflow);
+      const snapshot = await this.client.createRun(
+        this.workflow,
+        Object.fromEntries(this.runOverrides),
+      );
       this.runId = snapshot.id;
       this.setStatus(snapshot.status);
       this.showTab("events");

@@ -85,7 +85,7 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 
 ### Workflow settings and variables
 
-When no node or connection is selected, Properties edits the workflow ID, name, description and tags. It also lists workflow variables and provides controls to add, edit or delete them, including descriptions and secret flags.
+When no node or connection is selected, Properties edits the workflow ID, name, description and tags. It also lists workflow variables and provides controls to add, edit or delete them, including descriptions and secret flags. Each variable can have a session-only **Run value override**, which is passed to `/runs` without changing the workflow default.
 
 ### Common node execution settings
 
