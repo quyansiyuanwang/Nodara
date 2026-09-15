@@ -234,16 +234,27 @@ impl RunHandle {
     }
 
     fn mark_paused(&self) {
-        let mut state = self.state.lock();
-        if !state.status.is_terminal() {
-            state.status = RunStatus::Paused;
+        let should_publish = {
+            let state = self.state.lock();
+            !state.status.is_terminal() && state.status != RunStatus::Paused
+        };
+        if should_publish {
+            self.publish(EventEnvelope::new(
+                self.id.clone(),
+                0,
+                ExecutionEvent::RunPaused,
+            ));
         }
     }
 
     fn mark_running(&self) {
-        let mut state = self.state.lock();
-        if state.status == RunStatus::Paused {
-            state.status = RunStatus::Running;
+        let should_publish = self.state.lock().status == RunStatus::Paused;
+        if should_publish {
+            self.publish(EventEnvelope::new(
+                self.id.clone(),
+                0,
+                ExecutionEvent::RunResumed,
+            ));
         }
     }
 }

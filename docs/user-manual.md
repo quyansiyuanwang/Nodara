@@ -125,7 +125,7 @@ The node context menu also provides immediate enable/disable and breakpoint acti
   completed, failed or cancelled state it starts a paused run and executes the
   first node. Each later click executes exactly one node and returns to
   `paused`.
-* **Pause**, **Resume** and **Cancel** steer the active run. A node breakpoint pauses the run immediately before that node, even when execution started unpaused.
+* **Pause**, **Resume** and **Cancel** steer the active run. Pause and Resume are recorded in the event stream, and a node breakpoint pauses the run immediately before that node even when execution started unpaused.
 * The Events tab follows the WebSocket event stream and highlights the running,
   completed and failed node on the canvas. Scrolling up pauses automatic follow
   so history stays readable; scrolling back to the bottom restores it.

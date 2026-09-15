@@ -569,6 +569,10 @@ async fn a_node_breakpoint_pauses_an_unpaused_run() {
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
     assert_eq!(snapshot["status"], "completed", "{snapshot}");
+    let events = state.runs.get(&run_id).unwrap().history();
+    assert!(events
+        .iter()
+        .any(|envelope| { matches!(envelope.event, nodara_schema::ExecutionEvent::RunResumed) }));
 }
 
 #[tokio::test]

@@ -183,6 +183,10 @@ All notable changes to this project are documented here. The format follows
 - Node retries now support fixed or exponential backoff with an optional maximum
   delay. Both settings are editable directly in the Execution section.
 
+### Fixed
+
+- Manual Pause and Resume now publish `run_paused` / `run_resumed` events into the run history, so WebSocket clients and replayed event streams stay consistent with the run snapshot.
+
 ### Changed
 
 - The Rust `Workflow` model round-trips `$schema` (`Workflow::schema_url`), so
