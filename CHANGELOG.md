@@ -48,6 +48,9 @@ All notable changes to this project are documented here. The format follows
 - Plugin manifests can now declare multiple `features`, including
   `integration`, `ui` and `policy` contributions. Each feature is validated and
   registered as its own extension with a stable `plugin/feature` id.
+- Studio drawer tabs are now generated through an ordered `FeatureRegistry`.
+  Built-in panels and future host/plugin UI contributions register through the
+  same path instead of being hardcoded in `index.html` and `main.ts`.
 - Built-in, in-process and plugin capabilities now share one
   `ExtensionRegistry`. The runtime exposes unified registration metadata at
   `GET /api/v1/extensions`, including source, kind, capabilities, permissions,

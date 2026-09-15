@@ -97,15 +97,7 @@
       <div id="resize-drawer" class="resizer resizer--horizontal" role="separator" aria-orientation="horizontal" aria-label="Resize bottom panel" data-i18n-aria-label="resizer.drawer" tabindex="0" title="Drag to resize. Double-click to reset." data-i18n-title="resizer.title"></div>
 
       <section class="drawer">
-        <nav class="drawer__tabs">
-          <button class="tab tab--active" data-tab="events" data-i18n="tabs.events">Events</button>
-          <button class="tab" data-tab="runs" data-i18n="tabs.runs">Runs</button>
-          <button class="tab" data-tab="extensions" data-i18n="tabs.extensions">Extensions</button>
-          <button class="tab" data-tab="agent" data-i18n="tabs.agent">Agent</button>
-          <button class="tab" data-tab="audit" data-i18n="tabs.audit">Audit</button>
-          <button class="tab" data-tab="problems" data-i18n="tabs.problems">Problems</button>
-          <button class="tab" data-tab="json" data-i18n="tabs.json">Workflow JSON</button>
-        </nav>
+        <nav id="drawer-tabs" class="drawer__tabs"></nav>
         <div id="panel-events" class="drawer__panel">
           <div id="events" class="events"></div>
         </div>

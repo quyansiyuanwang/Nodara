@@ -176,6 +176,9 @@ The Studio is a descriptor-driven editor. On start-up it fetches
 capability badges from what it finds; it hardcodes only `core.Start` and
 `core.End`, for the scaffold of a new document. Installing a plugin changes the
 UI without rebuilding it.
+ Drawer tabs are assembled through the Studio `FeatureRegistry`, so built-in
+panels and future host/plugin UI contributions share one ordered registration
+path.
 
 It offers a canvas, a properties inspector generated from each descriptor's
 configuration schema, a run viewer with the event stream and controls

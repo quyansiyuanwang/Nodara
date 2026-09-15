@@ -35,6 +35,7 @@ import { AgentPanel } from "./ui/agent-panel";
 import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
+import { FeatureRegistry } from "./ui/feature-registry";
 import { ExtensionPanel } from "./ui/extension-panel";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
@@ -86,6 +87,7 @@ class Studio {
   private readonly runsPanel: RunPanel;
   private readonly extensionsPanel: ExtensionPanel;
   private readonly runDialog: RunDialog;
+  private readonly features = new FeatureRegistry();
   private agentPoll: number | null = null;
   private history!: WorkflowHistory;
   private historyTimer: number | null = null;
@@ -142,6 +144,8 @@ class Studio {
     );
     this.history = new WorkflowHistory(JSON.stringify(this.workflow));
 
+    this.registerBuiltinFeatures();
+    this.renderFeatureTabs();
     this.bindToolbar();
     this.bindResizers();
     this.updateHistoryControls();
@@ -195,6 +199,34 @@ class Studio {
         "unavailable",
         t("validation.runtimeUnavailable"),
       );
+    }
+  }
+
+  private registerBuiltinFeatures(): void {
+    const panels = [
+      ["events", "tabs.events", "panel-events", 10],
+      ["runs", "tabs.runs", "panel-runs", 20],
+      ["extensions", "tabs.extensions", "panel-extensions", 30],
+      ["agent", "tabs.agent", "panel-agent", 40],
+      ["audit", "tabs.audit", "panel-audit", 50],
+      ["problems", "tabs.problems", "panel-problems", 60],
+      ["json", "tabs.json", "panel-json", 70],
+    ] as const;
+    for (const [id, labelKey, panelId, order] of panels) {
+      this.features.registerPanel({ id, labelKey, panelId, order });
+    }
+  }
+
+  private renderFeatureTabs(): void {
+    const nav = element("drawer-tabs");
+    nav.replaceChildren();
+    for (const [index, feature] of this.features.panels().entries()) {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = `tab${index === 0 ? " tab--active" : ""}`;
+      tab.dataset.tab = feature.id;
+      tab.textContent = t(feature.labelKey);
+      nav.appendChild(tab);
     }
   }
 
@@ -358,11 +390,12 @@ class Studio {
   }
 
   private showTab(name: string): void {
+    const feature = this.features.getPanel(name);
     for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
       tab.classList.toggle("tab--active", tab.dataset.tab === name);
     }
     for (const panel of document.querySelectorAll<HTMLElement>(".drawer__panel")) {
-      panel.hidden = panel.id !== `panel-${name}`;
+      panel.hidden = panel.id !== feature?.panelId;
     }
     if (name === "json") this.renderJson();
     if (name === "runs") void this.refreshRuns();

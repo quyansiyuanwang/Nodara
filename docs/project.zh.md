@@ -151,6 +151,8 @@ RunManager.start
 Studio 是一个"由描述符驱动"的编辑器。启动时它拉取 `/api/v1/node-types`，并据此构建节点面板、
 配置表单与能力徽标；唯一硬编码的只有新建文档时的 `core.Start` 与 `core.End`。安装一个插件即可改变
 UI，无需重新构建前端。
+ 底部页签由 Studio `FeatureRegistry` 统一组装，内置面板与未来的宿主/插件
+UI 贡献共享同一套有序注册路径。
 
 它提供画布、由描述符配置 schema 生成的属性面板、带事件流与控制按钮（`pause`/`resume`/`step`/`cancel`）
 的运行视图、带计划预览与审批提示的 Agent 面板、审计视图，以及原始工作流 JSON 视图。JSON 视图会保留
