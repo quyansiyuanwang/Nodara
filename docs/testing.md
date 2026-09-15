@@ -96,7 +96,7 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 15. `examples/system-command.json` runs successfully; the Command node's `out` contains stdout and the following Log interpolates it. Verify non-zero exit and cancellation/timeout behavior against the documented outputs.
 16. With Notepad open, `examples/window-find.json` finds it using both the `Notepad` title and `notepad.exe` process filters; the output contains the resolved process name and `visible=true`.
 17. On an isolated test desktop, verify input timing: Keyboard `press shift` → Text `a` → Keyboard `release shift` produces an uppercase `A`; Mouse `drag` accepts optional start coordinates, destination coordinates and duration and moves smoothly.
-18. Keep the target window in the background and send text with `background=true` plus a title/process selector. A message-capable control should receive the text without changing focus; record unsupported applications as a compatibility limitation.
+18. Keep the target window in the background and send text plus client-coordinate mouse messages with `background=true` and a title/process selector. A message-capable control should receive them without changing focus or moving the real cursor; record unsupported applications as a compatibility limitation.
 19. The Audit tab shows capability and node records.
 20. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 

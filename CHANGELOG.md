@@ -139,6 +139,9 @@ All notable changes to this project are documented here. The format follows
   that ignore posted character messages. A clipboard-paste strategy writes and
   restores the clipboard around a posted Ctrl+V for applications that require
   paste semantics.
+- Background mouse input now converts screen coordinates to the target window's
+  client space and sends `WM_MOUSEMOVE` plus left/right/middle button messages,
+  including smooth drag, without moving the real system cursor.
 
 ### Changed
 

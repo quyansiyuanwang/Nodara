@@ -286,6 +286,7 @@ clicking where the cursor already is.
 | Key | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `action` | string | **yes** | `click` | `move`, `click`, `double_click`, `right_click`, `middle_click`, `down`, `up` or `drag`. |
+| `background` | boolean | no | `false` | Send mouse messages without moving the real cursor; requires a window selector and cannot be combined with `focus`. X/Y and drag coordinates are client coordinates in this mode. |
 | `button` | string | no | `left` | `left`, `right` or `middle`. |
 | `x` | integer | no | — | Target X; drag destination X. Treated as an offset when `relative` is true. |
 | `y` | integer | no | — | Target Y; drag destination Y. Treated as an offset when `relative` is true. |

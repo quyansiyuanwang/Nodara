@@ -8,7 +8,8 @@
 use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HGLOBAL, HWND, LPARAM, POINT, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
-    ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
+    ReleaseDC, ScreenToClient, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    SRCCOPY,
 };
 use windows_sys::Win32::System::DataExchange::{
     CloseClipboard, EmptyClipboard, GetClipboardData, IsClipboardFormatAvailable, OpenClipboard,
@@ -27,7 +28,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
     GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
     SendMessageTimeoutW, SetCursorPos, SetForegroundWindow, SetWindowTextW, SMTO_ABORTIFHUNG,
-    SM_CXSCREEN, SM_CYSCREEN, WM_CHAR, WM_KEYDOWN, WM_KEYUP,
+    SM_CXSCREEN, SM_CYSCREEN, WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
 };
 
 use crate::error::{PlatformError, PlatformResult};
@@ -180,7 +182,7 @@ pub fn send_text(window: WindowId, code_unit: u16) -> PlatformResult<()> {
 }
 
 /// Replace a window's text directly. Intended as a fallback for controls that
-/// do not process posted `WM_CHAR` messages.
+/// do not process `WM_CHAR` messages.
 pub fn set_window_text(window: WindowId, text: &str) -> PlatformResult<()> {
     let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
     // SAFETY: the buffer is null-terminated and remains alive for the call.
@@ -190,6 +192,101 @@ pub fn set_window_text(window: WindowId, text: &str) -> PlatformResult<()> {
     } else {
         Ok(())
     }
+}
+
+/// Convert screen coordinates to client coordinates for a window.
+pub fn screen_to_client(window: WindowId, x: i32, y: i32) -> PlatformResult<(i32, i32)> {
+    // SAFETY: `POINT` is a plain value struct and the selector is a system-owned
+    // handle. No ownership is transferred.
+    unsafe {
+        let mut point = POINT { x, y };
+        if ScreenToClient(window, &mut point) == 0 {
+            Err(last_error("ScreenToClient"))
+        } else {
+            Ok((point.x, point.y))
+        }
+    }
+}
+
+fn mouse_button_mask(button: MouseButton) -> usize {
+    match button {
+        MouseButton::Left => 0x0001,
+        MouseButton::Right => 0x0002,
+        MouseButton::Middle => 0x0010,
+    }
+}
+
+fn mouse_lparam(x: i32, y: i32) -> isize {
+    ((y as u16 as isize) << 16) | (x as u16 as isize)
+}
+
+fn send_mouse_message(
+    window: WindowId,
+    message: u32,
+    wparam: usize,
+    x: i32,
+    y: i32,
+) -> PlatformResult<()> {
+    // SAFETY: all arguments are plain integers and the result pointer remains
+    // valid for the synchronous call.
+    let mut result = 0usize;
+    let ok = unsafe {
+        SendMessageTimeoutW(
+            window,
+            message,
+            wparam,
+            mouse_lparam(x, y),
+            SMTO_ABORTIFHUNG,
+            1_000,
+            &mut result,
+        )
+    };
+    if ok == 0 {
+        Err(last_error("SendMessageTimeoutW(WM_MOUSE)"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Send a client-coordinate mouse move to a window.
+pub fn send_mouse_move(
+    window: WindowId,
+    x: i32,
+    y: i32,
+    held: Option<MouseButton>,
+) -> PlatformResult<()> {
+    send_mouse_message(
+        window,
+        WM_MOUSEMOVE,
+        held.map(mouse_button_mask).unwrap_or(0),
+        x,
+        y,
+    )
+}
+
+/// Send a client-coordinate mouse button transition to a window.
+pub fn send_mouse_button(
+    window: WindowId,
+    x: i32,
+    y: i32,
+    button: MouseButton,
+    down: bool,
+) -> PlatformResult<()> {
+    let message = match (button, down) {
+        (MouseButton::Left, true) => WM_LBUTTONDOWN,
+        (MouseButton::Left, false) => WM_LBUTTONUP,
+        (MouseButton::Right, true) => WM_RBUTTONDOWN,
+        (MouseButton::Right, false) => WM_RBUTTONUP,
+        (MouseButton::Middle, true) => WM_MBUTTONDOWN,
+        (MouseButton::Middle, false) => WM_MBUTTONUP,
+    };
+    send_mouse_message(
+        window,
+        message,
+        if down { mouse_button_mask(button) } else { 0 },
+        x,
+        y,
+    )
 }
 
 /// Synthesise a mouse button transition at the current cursor position.

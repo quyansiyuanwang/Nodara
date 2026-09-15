@@ -125,8 +125,9 @@ known validation code has a Studio translation.
 * Keyboard nodes expose `type`/`press`/`release` and hold duration directly.
   Mouse nodes expose button, relative coordinates, click duration, double-click
   interval and smooth drag start/end/duration controls.
-* Keyboard and Text nodes expose background-input selection plus a text
-  `wm_char`/`set_text` strategy for sending input without changing focus.
+* Keyboard, Text and Mouse nodes expose background-input selection. Text adds
+  `wm_char`/`set_text`/`clipboard` strategies, and background mouse coordinates
+  are interpreted in the target window's client space.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors
   disable **Run** until they are fixed and are listed in **Problems**.

@@ -1098,6 +1098,12 @@
           "title": "Action",
           "type": "string"
         },
+        "background": {
+          "default": false,
+          "description": "Send input messages to a matching window without changing focus. Requires a title, class or process selector and cannot be combined with focus.",
+          "title": "Background input",
+          "type": "boolean"
+        },
         "button": {
           "default": "left",
           "description": "Button used for click, double-click, down, up and drag actions.",

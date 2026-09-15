@@ -268,6 +268,7 @@
 | 配置项 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `action` | string | **是** | `click` | `move`、`click`、`double_click`、`right_click`、`middle_click`、`down`、`up`、`drag`。 |
+| `background` | boolean | 否 | `false` | 不移动真实光标，直接向目标窗口发送鼠标消息；必须有窗口选择器，且不能与 `focus` 同时启用。此模式下的 X/Y 和拖拽坐标均为客户区坐标。 |
 | `button` | string | 否 | `left` | `left`、`right`、`middle`。 |
 | `x` | integer | 否 | — | 目标 X；拖拽终点 X。开启 `relative` 时表示相对偏移。 |
 | `y` | integer | 否 | — | 目标 Y；拖拽终点 Y。开启 `relative` 时表示相对偏移。 |

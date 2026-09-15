@@ -193,7 +193,7 @@ $plugins.plugins | Select-Object id,version
 15. `examples/system-command.json` 运行成功，Command 节点的 `out` 包含 stdout，后续 Log 显示命令输出；非零退出和取消超时场景按文档返回失败或可检查的 `exit_code`。
 16. 打开一个记事本窗口后运行 `examples/window-find.json`，Find 节点应通过 `Notepad` 标题和 `notepad.exe` 进程筛选找到窗口，输出包含一致的 `process` 与 `visible=true`。
 17. 在隔离测试桌面上验证输入时序：Keyboard `press shift` → Text `a` → Keyboard `release shift` 应产生大写 `A`；Mouse `drag` 可配置起点、终点和持续时间，并以平滑轨迹移动。
-18. 保持目标窗口位于后台，使用 `background=true` 和进程/标题选择器发送文本；支持消息的控件应在不切换焦点的情况下收到输入。对不处理消息的控件，记录该限制。
+18. 保持目标窗口位于后台，使用 `background=true` 和进程/标题选择器发送文本与鼠标客户区消息；支持消息的控件应在不切换焦点、不移动真实光标的情况下收到输入。对不处理消息的控件，记录该限制。
 
 ### 6.4 Audit
 

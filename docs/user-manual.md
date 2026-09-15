@@ -142,7 +142,7 @@ Input nodes expose additional real-world timing and movement controls:
 
 * keyboard `action=type` taps the chord and supports `hold_ms`; `press` and
   `release` keep or release a chord explicitly;
-* keyboard and text nodes can enable `background` to send `WM_KEY*`/`WM_CHAR`
+* keyboard, text and mouse nodes can enable `background` to send input
   messages to a selected window without changing focus; text also offers the
   direct `set_text` fallback and a clipboard-paste strategy that restores the
   previous clipboard contents;
@@ -150,11 +150,13 @@ Input nodes expose additional real-world timing and movement controls:
 * `relative=true` treats X/Y as offsets from the current cursor;
 * mouse `drag` supports optional `start_x/start_y`, destination `x/y` and a
   smooth `duration_ms`;
+* background mouse input uses client coordinates and sends `WM_MOUSEMOVE` and
+  button messages without moving the real cursor;
 * `double_click_interval_ms` controls the delay between the two clicks.
 
 `background` requires a title, class or process selector and cannot be combined
-with `focus`. Not every application consumes posted messages, so test the target
-control; background mouse messages are not enabled yet. The clipboard strategy
+with `focus`. Not every application consumes these messages, so test the target
+control. The clipboard strategy
 uses `SendMessageTimeoutW` and restores the previous clipboard value, but some
 modern packaged applications still ignore background input.
 

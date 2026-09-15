@@ -82,6 +82,32 @@ pub fn set_window_text(_window: WindowId, _text: &str) -> PlatformResult<()> {
 }
 
 /// Unsupported on this host.
+pub fn screen_to_client(_window: WindowId, _x: i32, _y: i32) -> PlatformResult<(i32, i32)> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
+pub fn send_mouse_move(
+    _window: WindowId,
+    _x: i32,
+    _y: i32,
+    _held: Option<MouseButton>,
+) -> PlatformResult<()> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
+pub fn send_mouse_button(
+    _window: WindowId,
+    _x: i32,
+    _y: i32,
+    _button: MouseButton,
+    _down: bool,
+) -> PlatformResult<()> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
 pub fn mouse_button(_button: MouseButton, _down: bool) -> PlatformResult<()> {
     Err(unsupported())
 }

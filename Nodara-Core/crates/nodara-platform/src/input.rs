@@ -108,6 +108,157 @@ fn input_target(input: &NodeInput) -> NodeResult<Option<InputTarget>> {
     }))
 }
 
+fn send_mouse_move(
+    window: native::WindowId,
+    point: (i32, i32),
+    held: Option<native::MouseButton>,
+) -> NodeResult<()> {
+    native::send_mouse_move(window, point.0, point.1, held)
+        .map_err(|error| NodeError::Execution(error.to_string()))
+}
+
+fn send_mouse_button(
+    window: native::WindowId,
+    point: (i32, i32),
+    button: native::MouseButton,
+    down: bool,
+) -> NodeResult<()> {
+    native::send_mouse_button(window, point.0, point.1, button, down)
+        .map_err(|error| NodeError::Execution(error.to_string()))
+}
+
+fn move_mouse_smooth_background(
+    context: &ExecutionContext,
+    window: native::WindowId,
+    from: (i32, i32),
+    to: (i32, i32),
+    duration_ms: u64,
+    held: Option<native::MouseButton>,
+) -> NodeResult<()> {
+    if from == to {
+        send_mouse_move(window, to, held)?;
+        return Ok(());
+    }
+    let steps = (duration_ms / 10).max(1);
+    let step_delay = duration_ms / steps;
+    for step in 1..=steps {
+        context.check_cancelled()?;
+        let ratio = step as f64 / steps as f64;
+        let point = (
+            (from.0 as f64 + (to.0 - from.0) as f64 * ratio).round() as i32,
+            (from.1 as f64 + (to.1 - from.1) as f64 * ratio).round() as i32,
+        );
+        send_mouse_move(window, point, held)?;
+        if step < steps && step_delay > 0 {
+            std::thread::sleep(Duration::from_millis(step_delay));
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_background_mouse(
+    context: &ExecutionContext,
+    input: &NodeInput,
+    target: &InputTarget,
+    action: &str,
+    button: Option<native::MouseButton>,
+    count: usize,
+    duration_ms: u64,
+    relative: bool,
+    double_click_interval_ms: u64,
+) -> NodeResult<NodeOutput> {
+    let screen_cursor = cursor_position()?;
+    let origin = native::screen_to_client(target.window, screen_cursor.0, screen_cursor.1)
+        .map_err(|error| NodeError::Execution(error.to_string()))?;
+    let target_point =
+        configured_point(input, "x", "y")?.map(|point| resolve_point(origin, point, relative));
+    let mut moved = false;
+
+    if let Some(button) = button {
+        match action {
+            "move" => {
+                if let Some(point) = target_point {
+                    move_mouse_smooth_background(
+                        context,
+                        target.window,
+                        origin,
+                        point,
+                        duration_ms,
+                        None,
+                    )?;
+                    moved = true;
+                }
+            }
+            "drag" => {
+                let start = configured_point(input, "start_x", "start_y")?.unwrap_or(origin);
+                let delta = configured_point(input, "x", "y")?.ok_or_else(|| {
+                    NodeError::InvalidConfig("`drag` requires destination `x` and `y`".to_string())
+                })?;
+                let destination = resolve_point(start, delta, relative);
+                let drag_duration = if duration_ms == 0 { 300 } else { duration_ms };
+                send_mouse_move(target.window, start, None)?;
+                send_mouse_button(target.window, start, button, true)?;
+                let movement = move_mouse_smooth_background(
+                    context,
+                    target.window,
+                    start,
+                    destination,
+                    drag_duration,
+                    Some(button),
+                );
+                let release = send_mouse_button(target.window, destination, button, false);
+                movement?;
+                release?;
+                moved = true;
+            }
+            "down" => {
+                let point = target_point.unwrap_or(origin);
+                send_mouse_move(target.window, point, None)?;
+                send_mouse_button(target.window, point, button, true)?;
+                moved = point != origin;
+            }
+            "up" => {
+                let point = target_point.unwrap_or(origin);
+                send_mouse_move(target.window, point, None)?;
+                send_mouse_button(target.window, point, button, false)?;
+                moved = point != origin;
+            }
+            _ => {
+                let point = target_point.unwrap_or(origin);
+                send_mouse_move(target.window, point, None)?;
+                moved = point != origin;
+                for index in 0..count {
+                    send_mouse_button(target.window, point, button, true)?;
+                    let wait = wait_interruptible(context, duration_ms);
+                    let release = send_mouse_button(target.window, point, button, false);
+                    wait?;
+                    release?;
+                    if index + 1 < count && double_click_interval_ms > 0 {
+                        wait_interruptible(context, double_click_interval_ms)?;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(NodeOutput::new().with_output(
+        "out",
+        serde_json::json!({
+            "action": action,
+            "button": button.map(mouse_button_name),
+            "origin_x": origin.0,
+            "origin_y": origin.1,
+            "x": target_point.map_or(origin.0, |point| point.0),
+            "y": target_point.map_or(origin.1, |point| point.1),
+            "duration_ms": duration_ms,
+            "moved": moved,
+            "background": true,
+            "coordinate_space": "client",
+        }),
+    ))
+}
+
 fn dangerous_descriptor(descriptor: NodeDescriptor, permission: &str) -> NodeDescriptor {
     NodeDescriptor {
         dangerous: true,
@@ -583,7 +734,7 @@ impl NodeExecutor for MouseExecutor {
                         }
                     }),
                     &["action"],
-                    false,
+                    true,
                 ),
                 allows_additional_config: false,
                 ..NodeDescriptor::new("windows.Input.Mouse", "Mouse", "Input")
@@ -603,13 +754,6 @@ impl NodeExecutor for MouseExecutor {
             .max(0) as u64;
         context.check_cancelled()?;
         let target = input_target(&input)?;
-        if target.as_ref().is_some_and(|target| target.background) {
-            return Err(NodeError::Unsupported(
-                "background mouse input is not implemented; disable `background` for this node"
-                    .to_string(),
-            ));
-        }
-
         let requested_button = input
             .config_str("button")
             .map(parse_mouse_button)
@@ -646,6 +790,20 @@ impl NodeExecutor for MouseExecutor {
                 )))
             }
         };
+
+        if let Some(target) = target.filter(|target| target.background) {
+            return execute_background_mouse(
+                context,
+                &input,
+                &target,
+                &action,
+                button,
+                count,
+                duration_ms,
+                relative,
+                double_click_interval_ms,
+            );
+        }
 
         let origin = cursor_position()?;
         let target =
@@ -772,6 +930,14 @@ mod tests {
         let error = input_target(&input(serde_json::json!({ "background": true })))
             .expect_err("background input requires a selector");
         assert_eq!(error.code(), "E_INVALID_CONFIG");
+    }
+
+    #[test]
+    fn mouse_descriptor_exposes_background_client_input() {
+        let schema = MouseExecutor.descriptor().config_schema;
+        assert!(schema["properties"]["background"].is_object());
+        assert!(schema["properties"]["relative"].is_object());
+        assert!(schema["properties"]["duration_ms"].is_object());
     }
 
     #[test]
