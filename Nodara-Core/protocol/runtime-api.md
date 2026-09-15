@@ -132,6 +132,8 @@ Diagnostic codes:
 | `WF141` | error | config is not an object |
 | `WF142` | error | required config key missing |
 | `WF143` | warning | unknown config key |
+| `WF144` | error | `result_port` is not declared by the node descriptor |
+| `WF145` | error | `result_var` is empty |
 | `WF150` | warning | `{{variable}}` is undeclared |
 
 ## Running

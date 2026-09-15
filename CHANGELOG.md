@@ -26,6 +26,11 @@ All notable changes to this project are documented here. The format follows
   `description`, `default`, `enum`, bounds and examples per property.
 - Studio opens a runnable `Start → Log → End` starter workflow on first
   launch and when creating a new document, so Run can be exercised immediately.
+- Every node now supports common `result_var` and `result_port` output mapping.
+  Any successful node can publish a selected output under a run-scope variable,
+  independent of its node-specific configuration. Studio exposes both fields in
+  Execution settings; validation reports `WF144`/`WF145` for invalid mappings
+  and treats mapped names as declared for later `{{template}}` references.
 - Edges now support explicit `success` and `failure` branches. A failure edge
   handles executor errors and activates a recovery path without requiring a
   node-wide `continue_on_error`; Studio exposes the outcome in connection

@@ -601,6 +601,18 @@ impl WorkflowEngine {
                     for (name, value) in &output.variables {
                         context.set_variable(name.clone(), value.clone());
                     }
+                    if let Some(name) = node.result_var.as_deref().filter(|name| !name.is_empty()) {
+                        let captured = match node.result_port.as_deref() {
+                            Some(port) => output.outputs.get(port).cloned().unwrap_or_default(),
+                            None => output
+                                .outputs
+                                .get("out")
+                                .cloned()
+                                .or_else(|| output.outputs.values().next().cloned())
+                                .unwrap_or_default(),
+                        };
+                        context.set_variable(name.to_string(), captured);
+                    }
                     node_outputs.insert(node.id.clone(), output.outputs.clone());
 
                     bus.emit(ExecutionEvent::NodeFinished {

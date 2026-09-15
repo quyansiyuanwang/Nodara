@@ -345,6 +345,16 @@ export class Inspector {
             minimum: 0,
             default: 0,
           },
+          result_var: {
+            type: "string",
+            title: t("execution.resultVar"),
+            description: t("execution.resultVarDetail"),
+          },
+          result_port: {
+            type: "string",
+            title: t("execution.resultPort"),
+            description: t("execution.resultPortDetail"),
+          },
         },
       },
       {
@@ -356,6 +366,8 @@ export class Inspector {
         timeout_ms: node.timeout_ms ?? 0,
         retry: node.retry ?? 0,
         retry_delay_ms: node.retry_delay_ms ?? 0,
+        result_var: node.result_var ?? "",
+        result_port: node.result_port ?? "",
       },
       (key, value) => this.updateExecution(node, key, value),
     );
@@ -398,6 +410,18 @@ export class Inspector {
         if (number > 0) node.retry_delay_ms = number;
         else delete node.retry_delay_ms;
         break;
+      case "result_var": {
+        const next = typeof value === "string" ? value.trim() : "";
+        if (next) node.result_var = next;
+        else delete node.result_var;
+        break;
+      }
+      case "result_port": {
+        const next = typeof value === "string" ? value.trim() : "";
+        if (next) node.result_port = next;
+        else delete node.result_port;
+        break;
+      }
       default:
         return;
     }

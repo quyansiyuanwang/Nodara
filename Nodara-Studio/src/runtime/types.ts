@@ -75,6 +75,10 @@ export interface WorkflowNode {
   /** Additional attempts after the first failed execution. */
   retry?: number;
   retry_delay_ms?: number;
+  /** Publish one output port under this run-scope variable. */
+  result_var?: string;
+  /** Output port selected by result_var; defaults to `out` or the first output. */
+  result_port?: string;
 }
 
 export type EdgeBranch = "always" | "success" | "failure";

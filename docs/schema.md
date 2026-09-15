@@ -90,6 +90,8 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | `timeout_ms` | integer | no | Optional maximum time for one plugin execution attempt. Core built-in nodes ignore process-level timeouts. |
 | `retry` | integer | no | Defaults to `0`. Additional attempts after the first failed execution. |
 | `retry_delay_ms` | integer | no | Defaults to `0`. Wait between failed attempts. |
+| `result_var` | string | no | Common output mapping. Publishes the selected output port under this run-scope variable. |
+| `result_port` | string | no | Output port captured by `result_var`; defaults to `out` or the first available output (`WF144` when unknown). |
 | `metadata` | object | no | Extension bag preserved on round-trip. |
 
 The configuration keys available for a `type` are documented per node in the
@@ -146,6 +148,8 @@ optional `hint`:
 | `WF141` | error | `config` is not a JSON object |
 | `WF142` | error | `config` is missing a required key |
 | `WF143` | warning | `config` has a key the descriptor does not declare |
+| `WF144` | error | `result_port` is not declared by the node descriptor |
+| `WF145` | error | `result_var` is empty |
 | `WF150` | warning | `{{template}}` references an undeclared variable |
 | `WF151` | warning | Node `condition` references an undeclared variable |
 | `WF152` | warning | Edge `condition` references an undeclared variable |

@@ -86,6 +86,8 @@
 | `timeout_ms` | integer | 否 | 插件单次执行尝试的可选最大时间；核心内置节点忽略进程级超时。 |
 | `retry` | integer | 否 | 默认 `0`。首次失败后的额外执行次数。 |
 | `retry_delay_ms` | integer | 否 | 默认 `0`。失败尝试之间的等待时间。 |
+| `result_var` | string | 否 | 通用输出映射：将选定的输出端口发布到此运行变量。 |
+| `result_port` | string | 否 | `result_var` 捕获的输出端口；默认使用 `out` 或第一个输出（未知时报 `WF144`）。 |
 | `metadata` | object | 否 | 往返保留的扩展包。 |
 
 某个 `type` 可用的配置键在[节点参考](nodes.zh.md)中逐节点列出；机器可读的权威来源是
@@ -140,6 +142,8 @@
 | `WF141` | error | `config` 不是 JSON 对象 |
 | `WF142` | error | `config` 缺少必填键 |
 | `WF143` | warning | `config` 含有描述符未声明的键 |
+| `WF144` | error | `result_port` 不是节点描述符声明的输出端口 |
+| `WF145` | error | `result_var` 为空 |
 | `WF150` | warning | `{{模板}}` 引用了未声明的变量 |
 | `WF151` | warning | 节点 `condition` 引用了未声明的变量 |
 | `WF152` | warning | 连线 `condition` 引用了未声明的变量 |

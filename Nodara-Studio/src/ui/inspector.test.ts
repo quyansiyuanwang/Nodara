@@ -180,6 +180,18 @@ describe("node execution settings", () => {
 
     expect(workflow.nodes.find((node) => node.id === "log")?.retry).toBe(3);
     expect(workflow.nodes.find((node) => node.id === "log")?.retry_delay_ms).toBe(25);
-    expect(changes).toBe(5);
+
+    const resultVarLabel = labels.find((label) => label.textContent === "Store result as")!;
+    const resultVar = resultVarLabel.closest(".field")!.querySelector("input")!;
+    resultVar.value = "answer";
+    resultVar.dispatchEvent(new Event("input"));
+    const resultPortLabel = labels.find((label) => label.textContent === "Result port")!;
+    const resultPort = resultPortLabel.closest(".field")!.querySelector("input")!;
+    resultPort.value = "result";
+    resultPort.dispatchEvent(new Event("input"));
+
+    expect(workflow.nodes.find((node) => node.id === "log")?.result_var).toBe("answer");
+    expect(workflow.nodes.find((node) => node.id === "log")?.result_port).toBe("result");
+    expect(changes).toBe(7);
   });
 });

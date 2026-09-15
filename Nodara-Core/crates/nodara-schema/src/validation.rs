@@ -426,7 +426,16 @@ pub fn validate_with_options(
     }
 
     if options.check_variable_references {
-        let declared: HashSet<&str> = workflow.variables.keys().map(String::as_str).collect();
+        let mut declared: HashSet<&str> = workflow.variables.keys().map(String::as_str).collect();
+        for node in &workflow.nodes {
+            if let Some(name) = node
+                .result_var
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+            {
+                declared.insert(name);
+            }
+        }
         let mut reported: HashSet<(String, String)> = HashSet::new();
         for node in &workflow.nodes {
             for reference in collect_variable_references(&node.config) {
@@ -535,6 +544,35 @@ fn validate_config(node: &Node, descriptor: &NodeDescriptor, report: &mut Valida
         }
     }
 
+    if matches!(node.result_var.as_deref(), Some(name) if name.trim().is_empty()) {
+        report.push(
+            Diagnostic::new(
+                Severity::Error,
+                "WF145",
+                format!("node `{}` result_var must not be empty", node.id),
+                "/nodes",
+            )
+            .node(&node.id),
+        );
+    }
+    if let Some(port) = node.result_port.as_deref() {
+        if !descriptor.outputs.iter().any(|output| output.name == port) {
+            report.push(
+                Diagnostic::new(
+                    Severity::Error,
+                    "WF144",
+                    format!(
+                        "node `{}` result_port `{port}` is not declared by `{}`",
+                        node.id, node.node_type
+                    ),
+                    "/nodes",
+                )
+                .node(&node.id)
+                .hint("use one of the output ports published by the node descriptor"),
+            );
+        }
+    }
+
     if let Some(props) = descriptor
         .config_schema
         .get("properties")
@@ -635,7 +673,26 @@ pub fn parse_placeholders(text: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::descriptor::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
     use crate::workflow::{Edge, Node, Workflow};
+
+    struct TestIndex(Vec<NodeDescriptor>);
+
+    impl NodeTypeIndex for TestIndex {
+        fn node_types(&self) -> Vec<String> {
+            self.0
+                .iter()
+                .map(|descriptor| descriptor.node_type.clone())
+                .collect()
+        }
+
+        fn descriptor(&self, node_type: &str) -> Option<NodeDescriptor> {
+            self.0
+                .iter()
+                .find(|descriptor| descriptor.node_type == node_type)
+                .cloned()
+        }
+    }
 
     fn linear() -> Workflow {
         let mut wf = Workflow::new("wf.test");
@@ -678,6 +735,63 @@ mod tests {
         wf.add_node(Node::new("start", "core.End"));
         let report = validate(&wf);
         assert!(report.diagnostics.iter().any(|d| d.code == "WF103"));
+    }
+
+    #[test]
+    fn validates_common_result_mapping() {
+        let mut wf = Workflow::new("wf.result-validation");
+        wf.add_node(Node::new("start", "core.Start"));
+        let mut calc = Node::new("calc", "core.Calculate");
+        calc.result_var = Some("   ".to_string());
+        calc.result_port = Some("missing".to_string());
+        wf.add_node(calc);
+        wf.add_node(Node::new("end", "core.End"));
+        wf.add_edge(Edge::new("e1", "start", "calc"));
+        wf.add_edge(Edge::new("e2", "calc", "end"));
+
+        let mut calc_descriptor = NodeDescriptor::new("core.Calculate", "Calculate", "Core");
+        calc_descriptor.outputs = vec![PortDescriptor::new(
+            "result",
+            "Result",
+            PortKind::Output,
+            ValueType::Number,
+        )];
+        let index = TestIndex(vec![
+            NodeDescriptor::new("core.Start", "Start", "Core"),
+            calc_descriptor,
+            NodeDescriptor::new("core.End", "End", "Core"),
+        ]);
+        let report = validate_with(&wf, &index, &ValidationOptions::default());
+
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF144"));
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF145"));
+    }
+
+    #[test]
+    fn result_var_satisfies_later_template_references() {
+        let mut wf = Workflow::new("wf.result-reference");
+        wf.add_node(Node::new("start", "core.Start"));
+        let mut calc = Node::new("calc", "core.Calculate");
+        calc.result_var = Some("answer".to_string());
+        wf.add_node(calc);
+        wf.add_node(
+            Node::new("log", "core.Log")
+                .with_config(serde_json::json!({ "message": "answer={{answer}}" })),
+        );
+        wf.add_node(Node::new("end", "core.End"));
+        wf.add_edge(Edge::new("e1", "start", "calc"));
+        wf.add_edge(Edge::new("e2", "calc", "log"));
+        wf.add_edge(Edge::new("e3", "log", "end"));
+
+        let index = TestIndex(vec![
+            NodeDescriptor::new("core.Start", "Start", "Core"),
+            NodeDescriptor::new("core.Calculate", "Calculate", "Core"),
+            NodeDescriptor::new("core.Log", "Log", "Core"),
+            NodeDescriptor::new("core.End", "End", "Core"),
+        ]);
+        let report = validate_with(&wf, &index, &ValidationOptions::default());
+
+        assert!(!report.diagnostics.iter().any(|d| d.code == "WF150"));
     }
 
     #[test]

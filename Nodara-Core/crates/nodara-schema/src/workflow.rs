@@ -141,6 +141,13 @@ pub struct Node {
     /// Delay between failed attempts, in milliseconds.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub retry_delay_ms: u64,
+    /// Optional run-scope variable that receives one of this node's outputs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_var: Option<String>,
+    /// Output port captured by `result_var`. When omitted, `out` or the first
+    /// declared runtime output is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_port: Option<String>,
     /// Extension bag.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, serde_json::Value>,
@@ -163,6 +170,8 @@ impl Node {
             timeout_ms: None,
             retry: 0,
             retry_delay_ms: 0,
+            result_var: None,
+            result_port: None,
             metadata: BTreeMap::new(),
         }
     }
@@ -382,6 +391,8 @@ mod tests {
         node.timeout_ms = Some(2_500);
         node.retry = 3;
         node.retry_delay_ms = 100;
+        node.result_var = Some("answer".to_string());
+        node.result_port = Some("result".to_string());
 
         let json = serde_json::to_string(&node).unwrap();
         let back: Node = serde_json::from_str(&json).unwrap();
@@ -393,6 +404,8 @@ mod tests {
         assert_eq!(back.timeout_ms, Some(2_500));
         assert_eq!(back.retry, 3);
         assert_eq!(back.retry_delay_ms, 100);
+        assert_eq!(back.result_var.as_deref(), Some("answer"));
+        assert_eq!(back.result_port.as_deref(), Some("result"));
     }
 
     #[test]

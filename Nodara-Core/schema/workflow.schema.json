@@ -582,6 +582,20 @@
           ],
           "description": "Editor position (ignored by the runtime)."
         },
+        "result_port": {
+          "description": "Output port captured by `result_var`. When omitted, `out` or the first declared runtime output is used.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result_var": {
+          "description": "Optional run-scope variable that receives one of this node's outputs.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "retry": {
           "description": "Number of additional attempts after the first failed execution.",
           "format": "uint32",

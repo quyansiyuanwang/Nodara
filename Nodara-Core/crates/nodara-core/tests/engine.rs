@@ -461,6 +461,45 @@ fn a_node_retries_until_it_succeeds() {
 }
 
 #[test]
+fn common_result_mapping_publishes_a_selected_output() {
+    let mut workflow = Workflow::new("wf.result-mapping");
+    workflow.add_node(Node::new("start", "core.Start"));
+    let mut calc = Node::new("calc", "core.Calculate");
+    calc.config = serde_json::json!({
+        "expression": "2 + 3 * 2",
+        "output_var": "calculation_local"
+    });
+    calc.result_var = Some("answer".to_string());
+    calc.result_port = Some("result".to_string());
+    workflow.add_node(calc);
+    workflow.add_node(
+        Node::new("log", "core.Log")
+            .with_config(serde_json::json!({ "message": "answer={{answer}}" })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "calc"));
+    workflow.add_edge(Edge::new("e2", "calc", "log"));
+    workflow.add_edge(Edge::new("e3", "log", "end"));
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(registry()).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.variables.get("answer"), Some(&serde_json::json!(8)));
+    assert_eq!(
+        outcome.variables.get("calculation_local"),
+        Some(&serde_json::json!(8))
+    );
+    assert!(sink.snapshot().iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::Log { message, .. } if message == "answer=8"
+    )));
+}
+
+#[test]
 fn seeds_and_overrides_variables() {
     let mut workflow = linear_workflow();
     workflow.variables.insert(

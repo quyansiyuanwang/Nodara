@@ -104,6 +104,8 @@ of the workflow document and are honored by the runtime:
 | Timeout (ms) | Optional time limit for one plugin execution attempt |
 | Retries | Number of additional attempts after a failed execution |
 | Retry delay (ms) | Wait between failed attempts |
+| Store result as | Publish one of this node's output ports under a run-scope variable for later nodes and expressions |
+| Result port | Output port selected by Store result as; blank uses `out` or the first available output |
 
 The node context menu also provides an immediate enable/disable action.
 

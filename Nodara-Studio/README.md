@@ -114,9 +114,10 @@ known validation code has a Studio translation.
   tags, and manages workflow variables (default value, description, secret flag
   and session-only run overrides).
 * The Properties panel exposes common execution settings for every node:
-  enabled pass-through, run condition, pre/post delay, continue-on-error, retry
-  count and retry delay. Plugin nodes also expose a per-attempt timeout.
-  The node context menu can toggle a node on or off immediately.
+  enabled pass-through, run condition, pre/post delay, continue-on-error,
+  retry count, retry delay and common result mapping (`result_var` /
+  `result_port`). Plugin nodes also expose a per-attempt timeout. The node
+  context menu can toggle a node on or off immediately.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors
   disable **Run** until they are fixed and are listed in **Problems**.

@@ -179,9 +179,10 @@ $plugins.plugins | Select-Object id,version
 2. Events 页最终显示 `run_completed`；
 3. Runs 页刷新后能看到该运行，点击“打开”可重新载入完整事件；
 4. `examples/failure-branch.json` 校验无错误，Calculate 节点失败后通过 failure 连线进入恢复分支；
-5. 画布运行状态与事件一致；
-6. Pause/Resume 对延迟工作流有效；
-7. Cancel 能终止延迟节点。
+5. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
+6. 画布运行状态与事件一致；
+7. Pause/Resume 对延迟工作流有效；
+8. Cancel 能终止延迟节点。
 
 ### 6.4 Audit
 
