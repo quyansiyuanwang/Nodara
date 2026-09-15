@@ -33,6 +33,7 @@
         </div>
         <div class="toolbar__group">
           <button id="btn-run" class="btn btn--primary" data-i18n="actions.run" disabled>Run</button>
+          <button id="btn-run-options" class="btn" data-i18n="actions.runWithVariables" disabled>Variables…</button>
           <button id="btn-pause" class="btn" data-i18n="actions.pause" disabled>Pause</button>
           <button id="btn-resume" class="btn" data-i18n="actions.resume" disabled>Resume</button>
           <button id="btn-step" class="btn" data-i18n="actions.step" disabled>Step</button>
@@ -140,6 +141,8 @@
         </div>
       </section>
     </div>
+
+    <dialog id="run-dialog" class="modal"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

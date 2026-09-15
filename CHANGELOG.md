@@ -42,6 +42,9 @@ All notable changes to this project are documented here. The format follows
   item controls instead of falling back to a raw JSON textarea.
 - Workflow Properties now edit the metadata author and workflow version fields,
   so these common document settings no longer require the JSON tab.
+- Studio now has a **Variables…** run dialog. It collects every workflow variable
+  in one place, supports temporary run-only overrides, masks stored secrets,
+  validates numeric/JSON input before Run and can clear overrides individually.
 - Studio now has a **Runs** tab that lists runtime run history. Any entry can be
   opened directly into its event stream, with status, workflow, node count and
   start time shown in the table.

@@ -178,6 +178,14 @@ hidden `--mock '<workflow-json>'` option supplies a canned response.
 restricts planning to an explicit allowlist. Runtime policy remains the
 authoritative execution guard.
 
+## Run variables
+
+Use the toolbar **Variables…** action to review every workflow variable before a
+run. Values entered there are session-only overrides: they are sent to `/runs`
+without changing the workflow document. Secret values are masked, numeric and
+JSON inputs are validated before Run is enabled, and each override can be
+cleared independently.
+
 ## HTTP API
 
 The public base path is `/api/v1`. Important endpoints include health, plugins,

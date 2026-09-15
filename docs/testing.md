@@ -83,11 +83,12 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 3. Validate and Run complete successfully.
 4. The Events tab reaches `run_completed`.
 5. Runs lists the execution and **Open** reloads its event stream.
-6. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
-7. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
-8. Pause, Resume, and Cancel work with a delayed workflow.
-9. The Audit tab shows capability and node records.
-10. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+6. **Variables…** accepts a temporary value, does not alter the workflow default, and rejects invalid JSON before Run.
+7. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
+8. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
+9. Pause, Resume, and Cancel work with a delayed workflow.
+10. The Audit tab shows capability and node records.
+11. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

@@ -113,7 +113,8 @@ known validation code has a Studio translation.
   a default.
 * With no node selected, Properties edits workflow ID, name, description, tags,
   author and version, and manages workflow variables (default value,
-  description, secret flag and session-only run overrides).
+  description, secret flag and session-only run overrides). The **Variables…**
+  toolbar action opens all run overrides in one dialog for quick testing.
 * The Properties panel exposes common execution settings for every node:
   enabled pass-through, run condition, pre/post delay, continue-on-error,
   retry count, retry delay and common result mapping (`result_var` /

@@ -1215,3 +1215,120 @@ body.is-resizing-y * {
 .audit__row--node-failed td {
   color: var(--error);
 }
+
+/* Run variables dialog --------------------------------------------------- */
+.modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 58%);
+}
+
+.modal::backdrop {
+  background: rgb(3 6 12 / 72%);
+}
+
+.modal__form {
+  display: flex;
+  max-height: min(82vh, 760px);
+  flex-direction: column;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal__title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal__close {
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+}
+
+.modal__close:hover {
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.modal__hint {
+  margin: 0 0 2px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: #11151e;
+}
+
+.run-variable {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.run-variable__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+}
+
+.run-variable__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.run-variable__description,
+.run-variable__default {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.run-variable__default {
+  font-family: var(--mono);
+}
+
+.badge--ok {
+  border-color: #286447;
+  background: #12291e;
+  color: var(--ok);
+}

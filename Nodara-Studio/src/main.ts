@@ -38,6 +38,7 @@ import { EventLog } from "./ui/event-log";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
 import { installResizer } from "./ui/resizer";
+import { RunDialog } from "./ui/run-dialog";
 import { RunPanel } from "./ui/run-panel";
 import { deriveRunControls, ValidationState } from "./ui/run-controls";
 
@@ -81,6 +82,7 @@ class Studio {
   private readonly agents: AgentPanel;
   private readonly audit: AuditPanel;
   private readonly runsPanel: RunPanel;
+  private readonly runDialog: RunDialog;
   private agentPoll: number | null = null;
   private history!: WorkflowHistory;
   private historyTimer: number | null = null;
@@ -124,6 +126,16 @@ class Studio {
     this.runsPanel = new RunPanel(element("runs"), {
       onOpenRun: (runId) => void this.openRun(runId),
     });
+    this.runDialog = new RunDialog(
+      element<HTMLDialogElement>("run-dialog"),
+      this.workflow,
+      {
+        onRun: () => void this.run(),
+        getOverride: (name) => this.runOverrides.get(name),
+        setOverride: (name, value) => this.runOverrides.set(name, value),
+        clearOverride: (name) => this.runOverrides.delete(name),
+      },
+    );
     this.history = new WorkflowHistory(JSON.stringify(this.workflow));
 
     this.bindToolbar();
@@ -226,6 +238,7 @@ class Studio {
     element("btn-validate").addEventListener("click", () => void this.validate(true));
     element("validation-status").addEventListener("click", () => this.showTab("problems"));
     element("btn-run").addEventListener("click", () => void this.run());
+    element("btn-run-options").addEventListener("click", () => this.runDialog.open());
     element("btn-pause").addEventListener("click", () => void this.control("pause"));
     element("btn-resume").addEventListener("click", () => void this.control("resume"));
     element("btn-step").addEventListener("click", () => void this.control("step"));
@@ -866,6 +879,7 @@ class Studio {
       this.runStarting,
     );
     element<HTMLButtonElement>("btn-run").disabled = controls.runDisabled;
+    element<HTMLButtonElement>("btn-run-options").disabled = controls.runDisabled;
     element<HTMLButtonElement>("btn-pause").disabled = controls.pauseDisabled;
     element<HTMLButtonElement>("btn-resume").disabled = controls.resumeDisabled;
     element<HTMLButtonElement>("btn-step").disabled = controls.stepDisabled;
