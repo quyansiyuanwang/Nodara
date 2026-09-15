@@ -44,7 +44,7 @@ pub use error::{ExecutionError, ExecutionResult, NodeError, NodeResult};
 pub use events::{ChannelEventSink, CollectingEventSink, EventBus, EventSink, NullEventSink};
 pub use executor::{NodeExecutor, NodeInput, NodeOutput};
 pub use expr::evaluate_expression;
-pub use extension::ExtensionRegistry;
+pub use extension::{builtin_extension, in_process_extension, ExtensionRegistry};
 pub use nodara_schema::{ExtensionDescriptor, ExtensionKind};
 pub use policy::{
     AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove, AutoDeny, CapabilityPolicy,

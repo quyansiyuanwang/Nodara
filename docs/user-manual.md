@@ -141,6 +141,7 @@ run; completed, failed, and running rows are visually distinguished.
 | `nodara-cli inspect FILE` | Print workflow structure | No |
 | `nodara-cli migrate FILE --out NEW` | Upgrade a legacy document | No |
 | `nodara-cli plugins` | List discovered plugin manifests | No |
+| `nodara-cli extensions` | List unified built-in, in-process and plugin registrations | Yes, when plugin directories are supplied |
 | `nodara-cli schema --out DIR` | Export JSON Schema documents | No |
 | `nodara-cli serve` | Start the full runtime service | Service |
 

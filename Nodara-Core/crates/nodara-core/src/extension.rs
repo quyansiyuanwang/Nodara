@@ -6,7 +6,39 @@
 
 use std::collections::BTreeMap;
 
-use nodara_schema::ExtensionDescriptor;
+use nodara_schema::{ExtensionDescriptor, ExtensionKind};
+
+/// Descriptor for the extension that ships with the runtime.
+pub fn builtin_extension(node_types: Vec<String>) -> ExtensionDescriptor {
+    ExtensionDescriptor {
+        id: "nodara.builtins".to_string(),
+        name: "Nodara built-ins".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        kind: ExtensionKind::Builtin,
+        source: "runtime".to_string(),
+        description: Some("Core workflow control, logging, calculation and variables.".to_string()),
+        capabilities: Vec::new(),
+        permissions: Vec::new(),
+        node_types,
+        loaded: true,
+    }
+}
+
+/// Descriptor for capabilities registered directly by an embedding host.
+pub fn in_process_extension(node_types: Vec<String>) -> ExtensionDescriptor {
+    ExtensionDescriptor {
+        id: "nodara.in-process".to_string(),
+        name: "In-process extensions".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        kind: ExtensionKind::InProcess,
+        source: "host".to_string(),
+        description: Some("Capabilities registered directly by an embedding host.".to_string()),
+        capabilities: Vec::new(),
+        permissions: Vec::new(),
+        node_types,
+        loaded: true,
+    }
+}
 
 /// Registry shared by built-in, in-process and plugin extensions.
 #[derive(Debug, Default)]
@@ -50,7 +82,6 @@ impl ExtensionRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nodara_schema::ExtensionKind;
 
     fn descriptor(id: &str, loaded: bool) -> ExtensionDescriptor {
         ExtensionDescriptor {

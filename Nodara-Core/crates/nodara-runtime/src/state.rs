@@ -3,9 +3,10 @@
 use std::sync::Arc;
 
 use nodara_core::{
-    register_builtins, AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove,
-    CapabilityPolicy, CapabilityRegistry, DefaultPolicy, ExtensionDescriptor, ExtensionKind,
-    ExtensionRegistry, InMemoryAuditLog, JsonlAuditLog, NodeExecutor, WorkflowEngine,
+    builtin_extension, in_process_extension, register_builtins, AllowAllPolicy, AllowlistPolicy,
+    ApprovalHandler, AutoApprove, CapabilityPolicy, CapabilityRegistry, DefaultPolicy,
+    ExtensionDescriptor, ExtensionRegistry, InMemoryAuditLog, JsonlAuditLog, NodeExecutor,
+    WorkflowEngine,
 };
 use nodara_plugin::PluginHost;
 
@@ -82,20 +83,7 @@ impl RuntimeBuilder {
         let mut registry = CapabilityRegistry::new();
         register_builtins(&mut registry);
         let mut extensions = ExtensionRegistry::new();
-        extensions.register(ExtensionDescriptor {
-            id: "nodara.builtins".to_string(),
-            name: "Nodara built-ins".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            kind: ExtensionKind::Builtin,
-            source: "runtime".to_string(),
-            description: Some(
-                "Core workflow control, logging, calculation and variables.".to_string(),
-            ),
-            capabilities: Vec::new(),
-            permissions: Vec::new(),
-            node_types: registry.node_types(),
-            loaded: true,
-        });
+        extensions.register(builtin_extension(registry.node_types()));
         Self {
             config,
             registry,
@@ -135,24 +123,11 @@ impl RuntimeBuilder {
     }
 
     fn add_in_process_node(&mut self, node_type: String) {
-        let mut descriptor =
-            self.extensions
-                .get("nodara.in-process")
-                .cloned()
-                .unwrap_or(ExtensionDescriptor {
-                    id: "nodara.in-process".to_string(),
-                    name: "In-process extensions".to_string(),
-                    version: env!("CARGO_PKG_VERSION").to_string(),
-                    kind: ExtensionKind::InProcess,
-                    source: "host".to_string(),
-                    description: Some(
-                        "Capabilities registered directly by an embedding host.".to_string(),
-                    ),
-                    capabilities: Vec::new(),
-                    permissions: Vec::new(),
-                    node_types: Vec::new(),
-                    loaded: true,
-                });
+        let mut descriptor = self
+            .extensions
+            .get("nodara.in-process")
+            .cloned()
+            .unwrap_or_else(|| in_process_extension(Vec::new()));
         if !descriptor.node_types.contains(&node_type) {
             descriptor.node_types.push(node_type);
             descriptor.node_types.sort();
@@ -198,33 +173,8 @@ impl RuntimeBuilder {
             }
         }
         host.install_into(&mut self.registry);
-        for plugin in host.summaries() {
-            self.extensions.register(ExtensionDescriptor {
-                id: plugin.id.clone(),
-                name: plugin.name.clone(),
-                version: plugin.version.clone(),
-                kind: ExtensionKind::Plugin,
-                source: "plugin".to_string(),
-                description: plugin.description.clone(),
-                capabilities: plugin.capabilities.clone(),
-                permissions: plugin.permissions.clone(),
-                node_types: plugin.node_types.clone(),
-                loaded: plugin.loaded,
-            });
-            for feature in plugin.features {
-                self.extensions.register(ExtensionDescriptor {
-                    id: format!("{}/{}", plugin.id, feature.id),
-                    name: feature.name,
-                    version: plugin.version.clone(),
-                    kind: feature.kind,
-                    source: format!("plugin:{}", plugin.id),
-                    description: feature.description,
-                    capabilities: feature.capabilities,
-                    permissions: feature.permissions,
-                    node_types: feature.node_types,
-                    loaded: plugin.loaded,
-                });
-            }
+        for descriptor in host.extension_descriptors() {
+            self.extensions.register(descriptor);
         }
 
         let sessions = AgentSessionStore::new(self.config.approval_timeout);

@@ -3,11 +3,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use nodara_core::CapabilityRegistry;
+use nodara_core::{builtin_extension, in_process_extension, CapabilityRegistry, ExtensionRegistry};
 use nodara_plugin::PluginHost;
 
 use crate::error::CliResult;
 
+pub mod extensions;
 pub mod inspect;
 pub mod migrate;
 pub mod plugins;
@@ -23,6 +24,8 @@ pub struct Capabilities {
     pub registry: CapabilityRegistry,
     /// Installed plugins.
     pub host: Arc<PluginHost>,
+    /// Unified extension registrations.
+    pub extensions: ExtensionRegistry,
     /// Plugins that failed to launch.
     pub failures: Vec<(String, String)>,
 }
@@ -36,9 +39,18 @@ pub fn build_capabilities(
 ) -> CliResult<Capabilities> {
     let mut registry = CapabilityRegistry::new();
     nodara_core::register_builtins(&mut registry);
+    let mut extensions = ExtensionRegistry::new();
+    extensions.register(builtin_extension(registry.node_types()));
     if in_process {
+        let before = registry.node_types();
         nodara_platform::register_platform(&mut registry);
         nodara_vision::register_vision(&mut registry);
+        let added = registry
+            .node_types()
+            .into_iter()
+            .filter(|node_type| !before.contains(node_type))
+            .collect();
+        extensions.register(in_process_extension(added));
     }
 
     let host = PluginHost::new();
@@ -55,10 +67,14 @@ pub fn build_capabilities(
         }
     }
     host.install_into(&mut registry);
+    for descriptor in host.extension_descriptors() {
+        extensions.register(descriptor);
+    }
 
     Ok(Capabilities {
         registry,
         host,
+        extensions,
         failures,
     })
 }

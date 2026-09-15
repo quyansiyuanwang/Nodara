@@ -10,7 +10,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 |---|---|---|
 | A01 | Package integrity | ZIP hash and every entry in `SHA256SUMS.txt` match |
 | A02 | Versions | All components report 2.0.0 and `build-info.json` names the expected commit |
-| A03 | CLI smoke | Validate, simulate, and run examples succeed |
+| A03 | CLI smoke | Validate, simulate, run and `extensions --json` succeed |
 | A04 | Plugins | Runtime reports 2 plugins and 16 node types |
 | A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
 | A06 | Studio | Desktop Studio connects and runs hello-world |

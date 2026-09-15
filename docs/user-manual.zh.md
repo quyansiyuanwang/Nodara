@@ -184,6 +184,7 @@ npm run dev
 | `nodara-cli inspect FILE` | 输出节点、边和变量摘要 | 否 |
 | `nodara-cli migrate FILE --out NEW` | 升级旧版工作流 | 否 |
 | `nodara-cli plugins` | 列出发现的插件 | 否 |
+| `nodara-cli extensions` | 统一列出内置、进程内和插件扩展注册 | 指定插件目录时会启动插件 |
 | `nodara-cli schema --out schema` | 导出 JSON Schema | 否 |
 | `nodara-cli serve` | 启动带完整参数的 runtime | 服务 |
 

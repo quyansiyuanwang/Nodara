@@ -11,7 +11,7 @@
 |---|---|---|
 | A01 | 包完整性 | ZIP SHA-256 与同名 `.sha256` 文件一致，`SHA256SUMS.txt` 校验全部通过 |
 | A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.0.0；构建信息含正确 Git commit |
-| A03 | CLI 核心流程 | `validate`、`simulate`、`run` 对三个基础示例返回成功 |
+| A03 | CLI 核心流程 | `validate`、`simulate`、`run` 成功，`extensions --json` 返回统一注册列表 |
 | A04 | 插件进程模式 | runtime 报告 2 个插件、16 个节点 |
 | A05 | HTTP API | health、plugins、extensions、node-types、schema 端点可访问 |
 | A06 | Studio 桌面版 | 能连接 runtime，显示 16 个节点，导入/校验/运行 hello-world 成功 |

@@ -112,6 +112,19 @@ enum Command {
         json: bool,
     },
 
+    /// List unified built-in, in-process and plugin extension registrations.
+    Extensions {
+        /// Directory scanned for plugins. Repeatable.
+        #[arg(long = "plugin-dir", value_name = "DIR")]
+        plugin_dirs: Vec<PathBuf>,
+        /// Register the official capabilities in-process.
+        #[arg(long)]
+        in_process: bool,
+        /// Emit the list as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Export the published JSON Schema documents.
     Schema {
         /// Directory to write the schemas into.
@@ -208,6 +221,11 @@ fn run() -> CliResult<()> {
             to,
         } => commands::migrate::execute(&file, out.as_deref(), from, to),
         Command::Plugins { plugin_dirs, json } => commands::plugins::execute(&plugin_dirs, json),
+        Command::Extensions {
+            plugin_dirs,
+            in_process,
+            json,
+        } => commands::extensions::execute(&plugin_dirs, in_process, json),
         Command::Schema {
             out,
             stdout,

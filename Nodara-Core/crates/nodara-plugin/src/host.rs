@@ -10,7 +10,8 @@ use std::sync::Arc;
 
 use nodara_core::{CapabilityRegistry, EventSink};
 use nodara_schema::{
-    EventEnvelope, ExecutionEvent, LogLevel, NodeDescriptor, PluginFeature, PluginManifest,
+    EventEnvelope, ExecutionEvent, ExtensionDescriptor, ExtensionKind, LogLevel, NodeDescriptor,
+    PluginFeature, PluginManifest,
 };
 use parking_lot::Mutex;
 
@@ -237,6 +238,41 @@ impl PluginHost {
                 loaded: entry.client.is_some(),
             })
             .collect()
+    }
+
+    /// Unified extension descriptors for installed plugins and their features.
+    pub fn extension_descriptors(&self) -> Vec<ExtensionDescriptor> {
+        let mut extensions = Vec::new();
+        for plugin in self.summaries() {
+            extensions.push(ExtensionDescriptor {
+                id: plugin.id.clone(),
+                name: plugin.name.clone(),
+                version: plugin.version.clone(),
+                kind: ExtensionKind::Plugin,
+                source: "plugin".to_string(),
+                description: plugin.description.clone(),
+                capabilities: plugin.capabilities.clone(),
+                permissions: plugin.permissions.clone(),
+                node_types: plugin.node_types.clone(),
+                loaded: plugin.loaded,
+            });
+            for feature in plugin.features {
+                extensions.push(ExtensionDescriptor {
+                    id: format!("{}/{}", plugin.id, feature.id),
+                    name: feature.name,
+                    version: plugin.version.clone(),
+                    kind: feature.kind,
+                    source: format!("plugin:{}", plugin.id),
+                    description: feature.description,
+                    capabilities: feature.capabilities,
+                    permissions: feature.permissions,
+                    node_types: feature.node_types,
+                    loaded: plugin.loaded,
+                });
+            }
+        }
+        extensions.sort_by(|left, right| left.id.cmp(&right.id));
+        extensions
     }
 
     /// Every descriptor known across plugins.

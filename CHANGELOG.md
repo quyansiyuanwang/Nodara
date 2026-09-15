@@ -48,6 +48,9 @@ All notable changes to this project are documented here. The format follows
 - Plugin manifests can now declare multiple `features`, including
   `integration`, `ui` and `policy` contributions. Each feature is validated and
   registered as its own extension with a stable `plugin/feature` id.
+- `nodara-cli extensions` now lists the same unified built-in, in-process and
+  plugin registrations as `GET /api/v1/extensions`, with JSON output for
+  automation.
 - Studio drawer tabs are now generated through an ordered `FeatureRegistry`.
   Built-in panels and future host/plugin UI contributions register through the
   same path instead of being hardcoded in `index.html` and `main.ts`.
