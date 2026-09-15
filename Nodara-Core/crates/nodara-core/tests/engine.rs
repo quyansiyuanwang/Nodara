@@ -701,6 +701,51 @@ fn a_node_breakpoint_pauses_before_execution_and_resumes() {
 }
 
 #[test]
+fn stepping_a_breakpoint_node_executes_it_without_double_pausing() {
+    let mut workflow = linear_workflow();
+    workflow.node_mut("start").unwrap().breakpoint = true;
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let engine = WorkflowEngine::new(registry());
+    let running = engine.spawn(
+        RunRequest::new(workflow)
+            .with_start_paused(true)
+            .with_event_sink(sink.clone()),
+    );
+
+    for _ in 0..100 {
+        if running.control().is_paused() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(running.control().is_paused(), "run should start paused");
+    running.control().step();
+
+    let mut executed_start = false;
+    for _ in 0..100 {
+        executed_start = sink.snapshot().iter().any(|envelope| {
+            matches!(
+                &envelope.event,
+                ExecutionEvent::NodeFinished { node_id, .. } if node_id == "start"
+            )
+        });
+        if executed_start {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(
+        executed_start,
+        "Step must execute the breakpointed node once"
+    );
+
+    running.control().cancel();
+    let outcome = running.join();
+    assert_eq!(outcome.status, RunStatus::Cancelled);
+}
+
+#[test]
 fn cancelling_a_paused_run_stops_it() {
     let engine = WorkflowEngine::new(registry());
     let control = RunControl::new();
