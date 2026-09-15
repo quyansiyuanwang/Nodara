@@ -278,6 +278,34 @@ describe("graph editing on the canvas", () => {
     expect(workflow.edges).toHaveLength(1);
   });
 
+  it("refuses incompatible port types", () => {
+    const { canvas, workflow, descriptors } = harness();
+    const text = descriptor("test.Text");
+    text.outputs = [
+      { name: "out", display_name: "Text", kind: "output", value_type: "string", required: false },
+    ];
+    const number = descriptor("test.Number");
+    number.inputs = [
+      { name: "in", display_name: "Value", kind: "input", value_type: "number", required: false },
+    ];
+    descriptors.set(text.node_type, text);
+    descriptors.set(number.node_type, number);
+    canvas.addNode(text, 200, 100);
+    canvas.addNode(number, 500, 100);
+    canvas.render();
+
+    const output = document.querySelector<SVGCircleElement>(
+      '[data-node-id="text"] .port--output',
+    )!;
+    const input = document.querySelector<SVGCircleElement>(
+      '[data-node-id="number"] .port--input',
+    )!;
+    pointerDown(output);
+    pointerUp(input);
+
+    expect(workflow.edges).toHaveLength(0);
+  });
+
   it("connects ports by clicking output then input", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);

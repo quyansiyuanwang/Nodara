@@ -314,6 +314,84 @@ pub fn validate_with_options(
                 .edge(&edge.id),
             );
         }
+
+        if let Some(index) = index {
+            if let (Some(source_node), Some(target_node)) =
+                (workflow.node(&edge.source), workflow.node(&edge.target))
+            {
+                let source_descriptor = index.descriptor(&source_node.node_type);
+                let target_descriptor = index.descriptor(&target_node.node_type);
+                let source_port = edge.source_port.as_deref().and_then(|name| {
+                    source_descriptor.as_ref().and_then(|descriptor| {
+                        descriptor.outputs.iter().find(|port| port.name == name)
+                    })
+                });
+                let target_port = edge.target_port.as_deref().and_then(|name| {
+                    target_descriptor.as_ref().and_then(|descriptor| {
+                        descriptor.inputs.iter().find(|port| port.name == name)
+                    })
+                });
+
+                if let Some(name) = edge.source_port.as_deref() {
+                    if source_descriptor.is_some() && source_port.is_none() {
+                        report.push(
+                            Diagnostic::new(
+                                Severity::Error,
+                                "WF115",
+                                format!(
+                                    "edge `{}` source port `{name}` is not declared by `{}`",
+                                    edge.id, source_node.node_type
+                                ),
+                                &path,
+                            )
+                            .edge(&edge.id)
+                            .hint("choose an output port declared by the source node"),
+                        );
+                    }
+                }
+                if let Some(name) = edge.target_port.as_deref() {
+                    if target_descriptor.is_some() && target_port.is_none() {
+                        report.push(
+                            Diagnostic::new(
+                                Severity::Error,
+                                "WF116",
+                                format!(
+                                    "edge `{}` target port `{name}` is not declared by `{}`",
+                                    edge.id, target_node.node_type
+                                ),
+                                &path,
+                            )
+                            .edge(&edge.id)
+                            .hint("choose an input port declared by the target node"),
+                        );
+                    }
+                }
+                if let (Some(source_port), Some(target_port)) = (source_port, target_port) {
+                    if !source_port
+                        .value_type
+                        .is_compatible_with(target_port.value_type)
+                    {
+                        report.push(
+                            Diagnostic::new(
+                                Severity::Error,
+                                "WF117",
+                                format!(
+                                    "edge `{}` connects {:?} output `{}` to {:?} input `{}`",
+                                    edge.id,
+                                    source_port.value_type,
+                                    source_port.name,
+                                    target_port.value_type,
+                                    target_port.name
+                                ),
+                                &path,
+                            )
+                            .edge(&edge.id)
+                            .hint("connect ports with compatible value types"),
+                        );
+                    }
+                }
+            }
+        }
     }
 
     let graph = WorkflowGraph::new(workflow);
@@ -754,6 +832,77 @@ mod tests {
         wf.add_edge(Edge::new("e1", "start", "ghost"));
         let report = validate(&wf);
         assert!(report.diagnostics.iter().any(|d| d.code == "WF113"));
+    }
+
+    #[test]
+    fn validates_explicit_port_names_and_value_types() {
+        let mut wf = Workflow::new("wf.ports");
+        wf.add_node(Node::new("start", "core.Start"));
+        wf.add_node(Node::new("text", "test.Text"));
+        wf.add_node(Node::new("number", "test.Number"));
+        wf.add_node(Node::new("end", "core.End"));
+        wf.add_edge(Edge {
+            id: "missing".to_string(),
+            source: "start".to_string(),
+            target: "text".to_string(),
+            source_port: Some("missing_out".to_string()),
+            target_port: Some("missing_in".to_string()),
+            branch: Default::default(),
+            condition: None,
+            label: None,
+        });
+        wf.add_edge(Edge {
+            id: "mismatch".to_string(),
+            source: "text".to_string(),
+            target: "number".to_string(),
+            source_port: Some("out".to_string()),
+            target_port: Some("in".to_string()),
+            branch: Default::default(),
+            condition: None,
+            label: None,
+        });
+        wf.add_edge(Edge::new("finish", "number", "end"));
+
+        let mut start = NodeDescriptor::new("core.Start", "Start", "Core");
+        start.outputs = vec![PortDescriptor::new(
+            "out",
+            "Out",
+            PortKind::Output,
+            ValueType::Any,
+        )];
+        let mut text = NodeDescriptor::new("test.Text", "Text", "Test");
+        text.inputs = vec![PortDescriptor::new(
+            "in",
+            "In",
+            PortKind::Input,
+            ValueType::String,
+        )];
+        text.outputs = vec![PortDescriptor::new(
+            "out",
+            "Out",
+            PortKind::Output,
+            ValueType::String,
+        )];
+        let mut number = NodeDescriptor::new("test.Number", "Number", "Test");
+        number.inputs = vec![PortDescriptor::new(
+            "in",
+            "In",
+            PortKind::Input,
+            ValueType::Number,
+        )];
+        let mut end = NodeDescriptor::new("core.End", "End", "Core");
+        end.inputs = vec![PortDescriptor::new(
+            "in",
+            "In",
+            PortKind::Input,
+            ValueType::Any,
+        )];
+        let index = TestIndex(vec![start, text, number, end]);
+        let report = validate_with(&wf, &index, &ValidationOptions::default());
+
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF115"));
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF116"));
+        assert!(report.diagnostics.iter().any(|d| d.code == "WF117"));
     }
 
     #[test]

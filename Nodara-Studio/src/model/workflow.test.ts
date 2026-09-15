@@ -10,6 +10,7 @@ import {
   nextEdgeId,
   nextNodeId,
   nodeTypeAdmission,
+  valueTypesCompatible,
   workflowAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./workflow";
@@ -116,6 +117,15 @@ describe("workflow model", () => {
       },
     };
     expect(defaultConfig(withDefaults)).toEqual({ level: "info" });
+  });
+
+  it("checks port value compatibility conservatively", () => {
+    expect(valueTypesCompatible("any", "image")).toBe(true);
+    expect(valueTypesCompatible("image", "any")).toBe(true);
+    expect(valueTypesCompatible("number", "number")).toBe(true);
+    expect(valueTypesCompatible("path", "string")).toBe(true);
+    expect(valueTypesCompatible("number", "string")).toBe(false);
+    expect(valueTypesCompatible("image", "object")).toBe(false);
   });
 
   it("detects duplicate connections but distinguishes ports", () => {

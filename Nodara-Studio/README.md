@@ -95,7 +95,8 @@ workflow variables marked secret are not persisted beyond the browser session.
   palette disables Start after one is present.
 * Drag a node to move it. Drag from an output port to an input port to connect.
   You can also click an output and then an input; press `Escape` to cancel a
-  pending click connection.
+  pending click connection. Port tooltips show their type, and incompatible
+  value types are refused before an edge is created.
 * Use the mouse wheel to zoom, middle-drag (or hold Space and drag) to pan, and
   the canvas toolbar to zoom in/out, reset to 100%, fit all nodes or apply an
   automatic left-to-right topology layout.

@@ -128,6 +128,9 @@ Diagnostic codes:
 | `WF112` | error | edge source does not exist |
 | `WF113` | error | edge target does not exist |
 | `WF114` | warning | self-loop |
+| `WF115` | error | declared source port does not exist |
+| `WF116` | error | declared target port does not exist |
+| `WF117` | error | port value types are incompatible |
 | `WF120` | error | no `core.Start` |
 | `WF121` | error | multiple `core.Start` nodes |
 | `WF122` | error | no `core.End` |

@@ -140,6 +140,9 @@
 | `WF112` | error | 边的源头节点不存在 |
 | `WF113` | error | 边的目标节点不存在 |
 | `WF114` | warning | 边是自环 |
+| `WF115` | error | 连线显式指定的源端口不存在 |
+| `WF116` | error | 连线显式指定的目标端口不存在 |
+| `WF117` | error | 连线两端端口的值类型不兼容 |
 | `WF120` | error | 没有 `core.Start` 节点（启用 `require_start` 时） |
 | `WF121` | error | 有多个 `core.Start` 节点 |
 | `WF122` | error | 没有 `core.End` 节点（启用 `require_end` 时） |

@@ -167,6 +167,7 @@ const EN: Record<string, string> = {
   "canvas.deleteConnection": "Delete connection",
   "canvas.selfConnection": "a node cannot connect to itself",
   "canvas.duplicateConnection": "that connection already exists",
+  "canvas.incompatiblePorts": "incompatible port types: {source} → {target}",
   "canvas.singleStart": "only one core.Start node is allowed per workflow",
   "canvas.edgeCondition": "{source} → {target} when {condition}",
   "canvas.edge": "{source} → {target}",
@@ -445,6 +446,7 @@ const ZH: Record<string, string> = {
   "canvas.deleteConnection": "删除连线",
   "canvas.selfConnection": "节点不能连接到自身",
   "canvas.duplicateConnection": "该连线已存在",
+  "canvas.incompatiblePorts": "端口类型不兼容：{source} → {target}",
   "canvas.singleStart": "每个工作流只允许一个 core.Start 节点",
   "canvas.edgeCondition": "{source} → {target}，条件为 {condition}",
   "canvas.edge": "{source} → {target}",
@@ -795,6 +797,7 @@ export function localizeCategory(category: string): string {
 export function localizeDiagnostic(diagnostic: Diagnostic): Diagnostic {
   if (activeLocale !== "zh-CN") return diagnostic;
   const node = diagnostic.node_id ? `\`${diagnostic.node_id}\`` : "节点";
+  const edge = diagnostic.edge_id ? `\`${diagnostic.edge_id}\`` : "连线";
   const messages: Record<string, string> = {
     WF100: "工作流 schema_version 不受支持",
     WF101: "工作流 ID 不能为空",
@@ -806,6 +809,9 @@ export function localizeDiagnostic(diagnostic: Diagnostic): Diagnostic {
     WF112: "连线源节点不存在",
     WF113: "连线目标节点不存在",
     WF114: "连线不能指向自身",
+    WF115: `${edge} 的源端口不存在`,
+    WF116: `${edge} 的目标端口不存在`,
+    WF117: `${edge} 的端口类型不匹配`,
     WF120: "工作流缺少 core.Start 节点",
     WF121: "工作流包含多个 core.Start 节点；只允许一个",
     WF122: "工作流缺少 core.End 节点",

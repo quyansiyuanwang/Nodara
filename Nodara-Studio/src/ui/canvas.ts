@@ -14,6 +14,7 @@ import {
   nextEdgeId,
   nextNodeId,
   nodeTypeAdmission,
+  valueTypesCompatible,
 } from "../model/workflow";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
@@ -789,12 +790,30 @@ export class Canvas {
       const outputs = descriptor?.outputs ?? [];
       inputs.forEach((port, index) => {
         group.appendChild(
-          this.makePort(node.id, port.name, "input", index, inputs.length, 0),
+          this.makePort(
+            node.id,
+            port.name,
+            port.display_name,
+            port.value_type,
+            "input",
+            index,
+            inputs.length,
+            0,
+          ),
         );
       });
       outputs.forEach((port, index) => {
         group.appendChild(
-          this.makePort(node.id, port.name, "output", index, outputs.length, NODE_WIDTH),
+          this.makePort(
+            node.id,
+            port.name,
+            port.display_name,
+            port.value_type,
+            "output",
+            index,
+            outputs.length,
+            NODE_WIDTH,
+          ),
         );
       });
 
@@ -825,6 +844,8 @@ export class Canvas {
   private makePort(
     nodeId: string,
     portName: string,
+    displayName: string,
+    valueType: string,
     kind: "input" | "output",
     index: number,
     total: number,
@@ -839,6 +860,10 @@ export class Canvas {
     circle.dataset.nodeId = nodeId;
     circle.dataset.port = portName;
     circle.dataset.kind = kind;
+    circle.dataset.valueType = valueType;
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${displayName} · ${valueType}`;
+    circle.appendChild(title);
 
     if (kind === "output") {
       circle.addEventListener("pointerdown", (event) => {
@@ -906,6 +931,21 @@ export class Canvas {
     }
     if (edgeExists(this.workflow.edges, source, target, sourcePort, targetPort)) {
       this.handlers.onStatus(t("canvas.duplicateConnection"));
+      return;
+    }
+    const sourceNode = this.workflow.nodes.find((node) => node.id === source);
+    const targetNode = this.workflow.nodes.find((node) => node.id === target);
+    const sourceDescriptor = sourceNode ? this.handlers.descriptorFor(sourceNode.type) : undefined;
+    const targetDescriptor = targetNode ? this.handlers.descriptorFor(targetNode.type) : undefined;
+    const output = sourceDescriptor?.outputs.find((port) => port.name === sourcePort);
+    const input = targetDescriptor?.inputs.find((port) => port.name === targetPort);
+    if (output && input && !valueTypesCompatible(output.value_type, input.value_type)) {
+      this.handlers.onStatus(
+        t("canvas.incompatiblePorts", {
+          source: output.value_type,
+          target: input.value_type,
+        }),
+      );
       return;
     }
     this.workflow.edges.push({

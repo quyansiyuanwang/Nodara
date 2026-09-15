@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Canvas and Runtime validation now enforce explicit port names and value-type
+  compatibility. Studio refuses incompatible connections immediately with a
+  visible status message, while imported JSON receives the stable `WF115`,
+  `WF116` and `WF117` diagnostics.
 - `vision.TemplateMatch` supports a bounded search region, `fail_if_missing`, and publishes `center_x` / `center_y` in addition to the matched rectangle. The centre values can feed directly into later mouse or click nodes through typed templates.
 - Node configuration templates now preserve JSON types according to the target
   schema: an exact value such as `{{match.x}}` remains an integer/number/boolean,

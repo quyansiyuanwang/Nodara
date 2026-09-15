@@ -157,6 +157,17 @@ export function nextEdgeId(source: string, target: string, existing: WorkflowEdg
 }
 
 /** True when the same pair of ports is already connected. */
+/** Whether an output value can feed an input port according to the descriptors. */
+export function valueTypesCompatible(source: string, target: string): boolean {
+  return (
+    source === target ||
+    source === "any" ||
+    target === "any" ||
+    (source === "string" && target === "path") ||
+    (source === "path" && target === "string")
+  );
+}
+
 export function edgeExists(
   edges: WorkflowEdge[],
   source: string,

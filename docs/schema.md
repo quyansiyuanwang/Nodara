@@ -148,6 +148,9 @@ optional `hint`:
 | `WF112` | error | Edge source does not exist |
 | `WF113` | error | Edge target does not exist |
 | `WF114` | warning | Edge is a self-loop |
+| `WF115` | error | An explicit edge source port is not declared by the source node |
+| `WF116` | error | An explicit edge target port is not declared by the target node |
+| `WF117` | error | Edge ports have incompatible value types |
 | `WF120` | error | No `core.Start` node (when `require_start`) |
 | `WF121` | error | More than one `core.Start` node |
 | `WF122` | error | No `core.End` node (when `require_end`) |

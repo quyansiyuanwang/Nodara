@@ -47,6 +47,23 @@ pub enum ValueType {
     Path,
 }
 
+impl ValueType {
+    /// Whether a value produced as `self` can feed a port expecting `target`.
+    ///
+    /// This is intentionally conservative: `Any` accepts everything, paths and
+    /// strings are interchangeable text carriers, and every other pair must
+    /// match exactly. The check is shared by the editor and runtime validation.
+    pub fn is_compatible_with(self, target: Self) -> bool {
+        self == target
+            || self == Self::Any
+            || target == Self::Any
+            || matches!(
+                (self, target),
+                (Self::String, Self::Path) | (Self::Path, Self::String)
+            )
+    }
+}
+
 /// A single input or output port on a node.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct PortDescriptor {
@@ -184,5 +201,20 @@ impl NodeDescriptor {
     pub fn with_permissions(mut self, permissions: Vec<String>) -> Self {
         self.permissions = permissions;
         self
+    }
+}
+
+#[cfg(test)]
+mod value_type_tests {
+    use super::ValueType;
+
+    #[test]
+    fn compatibility_is_conservative_and_any_is_a_wildcard() {
+        assert!(ValueType::Any.is_compatible_with(ValueType::Image));
+        assert!(ValueType::String.is_compatible_with(ValueType::Path));
+        assert!(ValueType::Path.is_compatible_with(ValueType::String));
+        assert!(ValueType::Number.is_compatible_with(ValueType::Number));
+        assert!(!ValueType::Number.is_compatible_with(ValueType::String));
+        assert!(!ValueType::Image.is_compatible_with(ValueType::Object));
     }
 }
