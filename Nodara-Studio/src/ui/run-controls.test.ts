@@ -6,6 +6,7 @@ describe("run control state", () => {
   it("stays runnable when the editor is idle and validation passes", () => {
     const controls = deriveRunControls(null, true, "valid", 0);
     expect(controls.runDisabled).toBe(false);
+    expect(controls.stepDisabled).toBe(false);
     expect(controls.cancelDisabled).toBe(true);
   });
 
@@ -13,6 +14,14 @@ describe("run control state", () => {
     expect(deriveRunControls("pending", true, "valid", 0).runDisabled).toBe(true);
     expect(deriveRunControls("running", true, "valid", 0).runDisabled).toBe(true);
     expect(deriveRunControls("paused", true, "valid", 0).runDisabled).toBe(true);
+  });
+
+  it("enables Step while paused or idle and disables it while running", () => {
+    expect(deriveRunControls("paused", true, "valid", 0).stepDisabled).toBe(false);
+    expect(deriveRunControls(null, true, "valid", 0).stepDisabled).toBe(false);
+    expect(deriveRunControls("completed", true, "valid", 0).stepDisabled).toBe(false);
+    expect(deriveRunControls("pending", true, "valid", 0).stepDisabled).toBe(true);
+    expect(deriveRunControls("running", true, "valid", 0).stepDisabled).toBe(true);
   });
 
   it("disables Run when validation or local edits block execution", () => {

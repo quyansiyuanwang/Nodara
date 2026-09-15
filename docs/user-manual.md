@@ -109,12 +109,43 @@ of the workflow document and are honored by the runtime:
 
 The node context menu also provides an immediate enable/disable action.
 
+### Run and debug
+
+* **Run** validates once more, starts the workflow and executes continuously.
+* **Step** is the reliable entry point for debugging short workflows. From idle,
+  completed, failed or cancelled state it starts a paused run and executes the
+  first node. Each later click executes exactly one node and returns to
+  `paused`.
+* **Pause**, **Resume** and **Cancel** steer the active run.
+* The Events tab follows the WebSocket event stream and highlights the running,
+  completed and failed node on the canvas.
+
+The same behavior is available over the API by starting a run with
+`"start_paused": true`, then calling `POST /api/v1/runs/{id}/step`.
+
 ### Screenshots and artifacts
 
 Capture nodes publish artifact metadata such as `{ "id", "name", "content_type", "size" }`.
 The image bytes are transferred from the plugin process into the run's artifact
 store. In Studio, open the **Events** tab: the Capture node's `node_finished`
 event shows an inline image preview and an **Open** link.
+
+Artifact metadata logged by `core.Log` is also detected: a message such as
+`{{screenshot}}` produces a `log` event with an inline image preview.
+
+To choose a `windows.Desktop.Capture` rectangle directly with the mouse:
+
+1. select the Capture node on the canvas;
+2. click **Select screen region** in Properties;
+3. Studio hides itself, captures the current desktop through the runtime and
+   reopens with the screenshot;
+4. drag a rectangle with the left mouse button and check the live pixel
+   readout;
+5. click **Apply region** to write X, Y, Width and Height into the node.
+
+The conversion uses the original image pixels, so it remains accurate when the
+preview is scaled down. A browser build cannot hide the Studio window; arrange
+the target window before capture.
 
 Use `{{screenshot.id}}` when another node needs the artifact id, and
 `{{screenshot.size}}` or `{{screenshot.content_type}}` for diagnostics. The

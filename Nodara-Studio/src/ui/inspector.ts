@@ -7,6 +7,7 @@
 
 import { localizeDiagnostic, t } from "../i18n";
 import { renderConfigForm } from "../schema/form";
+import type { ScreenRegion } from "./region-picker";
 import {
   Diagnostic,
   NodeDescriptor,
@@ -20,6 +21,7 @@ export interface InspectorHandlers {
   getRunOverride?: (name: string) => unknown;
   setRunOverride?: (name: string, value: unknown) => void;
   clearRunOverride?: (name: string) => void;
+  pickCaptureRegion?: () => Promise<ScreenRegion | null>;
 }
 
 export class Inspector {
@@ -449,6 +451,43 @@ export class Inspector {
     this.root.appendChild(heading);
 
     node.config ??= {};
+    const properties = descriptor?.config_schema?.properties ?? {};
+    if (
+      this.handlers.pickCaptureRegion &&
+      descriptor?.outputs.some((port) => port.value_type === "image") &&
+      ["x", "y", "width", "height"].every((key) => properties[key])
+    ) {
+      const toolbar = document.createElement("div");
+      toolbar.className = "section-header";
+      const hint = document.createElement("p");
+      hint.className = "field__hint";
+      hint.textContent = t("capture.pickerHint");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn--small";
+      button.textContent = t("capture.selectRegion");
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = t("capture.capturing");
+        try {
+          const region = await this.handlers.pickCaptureRegion?.();
+          if (region) {
+            const config = node.config as Record<string, unknown>;
+            for (const key of ["x", "y", "width", "height"] as const) {
+              config[key] = region[key];
+              const input = this.root.querySelector<HTMLInputElement>(`#field-${key}`);
+              if (input) input.value = String(region[key]);
+            }
+            this.handlers.onChange();
+          }
+        } finally {
+          button.disabled = false;
+          button.textContent = t("capture.selectRegion");
+        }
+      });
+      toolbar.append(hint, button);
+      this.root.appendChild(toolbar);
+    }
     renderConfigForm(
       this.root,
       descriptor?.config_schema ?? {},

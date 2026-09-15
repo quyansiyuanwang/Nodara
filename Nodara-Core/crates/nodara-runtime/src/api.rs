@@ -317,6 +317,9 @@ pub struct CreateRunRequest {
     /// Validate before running. Defaults to the engine setting.
     #[serde(default)]
     pub validate: Option<bool>,
+    /// Start paused before the first node, useful for manual stepping.
+    #[serde(default)]
+    pub start_paused: bool,
 }
 
 async fn create_run(
@@ -347,9 +350,12 @@ async fn create_run(
         }
         state.sessions.attach_run(session_id, &run_id);
     }
-    let handle = state
-        .runs
-        .start_with_run_id(run_id, request.workflow, request.variables);
+    let handle = state.runs.start_with_run_id(
+        run_id,
+        request.workflow,
+        request.variables,
+        request.start_paused,
+    );
     Ok((axum::http::StatusCode::ACCEPTED, Json(handle.snapshot())))
 }
 

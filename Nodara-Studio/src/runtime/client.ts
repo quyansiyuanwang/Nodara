@@ -9,6 +9,7 @@ import { isTauri } from "@tauri-apps/api/core";
 
 import {
   AgentSession,
+  ArtifactMeta,
   AgentSessionList,
   ApprovalDecision,
   ApiErrorBody,
@@ -140,10 +141,14 @@ export class RuntimeClient {
     });
   }
 
-  createRun(workflow: Workflow, variables: Record<string, unknown> = {}): Promise<RunSnapshot> {
+  createRun(
+    workflow: Workflow,
+    variables: Record<string, unknown> = {},
+    startPaused = false,
+  ): Promise<RunSnapshot> {
     return this.request<RunSnapshot>("/runs", {
       method: "POST",
-      body: JSON.stringify({ workflow, variables }),
+      body: JSON.stringify({ workflow, variables, start_paused: startPaused }),
     });
   }
 
@@ -159,6 +164,13 @@ export class RuntimeClient {
     return this.url(
       `/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}`,
     );
+  }
+
+  async listArtifacts(runId: string): Promise<ArtifactMeta[]> {
+    const payload = await this.request<{ artifacts: ArtifactMeta[] }>(
+      `/runs/${encodeURIComponent(runId)}/artifacts`,
+    );
+    return payload.artifacts;
   }
 
   pause(runId: string): Promise<RunSnapshot> {

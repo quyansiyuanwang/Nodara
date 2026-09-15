@@ -436,6 +436,72 @@ async fn run_artifacts_are_listed_and_downloadable() {
 }
 
 #[tokio::test]
+async fn a_run_can_start_paused_and_step_one_node_at_a_time() {
+    let state = state().await;
+    let (status, created) = call(
+        &state,
+        json_request(
+            "POST",
+            "/api/v1/runs",
+            json!({ "workflow": valid_workflow(), "start_paused": true }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{created}");
+    let run_id = created["id"].as_str().unwrap().to_string();
+
+    let mut snapshot = created;
+    for _ in 0..100 {
+        if snapshot["status"] == "paused" {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        let (_, body) = call(
+            &state,
+            Request::builder()
+                .uri(format!("/api/v1/runs/{run_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+        snapshot = body;
+    }
+    assert_eq!(snapshot["status"], "paused", "{snapshot}");
+    assert_eq!(snapshot["nodes_executed"], 0);
+
+    for expected in 1..=4usize {
+        let (status, _) = call(
+            &state,
+            json_request("POST", &format!("/api/v1/runs/{run_id}/step"), json!({})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        for _ in 0..100 {
+            let (_, body) = call(
+                &state,
+                Request::builder()
+                    .uri(format!("/api/v1/runs/{run_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await;
+            snapshot = body;
+            if snapshot["nodes_executed"].as_u64() == Some(expected as u64) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        assert_eq!(snapshot["nodes_executed"], expected, "{snapshot}");
+        if expected < 4 {
+            assert_eq!(snapshot["status"], "paused", "{snapshot}");
+        }
+    }
+    assert_eq!(snapshot["status"], "completed", "{snapshot}");
+}
+
+#[tokio::test]
 async fn unknown_runs_produce_a_structured_404() {
     let state = state().await;
     let (status, body) = call(

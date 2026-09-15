@@ -36,7 +36,7 @@
           <button id="btn-run-options" class="btn" data-i18n="actions.runWithVariables" disabled>Variables…</button>
           <button id="btn-pause" class="btn" data-i18n="actions.pause" disabled>Pause</button>
           <button id="btn-resume" class="btn" data-i18n="actions.resume" disabled>Resume</button>
-          <button id="btn-step" class="btn" data-i18n="actions.step" disabled>Step</button>
+          <button id="btn-step" class="btn" data-i18n="actions.step" data-i18n-title="actions.stepDetail" disabled>Step</button>
           <button id="btn-cancel" class="btn" data-i18n="actions.cancel" disabled>Cancel</button>
         </div>
         <input id="file-input" type="file" accept="application/json" hidden />
@@ -142,6 +142,7 @@
     </div>
 
     <dialog id="run-dialog" class="modal"></dialog>
+    <dialog id="region-picker" class="modal region-picker"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

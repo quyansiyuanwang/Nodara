@@ -109,6 +109,15 @@ All notable changes to this project are documented here. The format follows
   debug, NSIS/MSI for release, `build-info.json` and SHA-256 checksums.
 - The Studio now has a source SVG and generated multi-platform application
   icons, allowing Tauri to create Windows resources and installers.
+- `POST /api/v1/runs` accepts `start_paused`, and Studio's **Step** action can
+  start a paused run from idle and advance exactly one node per click.
+- `windows.Desktop.Capture` Properties now includes a mouse-driven screen
+  region picker. The desktop shell hides itself during capture, renders the
+  fresh screenshot, converts the drag to source pixels and writes
+  X/Y/Width/Height back into the node.
+- Studio now previews artifacts logged as JSON in addition to artifacts in
+  `node_finished` outputs, so logging a capture metadata variable shows the
+  image inline.
 
 ### Changed
 
@@ -193,6 +202,12 @@ All notable changes to this project are documented here. The format follows
   The palette disables Start once one exists, direct additions and duplicates
   are rejected, and import/JSON/agent documents with multiple Starts are not
   applied.
+- Runtime snapshots and Studio now handle `RunPaused`/`RunResumed`, so a
+  start-paused run visibly returns to `paused` after each step instead of
+  leaving Step disabled in a false running state.
+- A fresh drawer height now starts at a useful `280-420px` viewport-aware size;
+  previously a missing local-storage value was parsed as `0` and clamped to the
+  140px minimum, making event images difficult to inspect.
 
 ### Fixed (continued)
 

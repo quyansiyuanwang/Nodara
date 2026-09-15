@@ -19,6 +19,7 @@
 | A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
 | A10 | 发布产物 | release 包包含 NSIS 和 MSI；优化后的 exe 可运行 |
+| A11 | Studio 调试交互 | 空闲时可单步启动，后续每次只执行一个节点；截图可在模态图中框选并写回 X/Y/宽度/高度；截图和 Log 图片预览可见 |
 
 任一 A 级检查失败，应保留日志并停止发布验收；恢复后从失败步骤重新执行。
 
@@ -185,7 +186,10 @@ $plugins.plugins | Select-Object id,version
 8. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
 9. 画布运行状态与事件一致；
 10. Pause/Resume 对延迟工作流有效；
-11. Cancel 能终止延迟节点。
+11. Cancel 能终止延迟节点；
+12. 空闲、完成后或取消后点击 **Step**，运行时进入第一节点并暂停；连续点击时 `nodes_executed` 每次只增加 1，状态回到 `paused`；
+13. 选中 `windows.Desktop.Capture` 后点击 **拖框选择截图区域**，Studio 隐藏并恢复，截图中不含选择弹窗；拖框读数和写回节点的 X/Y/宽度/高度一致；
+14. `core.Log` 的消息为 artifact JSON（例如 `{{screenshot}}`）时，Events 页同样显示图片预览。
 
 ### 6.4 Audit
 

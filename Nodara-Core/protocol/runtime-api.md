@@ -167,6 +167,12 @@ and let the engine fail at the offending node instead.
 
 `variables` in the request body override the workflow's own defaults.
 
+Set `"start_paused": true` to create the run suspended before its first node.
+The snapshot becomes `paused`; call `POST /runs/{id}/step` once per node or
+`POST /runs/{id}/resume` to continue normally. This is the API used by Studio's
+**Step** button so even very short workflows can be inspected one node at a
+time.
+
 ## Streaming events
 
 `WS /api/v1/runs/{id}/events` first replays every event recorded so far, then

@@ -18,6 +18,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A08 | Events/audit | Events and policy decisions are visible |
 | A09 | Debug | Matching PDB files are present and executables run |
 | A10 | Release | NSIS and MSI are present and the optimized app runs |
+| A11 | Studio debugging UX | Step works from idle and advances one node at a time; the region picker writes X/Y/width/height; screenshot and Log image previews render |
 
 ## Integrity
 
@@ -89,8 +90,11 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 9. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
 10. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
 11. Pause, Resume, and Cancel work with a delayed workflow.
-12. The Audit tab shows capability and node records.
-13. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+12. From idle, completed, failed or cancelled state, **Step** starts paused and executes one node; each later click increments `nodes_executed` by exactly one and returns the status to `paused`.
+13. Selecting `windows.Desktop.Capture` and choosing **Select screen region** hides and restores Studio; the captured image does not contain the picker dialog, and applying a drag writes matching X/Y/width/height values.
+14. A `core.Log` message containing artifact JSON, such as `{{screenshot}}`, also renders the image inline.
+15. The Audit tab shows capability and node records.
+16. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

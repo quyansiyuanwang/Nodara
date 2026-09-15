@@ -99,6 +99,30 @@ describe("run status visualisation", () => {
     expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
   });
 
+  it("renders an image when an artifact is logged as JSON", () => {
+    log = new EventLog(
+      document.getElementById("events")!,
+      canvas,
+      (runId, artifactId) => `/artifacts/${runId}/${artifactId}`,
+    );
+    log.append(
+      envelope(0, {
+        type: "log",
+        level: "info",
+        message: JSON.stringify({
+          id: "image-2",
+          name: "desktop",
+          content_type: "image/png",
+          size: 256,
+        }),
+      }),
+    );
+
+    const image = document.querySelector<HTMLImageElement>(".event-artifact__image")!;
+    expect(image.src).toContain("/artifacts/r1/image-2");
+    expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
+  });
+
   it("marks a failed node", () => {
     log.append(
       envelope(0, {

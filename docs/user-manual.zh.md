@@ -253,9 +253,10 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 ### 运行与控制
 
-- `Run` 启动新运行；
+- `Run` 启动并连续执行新运行；
 - `Variables…` 集中编辑本次运行变量覆盖，不修改工作流默认值；敏感值不会在弹窗中显示，JSON 无效时无法启动运行；
-- `Pause`、`Resume`、`Step`、`Cancel` 控制当前运行；
+- `Pause`、`Resume`、`Cancel` 控制当前运行；
+- `Step` 用于单步调试：空闲、完成、失败或取消后点击时，会以暂停状态新建运行并执行第一个节点；运行暂停后，每次点击只执行一个节点，并继续保持暂停；
 - `Events` 页展示与 CLI 相同的事件序列；
 - `Runs` 页列出 runtime 中的历史运行，显示状态、工作流、节点数和开始时间；点击 `打开` 可重新载入该运行的完整事件；
 - `Extensions` 页展示 runtime 统一注册的内置、进程内和插件扩展，包括来源、能力数、节点类型数和加载状态；
@@ -265,6 +266,18 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 ### 截图与 artifact 调试
 
 截图节点会发布 artifact 元数据（`id`、`name`、`content_type`、`size`）。图片字节会从插件进程传回 runtime，并保留在该次运行中。在 Studio 的 **Events** 页找到 Capture 节点的 `node_finished` 事件，可直接看到图片预览和“打开”链接。
+
+如果使用 `core.Log` 输出 artifact JSON（例如消息为 `{{screenshot}}`），对应的 `log` 事件也会识别其中的图片元数据并显示同样的内联预览。
+
+要直接用鼠标定位 `windows.Desktop.Capture` 的截图矩形：
+
+1. 在画布中选中 Capture 节点；
+2. 在配置区点击 **拖框选择截图区域**；
+3. Studio 会临时隐藏自身，通过 runtime 截取当前桌面，再显示全屏截图；
+4. 按住鼠标左键拖动矩形；下方实时显示 X、Y、宽度和高度；
+5. 点击 **应用区域**，四个像素值会直接写入当前节点配置并触发自动校验。
+
+浏览器版无法隐藏 Studio 窗口，应在点击前先安排好要截取的目标窗口。框选使用原始图片像素坐标，不受预览缩放比例影响。
 
 其他节点需要 artifact ID 时使用 `{{screenshot.id}}`；诊断可使用 `{{screenshot.size}}` 或 `{{screenshot.content_type}}`。可直接运行 `examples/capture-preview.json` 验证。
 

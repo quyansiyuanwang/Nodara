@@ -185,6 +185,13 @@ export interface ExtensionDescriptor {
   loaded: boolean;
 }
 
+export interface ArtifactMeta {
+  id: string;
+  name: string;
+  content_type: string;
+  size: number;
+}
+
 export interface PluginFeature {
   id: string;
   name: string;

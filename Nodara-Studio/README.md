@@ -127,6 +127,13 @@ known validation code has a Studio translation.
   disable **Run** until they are fixed and are listed in **Problems**.
 * **Run** validates once more immediately before submitting the workflow, so a
   stale automatic result cannot start an invalid graph.
+* **Step** remains available while idle, paused or terminal. It starts a paused
+  run and executes the first node when necessary, then advances exactly one
+  node per click and returns to `paused`. This makes short workflows debuggable
+  without racing the Pause button.
+* Capture nodes expose **Select screen region**. The desktop shell hides itself
+  while the runtime takes a fresh screenshot, then reopens a mouse-driven
+  rectangle picker and writes X/Y/Width/Height back into the node.
 
 ## Layout
 
@@ -146,6 +153,7 @@ src/
     ├── canvas.ts          SVG graph editor: drag, connect, select, delete
     ├── inspector.ts       schema-driven configuration forms
     ├── event-log.ts       the runtime event stream
+    ├── region-picker.ts   screenshot rectangle selection
     ├── run-dialog.ts      temporary run-variable overrides
     ├── run-panel.ts       run history
     ├── extension-panel.ts unified extension registrations
@@ -162,9 +170,13 @@ src/
   JSON in the **Workflow JSON** tab;
 * `Validate` calls the runtime, so diagnostics match exactly what execution
   would enforce — including unknown node types and missing configuration;
-* `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control;
+* `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control.
+  `Step` can start a paused run from idle and always advances one node;
 * image artifacts such as screenshots are previewed inline under the producing
-  node in the **Events** tab, with a direct Open link;
+  `node_finished` event and under `log` events containing artifact JSON, with a
+  direct Open link;
+* a mouse region picker captures a fresh desktop image and writes pixel
+  coordinates into `windows.Desktop.Capture`;
 * the **Runs** tab lists runtime history and opens a selected run in the
   **Events** tab; the event stream highlights the running, finished and failed
   nodes on the canvas;
@@ -207,7 +219,7 @@ watched.
 npm test
 ```
 
-Thirty tests cover the six areas the architecture document lists:
+The test suite covers the editor's critical interactions:
 
 | Area | File |
 |------|------|
@@ -215,6 +227,8 @@ Thirty tests cover the six areas the architecture document lists:
 | Schema-driven configuration forms | `src/schema/form.test.ts` |
 | Node drop, connect and delete | `src/ui/canvas.test.ts` |
 | Run-status visualisation | `src/ui/event-log.test.ts` |
+| Step-control availability | `src/ui/run-controls.test.ts` |
+| Screenshot rectangle selection | `src/ui/region-picker.test.ts` |
 | Runtime disconnect and recovery | `src/runtime/client.test.ts` |
 | Document model and local validation | `src/model/workflow.test.ts` |
 | Audit rendering | `src/ui/audit-panel.test.ts` |

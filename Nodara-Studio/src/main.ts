@@ -39,6 +39,7 @@ import { FeatureRegistry } from "./ui/feature-registry";
 import { ExtensionPanel } from "./ui/extension-panel";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
+import { RegionPicker } from "./ui/region-picker";
 import { installResizer } from "./ui/resizer";
 import { RunDialog } from "./ui/run-dialog";
 import { RunPanel } from "./ui/run-panel";
@@ -87,8 +88,10 @@ class Studio {
   private readonly runsPanel: RunPanel;
   private readonly extensionsPanel: ExtensionPanel;
   private readonly runDialog: RunDialog;
+  private readonly regionPicker: RegionPicker;
   private readonly features = new FeatureRegistry();
   private agentPoll: number | null = null;
+  private stepStarting = false;
   private history!: WorkflowHistory;
   private historyTimer: number | null = null;
 
@@ -109,6 +112,10 @@ class Studio {
       onDragStart: (descriptor, event) => this.canvas.beginPaletteDrag(descriptor, event),
       allowed: (descriptor) => nodeTypeAdmission(this.workflow, descriptor.node_type),
     });
+    this.regionPicker = new RegionPicker(
+      element<HTMLDialogElement>("region-picker"),
+      this.client,
+    );
     this.inspector = new Inspector(
       element("inspector"),
       this.workflow,
@@ -118,6 +125,7 @@ class Studio {
         getRunOverride: (name) => this.runOverrides.get(name),
         setRunOverride: (name, value) => this.runOverrides.set(name, value),
         clearRunOverride: (name) => this.runOverrides.delete(name),
+        pickCaptureRegion: () => this.regionPicker.pick(),
       },
     );
     this.log = new EventLog(
@@ -283,7 +291,7 @@ class Studio {
     element("btn-run-options").addEventListener("click", () => this.runDialog.open());
     element("btn-pause").addEventListener("click", () => void this.control("pause"));
     element("btn-resume").addEventListener("click", () => void this.control("resume"));
-    element("btn-step").addEventListener("click", () => void this.control("step"));
+    element("btn-step").addEventListener("click", () => void this.stepRun());
     element("btn-cancel").addEventListener("click", () => void this.control("cancel"));
     element("canvas-zoom-out").addEventListener("click", () => this.canvas.zoomOut());
     element("canvas-zoom-in").addEventListener("click", () => this.canvas.zoomIn());
@@ -341,15 +349,19 @@ class Studio {
     const drawer = element("resize-drawer");
     let leftWidth = 240;
     let rightWidth = 300;
-    let storedDrawerHeight = 300;
+    let storedDrawerHeight: number | null = null;
     try {
-      storedDrawerHeight = Number(localStorage.getItem("nodara.drawer.height"));
+      const stored = localStorage.getItem("nodara.drawer.height");
+      if (stored !== null) storedDrawerHeight = Number(stored);
     } catch {
       // Hardened webviews may disable local storage; keep the default.
     }
-    let drawerHeight = Number.isFinite(storedDrawerHeight)
+    const defaultDrawerHeight = Math.round(
+      Math.max(280, Math.min(420, window.innerHeight * 0.34)),
+    );
+    let drawerHeight = storedDrawerHeight !== null && Number.isFinite(storedDrawerHeight)
       ? Math.max(180, Math.min(640, storedDrawerHeight))
-      : 300;
+      : defaultDrawerHeight;
     app.style.setProperty("--drawer-height", `${drawerHeight}px`);
 
     installResizer(left, {
@@ -660,7 +672,7 @@ class Studio {
     }
   }
 
-  private async run(): Promise<void> {
+  private async run(startPaused = false, stepImmediately = false): Promise<void> {
     if (this.runStarting) return;
     this.runStarting = true;
     this.updateRunControls();
@@ -679,6 +691,7 @@ class Studio {
       const snapshot = await this.client.createRun(
         this.workflow,
         Object.fromEntries(this.runOverrides),
+        startPaused,
       );
       this.runId = snapshot.id;
       this.setStatus(snapshot.status);
@@ -697,6 +710,10 @@ class Studio {
           void this.refreshRunsIfVisible();
         },
       });
+      if (stepImmediately) {
+        const stepped = await this.client.step(snapshot.id);
+        this.setStatus(stepped.status);
+      }
     } catch (error) {
       this.setStatus(null);
       this.reportError(error);
@@ -713,6 +730,12 @@ class Studio {
         break;
       case "run_completed":
         this.setStatus("completed");
+        break;
+      case "run_paused":
+        this.setStatus("paused");
+        break;
+      case "run_resumed":
+        this.setStatus("running");
         break;
       case "run_cancelled":
         this.setStatus("cancelled");
@@ -733,6 +756,31 @@ class Studio {
       default:
         break;
     }
+  }
+
+  /**
+   * Step the active paused run, or start a new paused run and execute its first
+   * node when idle. This makes single-step debugging useful even for very short
+   * workflows that would otherwise finish before Pause can be clicked.
+   */
+  private async stepRun(): Promise<void> {
+    if (this.stepStarting) return;
+    if (
+      this.currentRunStatus === "paused" ||
+      this.currentRunStatus === "pending" ||
+      this.currentRunStatus === "running"
+    ) {
+      if (this.currentRunStatus === "paused") {
+        this.stepStarting = true;
+        try {
+          await this.control("step");
+        } finally {
+          this.stepStarting = false;
+        }
+      }
+      return;
+    }
+    await this.run(true, true);
   }
 
   private async control(action: "pause" | "resume" | "step" | "cancel"): Promise<void> {

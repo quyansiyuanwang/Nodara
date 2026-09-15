@@ -70,10 +70,8 @@ export class EventLog {
 
   /** Render image artifacts attached to successful node events. */
   private appendArtifactPreviews(entry: HTMLElement, envelope: EventEnvelope): void {
-    if (!this.artifactUrl || envelope.event.type !== "node_finished") return;
-    for (const [port, value] of Object.entries(envelope.event.outputs)) {
-      const artifact = artifactMeta(value);
-      if (!artifact || !artifact.content_type.startsWith("image/")) continue;
+    if (!this.artifactUrl) return;
+    for (const [port, artifact] of artifactsIn(envelope.event)) {
       const url = this.artifactUrl(envelope.run_id, artifact.id);
       const preview = document.createElement("figure");
       preview.className = "event-artifact";
@@ -152,6 +150,33 @@ function artifactMeta(value: unknown): ArtifactPreviewMeta | null {
     content_type: record.content_type,
     size: record.size,
   };
+}
+
+/** Image artifacts directly attached to node output or logged as JSON. */
+function artifactsIn(event: ExecutionEvent): Array<[string, ArtifactPreviewMeta]> {
+  const values: Array<[string, unknown]> = [];
+  if (event.type === "node_finished") {
+    values.push(...Object.entries(event.outputs));
+  } else if (event.type === "log") {
+    const message = parseJson(event.message);
+    if (message !== null) values.push(["log", message]);
+  }
+  const artifacts: Array<[string, ArtifactPreviewMeta]> = [];
+  for (const [port, value] of values) {
+    const artifact = artifactMeta(value);
+    if (artifact?.content_type.startsWith("image/")) artifacts.push([port, artifact]);
+  }
+  return artifacts;
+}
+
+function parseJson(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 function describe(envelope: EventEnvelope): string {

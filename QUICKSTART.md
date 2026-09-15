@@ -102,8 +102,10 @@ Then:
 3. the new document already contains `Start → Log → End`; check the status
    beside **Validate**, and fix any errors listed in **Problems**;
 4. press **Run** and watch the Events tab; nodes light up as they execute;
-5. open `examples/capture-preview.json` on Windows to see the captured PNG rendered inline under the Capture event;
-6. open **Runs**, refresh, and use **Open** to reload any recent run's event stream.
+5. open `examples/capture-preview.json` on Windows to see the captured PNG rendered inline under the Capture or Log event;
+6. select the Capture node and click **Select screen region**. Studio briefly hides itself, captures the desktop and opens the image; drag a rectangle and click **Apply region** to write X/Y/Width/Height into the node;
+7. click **Step** to debug one node at a time; from idle it starts a paused run and executes the first node, then remains paused after every step;
+8. open **Runs**, refresh, and use **Open** to reload any recent run's event stream.
 
 If you install a plugin and restart the runtime, reload the page: the new node
 types are simply there. Nothing in the editor needed to change.

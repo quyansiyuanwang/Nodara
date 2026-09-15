@@ -113,9 +113,11 @@ $env:NODARA_RUNTIME_PORT = "8720"
 2. 确认画布显示 `Start → Log → End`；
 3. 点击 **Validate**，应无错误；
 4. 点击 **Run**，在 **Events** 页观察事件；
-5. 在 Windows 上打开 `examples/capture-preview.json`，确认 Capture 事件下方直接显示 PNG 预览；
-6. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
-7. 打开 **Audit** 页，确认策略决策和节点结果已记录。
+5. 在 Windows 上打开 `examples/capture-preview.json`，确认 Capture 事件或 Log 事件下方直接显示 PNG 预览；
+6. 选中 Capture 节点，点击配置区中的 **拖框选择截图区域**。Studio 会临时隐藏自身、截取桌面，再显示截图；拖框后点击“应用区域”，X/Y/宽度/高度会直接写入节点；
+7. 点击 **Step** 可单步调试：空闲时会自动新建暂停运行并执行第一个节点，之后每次只执行一个节点；
+8. 打开 **Runs** 页，刷新并点击最近一次运行的 **打开**，确认可重新载入完整事件；
+9. 打开 **Audit** 页，确认策略决策和节点结果已记录。
 
 常用编辑操作：
 
@@ -129,6 +131,8 @@ $env:NODARA_RUNTIME_PORT = "8720"
 | 初始模板 | 新建文档默认包含可运行的 `Start → Log → End` 示例 |
 | 运行历史 | **Runs** 页列出历史运行；点击 **打开** 可回到对应 **Events** |
 | 调整布局 | 拖动左右面板之间和底部面板上方的细条；双击细条恢复默认宽度/高度 |
+| 单步运行 | 点击 **Step**；空闲或已结束时从暂停状态启动，之后每点击一次执行一个节点 |
+| 框选截图 | 选中 `windows.Desktop.Capture`，在配置区点击 **拖框选择截图区域**，拖框后应用 |
 
 如果连接标记仍显示 `runtime unreachable`，确认 `nodara-runtime.exe` 与
 `nodara-studio.exe` 位于同一目录且 8710 端口没有被其他程序占用。Studio 会每

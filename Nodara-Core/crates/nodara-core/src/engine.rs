@@ -54,6 +54,8 @@ pub struct RunRequest {
     pub run_id: Option<String>,
     /// Variables that override or extend the workflow's own defaults.
     pub variables: BTreeMap<String, serde_json::Value>,
+    /// Start with execution paused before the first node.
+    pub start_paused: bool,
     /// Destination for execution events.
     pub event_sink: Arc<dyn EventSink>,
     /// Optional shared artefact store. Runtimes supply one so API clients can
@@ -78,6 +80,7 @@ impl RunRequest {
             workflow,
             run_id: None,
             variables: BTreeMap::new(),
+            start_paused: false,
             event_sink: Arc::new(NullEventSink),
             artifacts: None,
         }
@@ -101,6 +104,13 @@ impl RunRequest {
     #[must_use]
     pub fn with_variables(mut self, variables: BTreeMap<String, serde_json::Value>) -> Self {
         self.variables = variables;
+        self
+    }
+
+    /// Start with a pause before the first node so callers can step manually.
+    #[must_use]
+    pub fn with_start_paused(mut self, start_paused: bool) -> Self {
+        self.start_paused = start_paused;
         self
     }
 
@@ -318,6 +328,7 @@ impl WorkflowEngine {
         let artifacts = request
             .artifacts
             .unwrap_or_else(|| Arc::new(ArtifactStore::new()));
+        let start_paused = request.start_paused;
         let workflow = request.workflow;
         let seeded = seeded_variables(&workflow, &request.variables);
 
@@ -399,6 +410,9 @@ impl WorkflowEngine {
         bus.emit(ExecutionEvent::RunStarted {
             workflow_id: workflow.id.clone(),
         });
+        if start_paused {
+            bus.emit(ExecutionEvent::RunPaused);
+        }
         self.audit.record(AuditRecord::new(
             run_id.clone(),
             AuditCategory::RunStarted,

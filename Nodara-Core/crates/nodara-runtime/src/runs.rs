@@ -182,6 +182,16 @@ impl RunHandle {
                 state.status = RunStatus::Running;
                 *self.workflow_id.lock() = workflow_id.clone();
             }
+            ExecutionEvent::RunPaused => {
+                if !state.status.is_terminal() {
+                    state.status = RunStatus::Paused;
+                }
+            }
+            ExecutionEvent::RunResumed => {
+                if state.status == RunStatus::Paused {
+                    state.status = RunStatus::Running;
+                }
+            }
             ExecutionEvent::NodeFinished { .. } => {
                 state.nodes_executed += 1;
             }
@@ -284,7 +294,7 @@ impl RunManager {
         variables: BTreeMap<String, serde_json::Value>,
     ) -> Arc<RunHandle> {
         let run_id = uuid::Uuid::new_v4().to_string();
-        self.start_with_run_id(run_id, workflow, variables)
+        self.start_with_run_id(run_id, workflow, variables, false)
     }
 
     /// Start a run under a caller-chosen id.
@@ -298,8 +308,12 @@ impl RunManager {
         run_id: String,
         workflow: Workflow,
         variables: BTreeMap<String, serde_json::Value>,
+        start_paused: bool,
     ) -> Arc<RunHandle> {
         let control = RunControl::new();
+        if start_paused {
+            control.pause();
+        }
         let artifacts = Arc::new(ArtifactStore::new());
         let handle = RunHandle::new(
             run_id.clone(),
@@ -316,7 +330,8 @@ impl RunManager {
             .with_run_id(run_id)
             .with_variables(variables)
             .with_event_sink(sink)
-            .with_artifacts(artifacts);
+            .with_artifacts(artifacts)
+            .with_start_paused(start_paused);
 
         let engine = self.engine.clone();
         let completion = handle.clone();

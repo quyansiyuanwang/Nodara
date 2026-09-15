@@ -25,8 +25,14 @@ export function deriveRunControls(
   const inFlight =
     runStarting || status === "pending" || status === "running" || status === "paused";
   const paused = status === "paused";
+  const terminal = status === "completed" || status === "failed" || status === "cancelled";
   const blocked =
     inFlight ||
+    !connected ||
+    localErrorCount > 0 ||
+    validation === "invalid" ||
+    validation === "unavailable";
+  const stepBlocked =
     !connected ||
     localErrorCount > 0 ||
     validation === "invalid" ||
@@ -36,7 +42,7 @@ export function deriveRunControls(
     runDisabled: blocked,
     pauseDisabled: !inFlight || paused || runStarting,
     resumeDisabled: !paused,
-    stepDisabled: !paused,
+    stepDisabled: runStarting || stepBlocked || !(paused || status === null || terminal),
     cancelDisabled: !inFlight,
   };
 }
