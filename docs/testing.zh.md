@@ -12,9 +12,9 @@
 | A01 | 包完整性 | ZIP SHA-256 与同名 `.sha256` 文件一致，`SHA256SUMS.txt` 校验全部通过 |
 | A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.0.0；构建信息含正确 Git commit |
 | A03 | CLI 核心流程 | `validate`、`simulate`、`run` 成功，`extensions --json` 返回统一注册列表 |
-| A04 | 插件进程模式 | runtime 报告 2 个插件、17 个节点 |
+| A04 | 插件进程模式 | runtime 报告 2 个插件、18 个节点 |
 | A05 | HTTP API | health、plugins、extensions、node-types、schema 端点可访问 |
-| A06 | Studio 桌面版 | 能连接 runtime，显示 17 个节点，导入/校验/运行 hello-world 成功 |
+| A06 | Studio 桌面版 | 能连接 runtime，显示 18 个节点，导入/校验/运行 hello-world 成功 |
 | A07 | Agent mock | 无 API Key 时可规划并运行最小工作流 |
 | A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
@@ -162,7 +162,7 @@ $plugins.plugins | Select-Object id,version
 
 ### 6.1 连接与发现
 
-- 右上角显示 `17 node types · 2 plugin(s)`；
+- 右上角显示 `18 node types · 2 plugin(s)`；
 - 左侧分类包含 Core、System、Input、Window、Desktop、Vision；
 - 不存在插件加载失败提示。
 
@@ -192,8 +192,9 @@ $plugins.plugins | Select-Object id,version
 14. `core.Log` 的消息为 artifact JSON（例如 `{{screenshot}}`）时，Events 页同样显示图片预览。
 15. `examples/system-command.json` 运行成功，Command 节点的 `out` 包含 stdout，后续 Log 显示命令输出；非零退出和取消超时场景按文档返回失败或可检查的 `exit_code`。
 16. 打开一个记事本窗口后运行 `examples/window-find.json`，Find 节点应通过 `Notepad` 标题和 `notepad.exe` 进程筛选找到窗口，输出包含一致的 `process` 与 `visible=true`。
-17. 在隔离测试桌面上验证输入时序：Keyboard `press shift` → Text `a` → Keyboard `release shift` 应产生大写 `A`；Mouse `drag` 可配置起点、终点和持续时间，并以平滑轨迹移动。
-18. 保持目标窗口位于后台，使用 `background=true` 和进程/标题选择器发送文本与鼠标客户区消息；支持消息的控件应在不切换焦点、不移动真实光标的情况下收到输入。对不处理消息的控件，记录该限制。
+17. 关闭 Notepad 后运行 `examples/wait-for-window.json`，Wait 节点应轮询并等待；随后打开 Notepad，工作流应在超时前继续。超时场景返回 `E_TIMEOUT`。
+18. 在隔离测试桌面上验证输入时序：Keyboard `press shift` → Text `a` → Keyboard `release shift` 应产生大写 `A`；Mouse `drag` 可配置起点、终点和持续时间，并以平滑轨迹移动。
+19. 保持目标窗口位于后台，使用 `background=true` 和进程/标题选择器发送文本与鼠标客户区消息；支持消息的控件应在不切换焦点、不移动真实光标的情况下收到输入。对不处理消息的控件，记录该限制。
 
 ### 6.4 Audit
 

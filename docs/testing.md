@@ -11,7 +11,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A01 | Package integrity | ZIP hash and every entry in `SHA256SUMS.txt` match |
 | A02 | Versions | All components report 2.0.0 and `build-info.json` names the expected commit |
 | A03 | CLI smoke | Validate, simulate, run and `extensions --json` succeed |
-| A04 | Plugins | Runtime reports 2 plugins and 17 node types |
+| A04 | Plugins | Runtime reports 2 plugins and 18 node types |
 | A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
 | A06 | Studio | Desktop Studio connects and runs hello-world |
 | A07 | Agent mock | A canned workflow plans and runs without an API key |
@@ -73,13 +73,13 @@ $plugins.plugins | Select-Object id,version
 "plugin failures: $($plugins.failures.Count)"
 ```
 
-Require `status=ok`, 2 plugins, 0 failures, and 17 node types.
+Require `status=ok`, 2 plugins, 0 failures, and 18 node types.
 
 ## Studio
 
 With the runtime running, launch `nodara-studio.exe` and verify:
 
-1. The status badge reports `17 node types · 2 plugin(s)`.
+1. The status badge reports `18 node types · 2 plugin(s)`.
 2. Hello-world imports with the `Start → Log → End` graph.
 3. Validate and Run complete successfully.
 4. The Events tab reaches `run_completed`.
@@ -95,10 +95,11 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 14. A `core.Log` message containing artifact JSON, such as `{{screenshot}}`, also renders the image inline.
 15. `examples/system-command.json` runs successfully; the Command node's `out` contains stdout and the following Log interpolates it. Verify non-zero exit and cancellation/timeout behavior against the documented outputs.
 16. With Notepad open, `examples/window-find.json` finds it using both the `Notepad` title and `notepad.exe` process filters; the output contains the resolved process name and `visible=true`.
-17. On an isolated test desktop, verify input timing: Keyboard `press shift` → Text `a` → Keyboard `release shift` produces an uppercase `A`; Mouse `drag` accepts optional start coordinates, destination coordinates and duration and moves smoothly.
-18. Keep the target window in the background and send text plus client-coordinate mouse messages with `background=true` and a title/process selector. A message-capable control should receive them without changing focus or moving the real cursor; record unsupported applications as a compatibility limitation.
-19. The Audit tab shows capability and node records.
-20. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+17. Close Notepad and run `examples/wait-for-window.json`; the Wait node should poll. Open Notepad before the timeout and confirm the workflow continues; a missing window should fail with `E_TIMEOUT`.
+18. On an isolated test desktop, verify input timing: Keyboard `press shift` → Text `a` → Keyboard `release shift` produces an uppercase `A`; Mouse `drag` accepts optional start coordinates, destination coordinates and duration and moves smoothly.
+19. Keep the target window in the background and send text plus client-coordinate mouse messages with `background=true` and a title/process selector. A message-capable control should receive them without changing focus or moving the real cursor; record unsupported applications as a compatibility limitation.
+20. The Audit tab shows capability and node records.
+21. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

@@ -543,6 +543,7 @@ const NODE_ZH: Record<string, { display_name: string; description: string }> = {
   "windows.Input.Text": { display_name: "文本输入", description: "向当前窗口输入文本" },
   "windows.Window.Capture": { display_name: "窗口截图", description: "截取窗口及边框" },
   "windows.Window.Find": { display_name: "查找窗口", description: "按标题或类名查找窗口" },
+  "windows.Window.Wait": { display_name: "等待窗口", description: "等待匹配窗口出现" },
   "windows.Window.Focus": { display_name: "聚焦窗口", description: "将窗口置于前台" },
 };
 
@@ -575,6 +576,8 @@ const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
   "Mouse duration (ms)": { title: "鼠标持续时间（毫秒）", description: "点击按住时长或拖拽平滑移动时长。" },
   "Start X": { title: "起点 X", description: "拖拽起点 X；留空时使用当前光标位置。" },
   "Start Y": { title: "起点 Y", description: "拖拽起点 Y；留空时使用当前光标位置。" },
+  "Wait timeout (ms)": { title: "等待超时（毫秒）", description: "等待匹配窗口出现的最长时间。" },
+  "Poll interval (ms)": { title: "轮询间隔（毫秒）", description: "两次窗口枚举之间的等待时间。" },
   "Window class": { title: "窗口类名", description: "要匹配的 Win32 窗口类名，例如 `Notepad`。" },
   "Process name": { title: "进程名", description: "拥有窗口的可执行文件名，例如 `notepad.exe`；默认使用包含匹配。" },
   "Exact match": { title: "精确匹配", description: "要求标题、窗口类和进程名完全匹配，而不是包含匹配。" },

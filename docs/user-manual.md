@@ -138,6 +138,11 @@ When several windows match, the node chooses the largest. A Find node publishes
 the resolved `process` and `visible` values alongside `handle`, `title`, `class`
 and `rect`, so later branches can inspect what was selected.
 
+Use `windows.Window.Wait` when an application starts asynchronously. It polls the
+same selector with configurable `wait_timeout_ms` and `poll_interval_ms`, emits
+the same window record once found, and fails with `E_TIMEOUT` when the budget is
+exhausted.
+
 Input nodes expose additional real-world timing and movement controls:
 
 * keyboard `action=type` taps the chord and supports `hold_ms`; `press` and

@@ -57,7 +57,7 @@ run completed: 5 node(s) in 3ms
 
 ```bash
 cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins
-# runtime listening on http://127.0.0.1:8710/api/v1 (17 node type(s), 2 plugin(s))
+# runtime listening on http://127.0.0.1:8710/api/v1 (18 node type(s), 2 plugin(s))
 ```
 
 `--in-process` registers the official capabilities directly; omit it to launch

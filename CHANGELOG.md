@@ -143,6 +143,9 @@ All notable changes to this project are documented here. The format follows
   client space and sends `WM_MOUSEMOVE` plus left/right/middle button messages,
   including smooth drag. It restores the original system cursor position after
   the operation.
+- Added `windows.Window.Wait`, a cancellable polling node with configurable
+  timeout and interval. It reuses the shared title/class/process/visibility
+  selector and publishes the same window record as `windows.Window.Find`.
 
 ### Changed
 

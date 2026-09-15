@@ -2,6 +2,7 @@
 
 use nodara_core::{ExecutionContext, NodeError, NodeExecutor, NodeInput, NodeOutput, NodeResult};
 use nodara_schema::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
+use std::time::{Duration, Instant};
 
 use crate::error::PlatformError;
 use crate::native;
@@ -135,6 +136,8 @@ impl WindowSelector {
             "visible_only",
             "foreground",
             "output_var",
+            "wait_timeout_ms",
+            "poll_interval_ms",
         ];
         let object = config.as_object().ok_or_else(|| {
             NodeError::InvalidConfig("window selector must be an object".to_string())
@@ -218,6 +221,33 @@ pub fn find(selector: &WindowSelector) -> Result<native::WindowRecord, PlatformE
         })
 }
 
+fn window_value(record: &native::WindowRecord) -> serde_json::Value {
+    serde_json::json!({
+        "handle": record.id,
+        "title": record.title,
+        "class": record.class_name,
+        "process": record.process_name,
+        "visible": record.visible,
+        "rect": {
+            "x": record.rect.x,
+            "y": record.rect.y,
+            "width": record.rect.width,
+            "height": record.rect.height,
+        }
+    })
+}
+
+fn wait_interruptible(context: &ExecutionContext, milliseconds: u64) -> NodeResult<()> {
+    let mut remaining = milliseconds;
+    while remaining > 0 {
+        context.check_cancelled()?;
+        let slice = remaining.min(25);
+        std::thread::sleep(Duration::from_millis(slice));
+        remaining -= slice;
+    }
+    Ok(())
+}
+
 /// `windows.Window.Find`
 #[derive(Debug, Default)]
 pub struct FindExecutor;
@@ -251,25 +281,86 @@ impl NodeExecutor for FindExecutor {
         let output_var = input.require_str("output_var")?;
         let selector = WindowSelector::from_config(&input.resolved_config)?;
         let record = find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
-        let value = serde_json::json!({
-            "handle": record.id,
-            "title": record.title,
-            "class": record.class_name,
-            "process": record.process_name,
-            "visible": record.visible,
-            "rect": {
-                "x": record.rect.x,
-                "y": record.rect.y,
-                "width": record.rect.width,
-                "height": record.rect.height,
-            }
-        });
+        let value = window_value(&record);
         context.set_variable(output_var, value.clone());
         context.log(
             nodara_schema::LogLevel::Info,
             format!("found window `{}`", record.title),
         );
         Ok(NodeOutput::new().with_output("window", value))
+    }
+}
+
+/// `windows.Window.Wait`
+#[derive(Debug, Default)]
+pub struct WaitExecutor;
+
+impl NodeExecutor for WaitExecutor {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor {
+            inputs: vec![port("in", "In", PortKind::Input, ValueType::Any)],
+            outputs: vec![port(
+                "window",
+                "Window",
+                PortKind::Output,
+                ValueType::Window,
+            )],
+            config_schema: selector_schema(
+                serde_json::json!({
+                    "output_var": output_var_property(
+                        "Variable receiving the first matching window record."
+                    ),
+                    "wait_timeout_ms": {
+                        "type": "integer",
+                        "title": "Wait timeout (ms)",
+                        "description": "Maximum time to wait for a matching window.",
+                        "minimum": 0,
+                        "default": 10000
+                    },
+                    "poll_interval_ms": {
+                        "type": "integer",
+                        "title": "Poll interval (ms)",
+                        "description": "Delay between window enumeration attempts.",
+                        "minimum": 1,
+                        "default": 100
+                    }
+                }),
+                &["output_var"],
+            ),
+            allows_additional_config: false,
+            ..NodeDescriptor::new("windows.Window.Wait", "Wait for Window", "Window")
+                .with_description("Waits until a matching window appears")
+        }
+    }
+
+    fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let output_var = input.require_str("output_var")?;
+        let selector = WindowSelector::from_config(&input.resolved_config)?;
+        let timeout_ms = input.config_i64("wait_timeout_ms").unwrap_or(10_000).max(0) as u64;
+        let poll_interval_ms = input.config_i64("poll_interval_ms").unwrap_or(100).max(1) as u64;
+        let started = Instant::now();
+        loop {
+            context.check_cancelled()?;
+            match find(&selector) {
+                Ok(record) => {
+                    let value = window_value(&record);
+                    context.set_variable(output_var, value.clone());
+                    context.log(
+                        nodara_schema::LogLevel::Info,
+                        format!("window appeared: `{}`", record.title),
+                    );
+                    return Ok(NodeOutput::new().with_output("window", value));
+                }
+                Err(PlatformError::WindowNotFound { .. })
+                    if started.elapsed() < Duration::from_millis(timeout_ms) =>
+                {
+                    let remaining = timeout_ms.saturating_sub(started.elapsed().as_millis() as u64);
+                    wait_interruptible(context, poll_interval_ms.min(remaining))?;
+                }
+                Err(PlatformError::WindowNotFound { .. }) => return Err(NodeError::Timeout),
+                Err(error) => return Err(NodeError::Execution(error.to_string())),
+            }
+        }
     }
 }
 
@@ -408,5 +499,21 @@ mod tests {
         }))
         .unwrap();
         assert!(!matches(&record, &excluded));
+    }
+
+    #[test]
+    fn wait_descriptor_exposes_timeout_and_poll_controls() {
+        let descriptor = WaitExecutor.descriptor();
+        assert_eq!(descriptor.node_type, "windows.Window.Wait");
+        assert!(descriptor.config_schema["properties"]["wait_timeout_ms"].is_object());
+        assert!(descriptor.config_schema["properties"]["poll_interval_ms"].is_object());
+        assert!(descriptor.permissions.is_empty());
+        assert!(WindowSelector::from_config(&serde_json::json!({
+            "process": "notepad.exe",
+            "wait_timeout_ms": 500,
+            "poll_interval_ms": 25,
+            "output_var": "window"
+        }))
+        .is_ok());
     }
 }

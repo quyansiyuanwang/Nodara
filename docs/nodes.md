@@ -3,7 +3,7 @@
 > 中文版：[nodes.zh.md](nodes.zh.md)
 
 This is the catalogue of the node types the default build ships: five core
-nodes, three system nodes, three input nodes, three window nodes, desktop capture
+nodes, three system nodes, three input nodes, four window nodes, desktop capture
 and two vision nodes. A deployment can add more by installing plugins — call
 `GET /api/v1/node-types`, or run `nodara-cli simulate <workflow>` to see which node
 types a document needs — and the published workflow schema grows with them.
@@ -54,6 +54,7 @@ The same information is machine-readable from `GET /api/v1/node-types`, and
 | `windows.Input.Text` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Mouse` | Input | in `in` → out `out` | `input.control` |
 | `windows.Window.Find` | Window | in `in` → out `window` | — |
+| `windows.Window.Wait` | Window | in `in` → out `window` | — |
 | `windows.Window.Focus` | Window | in `in` → out `out` | `window.control` |
 | `windows.Window.Capture` | Window | in `in` → out `artifact` | `screen.capture` |
 | `windows.Desktop.Capture` | Desktop | in `in` → out `artifact` | `screen.capture` |
@@ -330,6 +331,32 @@ window metadata, so it carries no permission.
 ```json
 { "id": "find", "type": "windows.Window.Find",
   "config": { "title": "Notepad", "output_var": "notepad" } }
+```
+
+### `windows.Window.Wait` — Wait for Window
+
+Waits until a matching window appears, then publishes the same record as Find.
+The wait observes cancellation and fails with `E_TIMEOUT` after the configured
+budget.
+
+* Ports: in `in` (any) → out `window` (window)
+* Policy: always allowed
+
+| Key | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `title` | string | no | — | Window title to match. |
+| `class` | string | no | — | Win32 window class to match. |
+| `process` | string | no | — | Owning executable name, case-insensitive. |
+| `exact` | boolean | no | `false` | Require supplied fields to match exactly. |
+| `visible_only` | boolean | no | `true` | Ignore hidden windows while waiting. |
+| `wait_timeout_ms` | integer | no | `10000` | Maximum time to wait. |
+| `poll_interval_ms` | integer | no | `100` | Delay between window enumerations. |
+| `output_var` | string | **yes** | — | Variable receiving the window record. |
+
+```json
+{ "id": "wait", "type": "windows.Window.Wait",
+  "config": { "process": "notepad.exe", "wait_timeout_ms": 10000,
+              "poll_interval_ms": 100, "output_var": "notepad" } }
 ```
 
 ### `windows.Window.Focus` — Focus Window

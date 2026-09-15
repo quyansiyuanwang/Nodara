@@ -543,6 +543,29 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "windows.Window.Wait"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.windows.Window.Wait"
+              },
+              "type": {
+                "const": "windows.Window.Wait",
+                "description": "Waits until a matching window appears"
+              }
+            }
+          }
         }
       ],
       "description": "A node in the workflow graph.",
@@ -1475,6 +1498,81 @@
       "type": "object",
       "x-nodara-node-type": "windows.Window.Focus"
     },
+    "NodeConfig.windows.Window.Wait": {
+      "additionalProperties": false,
+      "description": "Waits until a matching window appears",
+      "properties": {
+        "class": {
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
+          "examples": [
+            "Notepad"
+          ],
+          "title": "Window class",
+          "type": "string"
+        },
+        "exact": {
+          "default": false,
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
+          "title": "Exact match",
+          "type": "boolean"
+        },
+        "foreground": {
+          "default": false,
+          "description": "Use the foreground window instead of searching. Overrides title, class and process filters.",
+          "title": "Foreground window",
+          "type": "boolean"
+        },
+        "output_var": {
+          "description": "Variable receiving the first matching window record.",
+          "title": "Output variable",
+          "type": "string"
+        },
+        "poll_interval_ms": {
+          "default": 100,
+          "description": "Delay between window enumeration attempts.",
+          "minimum": 1,
+          "title": "Poll interval (ms)",
+          "type": "integer"
+        },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
+          "type": "string"
+        },
+        "title": {
+          "description": "Window title to match. Substring match unless `exact` is set.",
+          "examples": [
+            "Notepad",
+            "Settings"
+          ],
+          "title": "Window title",
+          "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
+        },
+        "wait_timeout_ms": {
+          "default": 10000,
+          "description": "Maximum time to wait for a matching window.",
+          "minimum": 0,
+          "title": "Wait timeout (ms)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "output_var"
+      ],
+      "title": "Wait for Window configuration",
+      "type": "object",
+      "x-nodara-node-type": "windows.Window.Wait"
+    },
     "NodeType": {
       "description": "Namespaced node type, e.g. `windows.Input.Keyboard`. One of the node types the runtime has installed.",
       "enum": [
@@ -1494,7 +1592,8 @@
         "windows.Input.Text",
         "windows.Window.Capture",
         "windows.Window.Find",
-        "windows.Window.Focus"
+        "windows.Window.Focus",
+        "windows.Window.Wait"
       ],
       "type": "string"
     },

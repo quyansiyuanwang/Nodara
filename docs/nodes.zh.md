@@ -2,7 +2,7 @@
 
 > English: [nodes.md](nodes.md)
 
-这里是默认构建随附的节点类型目录：5 个核心节点、3 个系统节点、3 个输入节点、3 个窗口节点、
+这里是默认构建随附的节点类型目录：5 个核心节点、3 个系统节点、3 个输入节点、4 个窗口节点、
 桌面捕获与 2 个视觉节点。部署方可以通过安装插件扩展它们 —— 调用 `GET /api/v1/node-types`，
 或运行 `nodara-cli simulate <工作流>` 查看某个文档需要哪些节点类型 —— 发布的工作流 schema 也会随之增长。
 
@@ -47,6 +47,7 @@
 | `windows.Input.Text` | Input | in `in` → out `out` | `input.control` |
 | `windows.Input.Mouse` | Input | in `in` → out `out` | `input.control` |
 | `windows.Window.Find` | Window | in `in` → out `window` | — |
+| `windows.Window.Wait` | Window | in `in` → out `window` | — |
 | `windows.Window.Focus` | Window | in `in` → out `out` | `window.control` |
 | `windows.Window.Capture` | Window | in `in` → out `artifact` | `screen.capture` |
 | `windows.Desktop.Capture` | Desktop | in `in` → out `artifact` | `screen.capture` |
@@ -311,6 +312,30 @@
 ```json
 { "id": "find", "type": "windows.Window.Find",
   "config": { "title": "Notepad", "output_var": "notepad" } }
+```
+
+### `windows.Window.Wait` — Wait for Window
+
+等待匹配窗口出现，然后发布与 Find 相同的窗口记录。等待期间会响应取消，超过配置时间后以 `E_TIMEOUT` 失败。
+
+* 端口：in `in`（any）→ out `window`（window）
+* 策略：始终放行
+
+| 配置项 | 类型 | 必填 | 默认值 | 说明 |
+|---|---|---|---|---|
+| `title` | string | 否 | — | 要匹配的窗口标题。 |
+| `class` | string | 否 | — | 要匹配的 Win32 窗口类名。 |
+| `process` | string | 否 | — | 拥有窗口的可执行文件名，不区分大小写。 |
+| `exact` | boolean | 否 | `false` | 要求提供的字段精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 等待时忽略隐藏窗口。 |
+| `wait_timeout_ms` | integer | 否 | `10000` | 最长等待时间。 |
+| `poll_interval_ms` | integer | 否 | `100` | 两次窗口枚举之间的等待时间。 |
+| `output_var` | string | **是** | — | 接收窗口记录的变量。 |
+
+```json
+{ "id": "wait", "type": "windows.Window.Wait",
+  "config": { "process": "notepad.exe", "wait_timeout_ms": 10000,
+              "poll_interval_ms": 100, "output_var": "notepad" } }
 ```
 
 ### `windows.Window.Focus` — Focus Window

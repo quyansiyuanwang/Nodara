@@ -276,6 +276,10 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 节点会从所有匹配窗口中选取面积最大的一个，并在 Find 节点输出 `process` 与 `visible`
 字段，便于后续日志和条件分支判断。
 
+需要等待应用启动时使用 `windows.Window.Wait`：它按同一套条件轮询，支持
+`wait_timeout_ms` 和 `poll_interval_ms`，窗口出现后输出与 Find 相同的记录，超时返回
+`E_TIMEOUT`。
+
 输入节点现已区分更多真实操作阶段：
 
 - 键盘 `action=type` 会按下并释放；可设置 `hold_ms` 控制按住时长；`press`/`release`

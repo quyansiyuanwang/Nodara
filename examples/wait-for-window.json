@@ -1,0 +1,40 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.wait-for-window",
+  "metadata": {
+    "name": "Wait for a window",
+    "description": "Waits up to 10 seconds for a visible Notepad window and logs its geometry.",
+    "tags": ["windows", "wait", "example"]
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start", "label": "Start" },
+    {
+      "id": "wait",
+      "type": "windows.Window.Wait",
+      "label": "Wait for Notepad",
+      "config": {
+        "process": "notepad.exe",
+        "visible_only": true,
+        "wait_timeout_ms": 10000,
+        "poll_interval_ms": 100,
+        "output_var": "window"
+      }
+    },
+    {
+      "id": "report",
+      "type": "core.Log",
+      "config": {
+        "level": "info",
+        "message": "window ready: {{window.title}}"
+      }
+    },
+    { "id": "end", "type": "core.End", "config": {} }
+  ],
+  "edges": [
+    { "id": "start-wait", "source": "start", "target": "wait" },
+    { "id": "wait-report", "source": "wait", "target": "report" },
+    { "id": "report-end", "source": "report", "target": "end" }
+  ],
+  "variables": {}
+}

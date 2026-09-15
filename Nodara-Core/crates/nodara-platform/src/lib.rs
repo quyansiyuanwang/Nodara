@@ -41,6 +41,7 @@ pub const NODE_TYPES: &[&str] = &[
     "windows.Input.Mouse",
     "windows.Input.Text",
     "windows.Window.Find",
+    "windows.Window.Wait",
     "windows.Window.Focus",
     "windows.Window.Capture",
     "windows.Desktop.Capture",
@@ -77,6 +78,7 @@ pub fn register_platform(registry: &mut CapabilityRegistry) {
         .register(input::MouseExecutor)
         .register(input::TextExecutor)
         .register(window::FindExecutor)
+        .register(window::WaitExecutor)
         .register(window::FocusExecutor)
         .register(window::CaptureExecutor)
         .register(capture::DesktopCaptureExecutor)
