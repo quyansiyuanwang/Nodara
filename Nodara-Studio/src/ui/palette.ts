@@ -6,7 +6,7 @@
  * Studio being rebuilt.
  */
 
-import { localizeProblem, t } from "../i18n";
+import { localizeCategory, localizeProblem, t } from "../i18n";
 import { NodeTypeAdmission } from "../model/workflow";
 import { NodeDescriptor } from "../runtime/types";
 
@@ -75,7 +75,7 @@ export class Palette {
 
       const heading = document.createElement("h3");
       heading.className = "palette__category";
-      heading.textContent = category;
+      heading.textContent = localizeCategory(category);
       this.root.appendChild(heading);
 
       for (const descriptor of visible) {

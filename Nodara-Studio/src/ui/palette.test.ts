@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Palette } from "./palette";
 import { NodeDescriptor } from "../runtime/types";
+import { setLocale } from "../i18n";
 
 function descriptor(
   nodeType: string,
@@ -33,6 +34,7 @@ describe("dynamic node discovery in the palette", () => {
   let host: HTMLElement;
 
   beforeEach(() => {
+    setLocale("en");
     document.body.innerHTML = "";
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -51,6 +53,23 @@ describe("dynamic node discovery in the palette", () => {
     );
     expect(categories).toEqual(["Core", "Input"]);
     expect(host.querySelectorAll(".palette__item")).toHaveLength(3);
+  });
+
+  it("keeps category identity stable while translating headings", () => {
+    const palette = new Palette(host, { onAdd: () => undefined });
+    palette.setDescriptors([
+      descriptor("core.Start", "Start", "Core"),
+      descriptor("windows.Input.Keyboard", "Keyboard", "Input"),
+    ]);
+    setLocale("zh-CN");
+    palette.setDescriptors([
+      descriptor("core.Start", "开始", "Core"),
+      descriptor("windows.Input.Keyboard", "键盘", "Input"),
+    ]);
+    expect(
+      [...host.querySelectorAll(".palette__category")].map((element) => element.textContent),
+    ).toEqual(["核心", "输入"]);
+    setLocale("en");
   });
 
   it("badges gated nodes with the permission they need", () => {

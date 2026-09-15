@@ -965,6 +965,25 @@ body.is-resizing-y * {
   border: 1px solid #242a3a;
 }
 
+.event-artifact__media {
+  display: grid;
+  min-width: 0;
+}
+
+.event-artifact__error {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  padding: 16px;
+  border: 1px dashed #5b3b3b;
+  border-radius: 6px;
+  background: #171216;
+  color: var(--error);
+  font-family: var(--font);
+  font-size: 12px;
+  text-align: center;
+}
+
 .event-artifact__caption {
   display: flex;
   flex-direction: column;

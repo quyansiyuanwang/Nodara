@@ -81,6 +81,18 @@ export class EventLog {
       image.src = url;
       image.alt = t("artifact.previewAlt", { name: artifact.name });
       image.loading = "lazy";
+      image.decoding = "async";
+      const failure = document.createElement("div");
+      failure.className = "event-artifact__error";
+      failure.textContent = t("artifact.previewUnavailable");
+      failure.hidden = true;
+      image.addEventListener("error", () => {
+        image.hidden = true;
+        failure.hidden = false;
+      });
+      const media = document.createElement("div");
+      media.className = "event-artifact__media";
+      media.append(image, failure);
       const caption = document.createElement("figcaption");
       caption.className = "event-artifact__caption";
       const details = document.createElement("span");
@@ -95,7 +107,7 @@ export class EventLog {
       open.rel = "noreferrer";
       open.textContent = t("actions.open");
       caption.append(details, open);
-      preview.append(image, caption);
+      preview.append(media, caption);
       entry.appendChild(preview);
     }
   }

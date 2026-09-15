@@ -123,6 +123,36 @@ describe("run status visualisation", () => {
     expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
   });
 
+  it("shows a recoverable message when an artifact image cannot load", () => {
+    log = new EventLog(
+      document.getElementById("events")!,
+      canvas,
+      (runId, artifactId) => `/artifacts/${runId}/${artifactId}`,
+    );
+    log.append(
+      envelope(0, {
+        type: "node_finished",
+        node_id: "capture",
+        outputs: {
+          artifact: {
+            id: "image-broken",
+            name: "desktop",
+            content_type: "image/png",
+            size: 128,
+          },
+        },
+        duration_ms: 9,
+      }),
+    );
+
+    const image = document.querySelector<HTMLImageElement>(".event-artifact__image")!;
+    image.dispatchEvent(new Event("error"));
+    expect(image.hidden).toBe(true);
+    expect(document.querySelector(".event-artifact__error")?.textContent).toContain(
+      "Preview unavailable",
+    );
+  });
+
   it("renders command stdout, stderr and exit metadata", () => {
     log.append(
       envelope(0, {

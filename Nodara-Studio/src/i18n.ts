@@ -102,6 +102,7 @@ const EN: Record<string, string> = {
   "runDialog.close": "Close",
   "artifact.previewAlt": "Artifact preview: {name}",
   "artifact.previewDetails": "Port {port} · {type} · {size} bytes",
+  "artifact.previewUnavailable": "Preview unavailable. Open the artifact to inspect it.",
   "command.output": "Command output",
   "command.stdout": "Standard output",
   "command.stderr": "Standard error",
@@ -362,6 +363,7 @@ const ZH: Record<string, string> = {
   "runDialog.close": "关闭",
   "artifact.previewAlt": "产物预览：{name}",
   "artifact.previewDetails": "端口 {port} · {type} · {size} 字节",
+  "artifact.previewUnavailable": "预览加载失败。可点击“打开”直接检查产物。",
   "command.output": "命令输出",
   "command.stdout": "标准输出",
   "command.stderr": "标准错误",
@@ -524,24 +526,24 @@ const ZH: Record<string, string> = {
   "schema.published": "已发布 Schema",
 };
 
-const NODE_ZH: Record<string, { display_name: string; category: string; description: string }> = {
-  "core.Calculate": { display_name: "计算", category: "核心", description: "计算数值表达式" },
-  "core.End": { display_name: "结束", category: "核心", description: "终止工作流" },
-  "core.Log": { display_name: "日志", category: "核心", description: "向运行日志写入消息" },
-  "core.SetVariable": { display_name: "设置变量", category: "核心", description: "向运行作用域发布值" },
-  "core.Start": { display_name: "开始", category: "核心", description: "工作流入口点" },
-  "system.Clipboard": { display_name: "剪贴板", category: "系统", description: "读取或替换剪贴板文本" },
-  "system.Command": { display_name: "命令", category: "系统", description: "启动外部程序或 Shell 命令并捕获输出" },
-  "system.Delay": { display_name: "延时", category: "系统", description: "等待固定时长" },
-  "vision.Ocr": { display_name: "OCR", category: "视觉", description: "使用已配置后端从图像中提取文本" },
-  "vision.TemplateMatch": { display_name: "模板匹配", category: "视觉", description: "在截图帧中定位模板图像" },
-  "windows.Desktop.Capture": { display_name: "桌面截图", category: "桌面", description: "截取整个主显示器或指定区域" },
-  "windows.Input.Keyboard": { display_name: "键盘", category: "输入", description: "向当前窗口发送按键或组合键" },
-  "windows.Input.Mouse": { display_name: "鼠标", category: "输入", description: "移动鼠标并模拟按键" },
-  "windows.Input.Text": { display_name: "文本输入", category: "输入", description: "向当前窗口输入文本" },
-  "windows.Window.Capture": { display_name: "窗口截图", category: "窗口", description: "截取窗口及边框" },
-  "windows.Window.Find": { display_name: "查找窗口", category: "窗口", description: "按标题或类名查找窗口" },
-  "windows.Window.Focus": { display_name: "聚焦窗口", category: "窗口", description: "将窗口置于前台" },
+const NODE_ZH: Record<string, { display_name: string; description: string }> = {
+  "core.Calculate": { display_name: "计算", description: "计算数值表达式" },
+  "core.End": { display_name: "结束", description: "终止工作流" },
+  "core.Log": { display_name: "日志", description: "向运行日志写入消息" },
+  "core.SetVariable": { display_name: "设置变量", description: "向运行作用域发布值" },
+  "core.Start": { display_name: "开始", description: "工作流入口点" },
+  "system.Clipboard": { display_name: "剪贴板", description: "读取或替换剪贴板文本" },
+  "system.Command": { display_name: "命令", description: "启动外部程序或 Shell 命令并捕获输出" },
+  "system.Delay": { display_name: "延时", description: "等待固定时长" },
+  "vision.Ocr": { display_name: "OCR", description: "使用已配置后端从图像中提取文本" },
+  "vision.TemplateMatch": { display_name: "模板匹配", description: "在截图帧中定位模板图像" },
+  "windows.Desktop.Capture": { display_name: "桌面截图", description: "截取整个主显示器或指定区域" },
+  "windows.Input.Keyboard": { display_name: "键盘", description: "向当前窗口发送按键或组合键" },
+  "windows.Input.Mouse": { display_name: "鼠标", description: "移动鼠标并模拟按键" },
+  "windows.Input.Text": { display_name: "文本输入", description: "向当前窗口输入文本" },
+  "windows.Window.Capture": { display_name: "窗口截图", description: "截取窗口及边框" },
+  "windows.Window.Find": { display_name: "查找窗口", description: "按标题或类名查找窗口" },
+  "windows.Window.Focus": { display_name: "聚焦窗口", description: "将窗口置于前台" },
 };
 
 const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
@@ -606,6 +608,16 @@ const PORT_ZH: Record<string, string> = {
   "Exit code": "退出码",
   Success: "成功",
   "Process id": "进程 ID",
+};
+
+const NODE_CATEGORY_ZH: Record<string, string> = {
+  Core: "核心",
+  System: "系统",
+  Input: "输入",
+  Window: "窗口",
+  Desktop: "桌面",
+  Vision: "视觉",
+  Test: "测试",
 };
 
 const STATUS_ZH: Record<string, string> = {
@@ -725,7 +737,6 @@ export function localizeDescriptor(descriptor: NodeDescriptor): NodeDescriptor {
   return {
     ...descriptor,
     display_name: translation?.display_name ?? descriptor.display_name,
-    category: translation?.category ?? descriptor.category,
     description: translation?.description ?? descriptor.description,
     inputs: descriptor.inputs.map((port) => ({
       ...port,
@@ -737,6 +748,11 @@ export function localizeDescriptor(descriptor: NodeDescriptor): NodeDescriptor {
     })),
     config_schema: localizeSchema(descriptor.config_schema),
   };
+}
+
+/** Translate a stable runtime category key without changing the underlying data. */
+export function localizeCategory(category: string): string {
+  return activeLocale === "zh-CN" ? (NODE_CATEGORY_ZH[category] ?? category) : category;
 }
 
 export function localizeDiagnostic(diagnostic: Diagnostic): Diagnostic {

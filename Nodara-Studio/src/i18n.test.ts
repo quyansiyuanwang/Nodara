@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { localizeDescriptor, setLocale, t } from "./i18n";
+import { localizeCategory, localizeDescriptor, setLocale, t } from "./i18n";
 import { NodeDescriptor } from "./runtime/types";
 
 function descriptor(): NodeDescriptor {
@@ -42,7 +42,8 @@ describe("Studio i18n", () => {
     setLocale("zh-CN");
     const localized = localizeDescriptor(descriptor());
     expect(localized.display_name).toBe("键盘");
-    expect(localized.category).toBe("输入");
+    expect(localized.category).toBe("Input");
+    expect(localizeCategory(localized.category)).toBe("输入");
     expect(localized.config_schema.properties?.keys.title).toBe("按键/组合键");
     setLocale("en");
   });
