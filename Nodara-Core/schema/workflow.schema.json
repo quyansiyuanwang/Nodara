@@ -1003,6 +1003,12 @@
           "title": "Action",
           "type": "string"
         },
+        "background": {
+          "default": false,
+          "description": "Send input messages to a matching window without changing focus. Requires a title, class or process selector and cannot be combined with focus.",
+          "title": "Background input",
+          "type": "boolean"
+        },
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [
@@ -1199,6 +1205,22 @@
       "additionalProperties": false,
       "description": "Types literal text into the focused window",
       "properties": {
+        "background": {
+          "default": false,
+          "description": "Send input messages to a matching window without changing focus. Requires a title, class or process selector and cannot be combined with focus.",
+          "title": "Background input",
+          "type": "boolean"
+        },
+        "background_method": {
+          "default": "wm_char",
+          "description": "How background text is delivered. `wm_char` posts one character message at a time; `set_text` replaces the window text directly.",
+          "enum": [
+            "wm_char",
+            "set_text"
+          ],
+          "title": "Background method",
+          "type": "string"
+        },
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [

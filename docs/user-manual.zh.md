@@ -280,11 +280,16 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 - 键盘 `action=type` 会按下并释放；可设置 `hold_ms` 控制按住时长；`press`/`release`
   可显式保持和释放组合键；
+- 键盘和文本节点可开启 `background`，通过 `WM_KEY*`/`WM_CHAR` 向指定窗口发送输入而不改变当前焦点；
+  文本节点还可选择 `set_text` 直接替换窗口文本；
 - 鼠标可选 `left/right/middle` 按钮；
 - 鼠标 `relative=true` 时，X/Y 是相对当前光标的位置；
 - 鼠标 `drag` 支持可选起点 `start_x/start_y`、终点 `x/y` 和
   `duration_ms` 平滑移动时间；
 - 双击间隔可通过 `double_click_interval_ms` 调整。
+
+`background` 必须配合标题、窗口类或进程名选择器，不能与 `focus` 同时开启；后台模式不适合所有应用，
+部分控件会忽略消息输入。鼠标后台消息暂未开放。
 
 截图节点会发布 artifact 元数据（`id`、`name`、`content_type`、`size`）。图片字节会从插件进程传回 runtime，并保留在该次运行中。在 Studio 的 **Events** 页找到 Capture 节点的 `node_finished` 事件，可直接看到图片预览和“打开”链接。
 

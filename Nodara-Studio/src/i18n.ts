@@ -580,6 +580,8 @@ const SCHEMA_ZH: Record<string, { title: string; description?: string }> = {
   "Foreground window": { title: "使用前台窗口", description: "直接使用当前前台窗口，优先于标题和类名条件。" },
   "Window title": { title: "窗口标题", description: "要匹配的窗口标题；默认使用包含匹配。" },
   "Focus target window": { title: "聚焦目标窗口", description: "发送输入前查找并聚焦目标窗口；关闭时向当前前台窗口发送输入。" },
+  "Background input": { title: "后台输入", description: "向匹配窗口发送输入消息而不改变焦点；不能与“聚焦目标窗口”同时启用。" },
+  "Background method": { title: "后台输入方式", description: "`wm_char` 逐字符发送消息；`set_text` 直接替换窗口文本。" },
   "Program or command": { title: "程序或命令", description: "要启动的可执行文件。开启 Shell 后可执行命令或 Windows 内置命令。" },
   "Arguments": { title: "参数", description: "传给程序的参数列表。" },
   "Working directory": { title: "工作目录", description: "启动进程时使用的工作目录；留空时使用插件目录。" },

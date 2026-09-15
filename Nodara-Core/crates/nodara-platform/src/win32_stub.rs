@@ -67,6 +67,21 @@ pub fn cursor_position() -> PlatformResult<(i32, i32)> {
 }
 
 /// Unsupported on this host.
+pub fn post_key(_window: WindowId, _virtual_key: u8, _down: bool) -> PlatformResult<()> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
+pub fn post_text(_window: WindowId, _code_unit: u16) -> PlatformResult<()> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
+pub fn set_window_text(_window: WindowId, _text: &str) -> PlatformResult<()> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
 pub fn mouse_button(_button: MouseButton, _down: bool) -> PlatformResult<()> {
     Err(unsupported())
 }

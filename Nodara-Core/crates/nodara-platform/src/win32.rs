@@ -19,13 +19,15 @@ use windows_sys::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    keybd_event, mouse_event, KEYEVENTF_KEYUP, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
-    MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+    keybd_event, mouse_event, MapVirtualKeyW, KEYEVENTF_KEYUP, MAPVK_VK_TO_VSC,
+    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
+    MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
-    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, SetCursorPos,
-    SetForegroundWindow, SM_CXSCREEN, SM_CYSCREEN,
+    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, PostMessageW,
+    SetCursorPos, SetForegroundWindow, SetWindowTextW, SM_CXSCREEN, SM_CYSCREEN, WM_CHAR,
+    WM_KEYDOWN, WM_KEYUP,
 };
 
 use crate::error::{PlatformError, PlatformResult};
@@ -117,6 +119,50 @@ pub fn cursor_position() -> PlatformResult<(i32, i32)> {
         } else {
             Ok((point.x, point.y))
         }
+    }
+}
+
+/// Post a key transition to a specific window without changing focus.
+pub fn post_key(window: WindowId, virtual_key: u8, down: bool) -> PlatformResult<()> {
+    // SAFETY: both calls accept plain integer arguments. `PostMessageW` only
+    // queues a message to a system-owned window handle.
+    unsafe {
+        let scan = MapVirtualKeyW(u32::from(virtual_key), MAPVK_VK_TO_VSC);
+        let mut lparam = 1isize | ((scan as isize) << 16);
+        if !down {
+            lparam |= 1isize << 30;
+            lparam |= 1isize << 31;
+        }
+        let message = if down { WM_KEYDOWN } else { WM_KEYUP };
+        if PostMessageW(window, message, usize::from(virtual_key), lparam) == 0 {
+            Err(last_error("PostMessageW(WM_KEY)"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+/// Post one UTF-16 code unit as `WM_CHAR` to a specific window.
+pub fn post_text(window: WindowId, code_unit: u16) -> PlatformResult<()> {
+    // SAFETY: `PostMessageW` only queues a message to a system-owned handle.
+    let ok = unsafe { PostMessageW(window, WM_CHAR, usize::from(code_unit), 0) };
+    if ok == 0 {
+        Err(last_error("PostMessageW(WM_CHAR)"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Replace a window's text directly. Intended as a fallback for controls that
+/// do not process posted `WM_CHAR` messages.
+pub fn set_window_text(window: WindowId, text: &str) -> PlatformResult<()> {
+    let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+    // SAFETY: the buffer is null-terminated and remains alive for the call.
+    let ok = unsafe { SetWindowTextW(window, wide.as_ptr()) };
+    if ok == 0 {
+        Err(last_error("SetWindowTextW"))
+    } else {
+        Ok(())
     }
 }
 

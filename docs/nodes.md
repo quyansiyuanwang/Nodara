@@ -237,6 +237,7 @@ Sends a key or key chord.
 | `action` | string | no | `type` | `type` taps and releases, `press` holds the chord down, and `release` releases it. |
 | `hold_ms` | integer | no | `0` | For `type`, delay between key-down and key-up. Minimum `0`. |
 | `focus` | boolean | no | `false` | Find and focus a target window before sending the key. |
+| `background` | boolean | no | `false` | Send key messages without changing focus; requires a window selector and cannot be combined with `focus`. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
 | `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |
@@ -260,6 +261,8 @@ Types literal text into the focused window.
 | `text` | string | **yes** | — | Literal text to type. |
 | `interval_ms` | integer | no | `10` | Delay between keystrokes; `0` types as fast as the window accepts input. Minimum `0`. |
 | `focus` | boolean | no | `false` | Find and focus a target window before typing. |
+| `background` | boolean | no | `false` | Send text to the target window without changing focus; requires a selector and cannot be combined with `focus`. |
+| `background_method` | string | no | `wm_char` | `wm_char` posts character messages; `set_text` replaces the window text directly. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
 | `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |

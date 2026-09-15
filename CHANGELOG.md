@@ -133,6 +133,10 @@ All notable changes to this project are documented here. The format follows
   optional hold duration. Mouse input now supports explicit left/right/middle
   buttons, relative coordinates, configurable click/double-click timing and
   smooth `drag` with optional start coordinates and destination duration.
+- Keyboard and text nodes can now target a window in the background without
+  changing focus. Keyboard input posts `WM_KEYDOWN`/`WM_KEYUP`; text uses
+  `WM_CHAR` by default and offers a direct `WM_SETTEXT` fallback for controls
+  that ignore posted character messages.
 
 ### Changed
 

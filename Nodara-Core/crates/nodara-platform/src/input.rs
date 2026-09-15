@@ -13,7 +13,7 @@ fn port(name: &str, display: &str, kind: PortKind, value_type: ValueType) -> Por
     PortDescriptor::new(name, display, kind, value_type)
 }
 
-fn input_window_properties() -> serde_json::Value {
+fn input_window_properties(allow_background: bool) -> serde_json::Value {
     let mut properties = serde_json::json!({
         "focus": {
             "type": "boolean",
@@ -22,6 +22,19 @@ fn input_window_properties() -> serde_json::Value {
             "default": false
         }
     });
+    if allow_background {
+        if let Some(base) = properties.as_object_mut() {
+            base.insert(
+                "background".to_string(),
+                serde_json::json!({
+                    "type": "boolean",
+                    "title": "Background input",
+                    "description": "Send input messages to a matching window without changing focus. Requires a title, class or process selector and cannot be combined with focus.",
+                    "default": false
+                }),
+            );
+        }
+    }
     if let (Some(base), Some(shared)) = (
         properties.as_object_mut(),
         window::window_match_properties().as_object(),
@@ -33,10 +46,14 @@ fn input_window_properties() -> serde_json::Value {
     properties
 }
 
-fn config_schema(mut properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
+fn config_schema(
+    mut properties: serde_json::Value,
+    required: &[&str],
+    allow_background: bool,
+) -> serde_json::Value {
     if let (Some(base), Some(extra)) = (
         properties.as_object_mut(),
-        input_window_properties().as_object(),
+        input_window_properties(allow_background).as_object(),
     ) {
         for (key, value) in extra {
             base.insert(key.clone(), value.clone());
@@ -50,9 +67,22 @@ fn config_schema(mut properties: serde_json::Value, required: &[&str]) -> serde_
     })
 }
 
-fn focus_target(input: &NodeInput) -> NodeResult<()> {
-    if !input.config_bool("focus").unwrap_or(false) {
-        return Ok(());
+#[derive(Debug)]
+struct InputTarget {
+    window: native::WindowId,
+    background: bool,
+}
+
+fn input_target(input: &NodeInput) -> NodeResult<Option<InputTarget>> {
+    let background = input.config_bool("background").unwrap_or(false);
+    let focus = input.config_bool("focus").unwrap_or(false);
+    if background && focus {
+        return Err(NodeError::InvalidConfig(
+            "`background` and `focus` cannot both be enabled".to_string(),
+        ));
+    }
+    if !background && !focus {
+        return Ok(None);
     }
     let selector = WindowSelector {
         title: input.config_str("title").map(str::to_string),
@@ -64,13 +94,18 @@ fn focus_target(input: &NodeInput) -> NodeResult<()> {
     };
     if selector.title.is_none() && selector.class.is_none() && selector.process.is_none() {
         return Err(NodeError::InvalidConfig(
-            "`focus` requires a target window `title`, `class` or `process`".to_string(),
+            "targeted input requires a window `title`, `class` or `process`".to_string(),
         ));
     }
     let record =
         window::find(&selector).map_err(|error| NodeError::Execution(error.to_string()))?;
-    native::focus(record.id).map_err(|error| NodeError::Execution(error.to_string()))?;
-    Ok(())
+    if focus {
+        native::focus(record.id).map_err(|error| NodeError::Execution(error.to_string()))?;
+    }
+    Ok(Some(InputTarget {
+        window: record.id,
+        background,
+    }))
 }
 
 fn dangerous_descriptor(descriptor: NodeDescriptor, permission: &str) -> NodeDescriptor {
@@ -100,6 +135,89 @@ fn tap(context: &ExecutionContext, key: KeyStroke, hold_ms: u64) -> NodeResult<(
     let wait = wait_interruptible(context, hold_ms);
     key_up(key);
     wait
+}
+
+fn post_key(window: native::WindowId, virtual_key: u8, down: bool) -> NodeResult<()> {
+    native::post_key(window, virtual_key, down)
+        .map_err(|error| NodeError::Execution(error.to_string()))
+}
+
+fn background_keyboard_action(
+    context: &ExecutionContext,
+    target: &InputTarget,
+    modifiers: &[u8],
+    stroke: KeyStroke,
+    action: &str,
+    hold_ms: u64,
+) -> NodeResult<()> {
+    let mut failure = None;
+    match action {
+        "type" => {
+            for modifier in modifiers {
+                if let Err(error) = post_key(target.window, *modifier, false) {
+                    failure = Some(error);
+                    break;
+                }
+            }
+            if failure.is_none() && stroke.shift {
+                failure = post_key(target.window, keys::vk::SHIFT, false).err();
+            }
+            if failure.is_none() {
+                failure = post_key(target.window, stroke.virtual_key, false).err();
+            }
+            if failure.is_none() {
+                failure = wait_interruptible(context, hold_ms).err();
+            }
+            let _ = post_key(target.window, stroke.virtual_key, true);
+            if stroke.shift {
+                let _ = post_key(target.window, keys::vk::SHIFT, true);
+            }
+            for modifier in modifiers.iter().rev() {
+                let _ = post_key(target.window, *modifier, true);
+            }
+        }
+        "press" => {
+            for modifier in modifiers {
+                if let Err(error) = post_key(target.window, *modifier, false) {
+                    failure = Some(error);
+                    break;
+                }
+            }
+            if failure.is_none() && stroke.shift {
+                failure = post_key(target.window, keys::vk::SHIFT, false).err();
+            }
+            if failure.is_none() {
+                failure = post_key(target.window, stroke.virtual_key, false).err();
+            }
+            if failure.is_some() {
+                let _ = post_key(target.window, stroke.virtual_key, true);
+                if stroke.shift {
+                    let _ = post_key(target.window, keys::vk::SHIFT, true);
+                }
+                for modifier in modifiers.iter().rev() {
+                    let _ = post_key(target.window, *modifier, true);
+                }
+            }
+        }
+        "release" => {
+            let _ = post_key(target.window, stroke.virtual_key, true);
+            if stroke.shift {
+                let _ = post_key(target.window, keys::vk::SHIFT, true);
+            }
+            for modifier in modifiers.iter().rev() {
+                let _ = post_key(target.window, *modifier, true);
+            }
+        }
+        other => {
+            return Err(NodeError::InvalidConfig(format!(
+                "unknown keyboard action `{other}`"
+            )))
+        }
+    }
+    match failure {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
 }
 
 fn parse_mouse_button(value: &str) -> NodeResult<native::MouseButton> {
@@ -217,6 +335,7 @@ impl NodeExecutor for KeyboardExecutor {
                         }
                     }),
                     &["keys"],
+                    true,
                 ),
                 allows_additional_config: false,
                 ..NodeDescriptor::new("windows.Input.Keyboard", "Keyboard", "Input")
@@ -231,36 +350,40 @@ impl NodeExecutor for KeyboardExecutor {
         let action = input.config_str("action").unwrap_or("type");
         let hold_ms = input.config_i64("hold_ms").unwrap_or(0).max(0) as u64;
         context.check_cancelled()?;
-        focus_target(&input)?;
+        let target = input_target(&input)?;
         let (modifiers, stroke) = keys::parse_chord(&chord)
             .ok_or_else(|| NodeError::InvalidConfig(format!("unknown key chord `{chord}`")))?;
-        match action {
-            "type" => {
-                for modifier in &modifiers {
-                    native::key(*modifier, false);
+        if let Some(target) = target.filter(|target| target.background) {
+            background_keyboard_action(context, &target, &modifiers, stroke, action, hold_ms)?;
+        } else {
+            match action {
+                "type" => {
+                    for modifier in &modifiers {
+                        native::key(*modifier, false);
+                    }
+                    let tap_result = tap(context, stroke, hold_ms);
+                    for modifier in modifiers.iter().rev() {
+                        native::key(*modifier, true);
+                    }
+                    tap_result?;
                 }
-                let tap_result = tap(context, stroke, hold_ms);
-                for modifier in modifiers.iter().rev() {
-                    native::key(*modifier, true);
+                "press" => {
+                    for modifier in &modifiers {
+                        native::key(*modifier, false);
+                    }
+                    key_down(stroke);
                 }
-                tap_result?;
-            }
-            "press" => {
-                for modifier in &modifiers {
-                    native::key(*modifier, false);
+                "release" => {
+                    key_up(stroke);
+                    for modifier in modifiers.iter().rev() {
+                        native::key(*modifier, true);
+                    }
                 }
-                key_down(stroke);
-            }
-            "release" => {
-                key_up(stroke);
-                for modifier in modifiers.iter().rev() {
-                    native::key(*modifier, true);
+                other => {
+                    return Err(NodeError::InvalidConfig(format!(
+                        "unknown keyboard action `{other}`"
+                    )))
                 }
-            }
-            other => {
-                return Err(NodeError::InvalidConfig(format!(
-                    "unknown keyboard action `{other}`"
-                )))
             }
         }
         context.log(
@@ -295,9 +418,17 @@ impl NodeExecutor for TextExecutor {
                             "default": 10,
                             "description": "Delay between keystrokes. `0` types as fast as \
                                             the window accepts input."
+                        },
+                        "background_method": {
+                            "type": "string",
+                            "title": "Background method",
+                            "description": "How background text is delivered. `wm_char` posts one character message at a time; `set_text` replaces the window text directly.",
+                            "enum": ["wm_char", "set_text"],
+                            "default": "wm_char"
                         }
                     }),
                     &["text"],
+                    true,
                 ),
                 allows_additional_config: false,
                 ..NodeDescriptor::new("windows.Input.Text", "Text", "Input")
@@ -310,15 +441,36 @@ impl NodeExecutor for TextExecutor {
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
         let text = input.require_str("text")?;
         let interval = input.config_i64("interval_ms").unwrap_or(10).max(0) as u64;
-        focus_target(&input)?;
-        for character in text.chars() {
-            context.check_cancelled()?;
-            let stroke = keys::resolve_char(character).ok_or_else(|| {
-                NodeError::Unsupported(format!("character `{character}` cannot be typed"))
-            })?;
-            tap(context, stroke, 0)?;
-            if interval > 0 {
-                std::thread::sleep(Duration::from_millis(interval));
+        let target = input_target(&input)?;
+        if let Some(target) = target.filter(|target| target.background) {
+            match input.config_str("background_method").unwrap_or("wm_char") {
+                "wm_char" => {
+                    for character in text.chars() {
+                        context.check_cancelled()?;
+                        let mut units = [0u16; 2];
+                        for unit in character.encode_utf16(&mut units) {
+                            native::post_text(target.window, *unit)
+                                .map_err(|error| NodeError::Execution(error.to_string()))?;
+                        }
+                        wait_interruptible(context, interval)?;
+                    }
+                }
+                "set_text" => native::set_window_text(target.window, &text)
+                    .map_err(|error| NodeError::Execution(error.to_string()))?,
+                other => {
+                    return Err(NodeError::InvalidConfig(format!(
+                        "unknown background text method `{other}`"
+                    )))
+                }
+            }
+        } else {
+            for character in text.chars() {
+                context.check_cancelled()?;
+                let stroke = keys::resolve_char(character).ok_or_else(|| {
+                    NodeError::Unsupported(format!("character `{character}` cannot be typed"))
+                })?;
+                tap(context, stroke, 0)?;
+                wait_interruptible(context, interval)?;
             }
         }
         Ok(NodeOutput::new().with_output("out", serde_json::json!(text)))
@@ -393,6 +545,7 @@ impl NodeExecutor for MouseExecutor {
                         }
                     }),
                     &["action"],
+                    false,
                 ),
                 allows_additional_config: false,
                 ..NodeDescriptor::new("windows.Input.Mouse", "Mouse", "Input")
@@ -411,7 +564,13 @@ impl NodeExecutor for MouseExecutor {
             .unwrap_or(100)
             .max(0) as u64;
         context.check_cancelled()?;
-        focus_target(&input)?;
+        let target = input_target(&input)?;
+        if target.as_ref().is_some_and(|target| target.background) {
+            return Err(NodeError::Unsupported(
+                "background mouse input is not implemented; disable `background` for this node"
+                    .to_string(),
+            ));
+        }
 
         let requested_button = input
             .config_str("button")
@@ -552,13 +711,28 @@ mod tests {
 
     #[test]
     fn focus_is_optional() {
-        focus_target(&input(serde_json::json!({ "keys": "enter" }))).unwrap();
+        input_target(&input(serde_json::json!({ "keys": "enter" }))).unwrap();
     }
 
     #[test]
     fn focus_requires_a_selector() {
-        let error = focus_target(&input(serde_json::json!({ "focus": true })))
+        let error = input_target(&input(serde_json::json!({ "focus": true })))
             .expect_err("focus without a window selector must fail");
+        assert_eq!(error.code(), "E_INVALID_CONFIG");
+    }
+
+    #[test]
+    fn background_and_focus_are_mutually_exclusive() {
+        let error = input_target(&input(serde_json::json!({
+            "background": true,
+            "focus": true,
+            "process": "notepad.exe"
+        })))
+        .expect_err("conflicting input targeting must fail");
+        assert_eq!(error.code(), "E_INVALID_CONFIG");
+
+        let error = input_target(&input(serde_json::json!({ "background": true })))
+            .expect_err("background input requires a selector");
         assert_eq!(error.code(), "E_INVALID_CONFIG");
     }
 
