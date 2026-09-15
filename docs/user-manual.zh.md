@@ -310,6 +310,10 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 如果使用 `core.Log` 输出 artifact JSON（例如消息为 `{{screenshot}}`），对应的 `log` 事件也会识别其中的图片元数据并显示同样的内联预览。嵌套对象和数组中的 artifact 也会被递归识别。每个 `node_finished` 事件还提供可展开的完整 JSON 输出，便于检查 OCR、模板匹配和插件自定义结果。
 
+`vision.TemplateMatch` 可用 `region_x`、`region_y`、`region_width` 和 `region_height` 限制搜索范围，
+可通过 `fail_if_missing` 在未命中时直接失败，并输出 `center_x` / `center_y`。后续鼠标节点可直接使用这些值，
+例如 `"x": "{{hit.center_x}}"`、`"y": "{{hit.center_y}}"`。
+
 要直接用鼠标定位 `windows.Desktop.Capture` 的截图矩形：
 
 1. 在画布中选中 Capture 节点；

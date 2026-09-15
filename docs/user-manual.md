@@ -186,6 +186,12 @@ metadata is found recursively inside nested objects and arrays. Every
 `node_finished` event also exposes its complete outputs in a collapsed JSON
 section, which is useful for OCR, template matches and plugin-defined results.
 
+`vision.TemplateMatch` can restrict its search to `region_x`, `region_y`,
+`region_width` and `region_height`, optionally fail with `fail_if_missing`, and
+publishes `center_x` / `center_y`. A later Mouse node can use those values
+directly, for example `"x": "{{hit.center_x}}"` and
+`"y": "{{hit.center_y}}"`.
+
 To choose a `windows.Desktop.Capture` rectangle directly with the mouse:
 
 1. select the Capture node on the canvas;

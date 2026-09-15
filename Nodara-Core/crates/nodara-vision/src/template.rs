@@ -24,6 +24,10 @@ pub struct Match {
     pub width: u32,
     /// Template height.
     pub height: u32,
+    /// Horizontal centre of the match.
+    pub center_x: i32,
+    /// Vertical centre of the match.
+    pub center_y: i32,
 }
 
 fn statistics(pixels: &[u8]) -> (f32, f32) {
@@ -179,7 +183,45 @@ pub fn match_template(
         y: y as i32,
         width: needle_width,
         height: needle_height,
+        center_x: x as i32 + (needle_width / 2) as i32,
+        center_y: y as i32 + (needle_height / 2) as i32,
     })
+}
+
+fn crop_gray(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    x: i64,
+    y: i64,
+    crop_width: i64,
+    crop_height: i64,
+) -> Result<(Vec<u8>, u32, u32), VisionError> {
+    if x < 0 || y < 0 || crop_width <= 0 || crop_height <= 0 {
+        return Err(VisionError::InvalidRegion(
+            "x/y must be non-negative and width/height must be positive".to_string(),
+        ));
+    }
+    let x =
+        u32::try_from(x).map_err(|_| VisionError::InvalidRegion("x is too large".to_string()))?;
+    let y =
+        u32::try_from(y).map_err(|_| VisionError::InvalidRegion("y is too large".to_string()))?;
+    let crop_width = u32::try_from(crop_width)
+        .map_err(|_| VisionError::InvalidRegion("width is too large".to_string()))?;
+    let crop_height = u32::try_from(crop_height)
+        .map_err(|_| VisionError::InvalidRegion("height is too large".to_string()))?;
+    if x.saturating_add(crop_width) > width || y.saturating_add(crop_height) > height {
+        return Err(VisionError::InvalidRegion(format!(
+            "{crop_width}x{crop_height} at ({x}, {y}) exceeds the {width}x{height} frame"
+        )));
+    }
+
+    let mut output = Vec::with_capacity((crop_width * crop_height) as usize);
+    for row in 0..crop_height {
+        let start = ((y + row) * width + x) as usize;
+        output.extend_from_slice(&pixels[start..start + crop_width as usize]);
+    }
+    Ok((output, crop_width, crop_height))
 }
 
 /// `vision.TemplateMatch`
@@ -224,11 +266,40 @@ impl NodeExecutor for TemplateMatchExecutor {
                         "maximum": 1,
                         "default": 0.8
                     },
+                    "region_x": {
+                        "type": "integer",
+                        "title": "Search region X",
+                        "description": "Optional left edge of a region inside the frame. Supply all four region fields together.",
+                        "minimum": 0
+                    },
+                    "region_y": {
+                        "type": "integer",
+                        "title": "Search region Y",
+                        "description": "Optional top edge of a region inside the frame. Supply all four region fields together.",
+                        "minimum": 0
+                    },
+                    "region_width": {
+                        "type": "integer",
+                        "title": "Search region width",
+                        "description": "Optional width of the search region. Supply all four region fields together.",
+                        "minimum": 1
+                    },
+                    "region_height": {
+                        "type": "integer",
+                        "title": "Search region height",
+                        "description": "Optional height of the search region. Supply all four region fields together.",
+                        "minimum": 1
+                    },
+                    "fail_if_missing": {
+                        "type": "boolean",
+                        "title": "Fail when not found",
+                        "description": "Fail the node when the best score is below the threshold. When false, the result is still published with `found=false`.",
+                        "default": false
+                    },
                     "output_var": {
                         "type": "string",
                         "title": "Output variable",
-                        "description": "Variable receiving the match (`found`, `score`, `x`, \
-                                        `y`, `width`, `height`)."
+                        "description": "Variable receiving the match (`found`, `score`, `x`, `y`, `width`, `height`, `center_x`, `center_y`)."
                     }
                 },
                 "required": ["frame", "template", "output_var"],
@@ -246,23 +317,35 @@ impl NodeExecutor for TemplateMatchExecutor {
         let frame_source = input.require_str("frame")?;
         let template_source = input.require_str("template")?;
         let threshold = input.config_f64("threshold").unwrap_or(0.8) as f32;
+        let fail_if_missing = input.config_bool("fail_if_missing").unwrap_or(false);
+        let region = region_config(&input)?;
 
         let frame = load_gray(context, &frame_source)?;
+        let (frame_pixels, frame_width, frame_height, offset_x, offset_y) = match region {
+            Some((x, y, width, height)) => {
+                let (pixels, width, height) =
+                    crop_gray(&frame.0, frame.1, frame.2, x, y, width, height)
+                        .map_err(|error| NodeError::InvalidConfig(error.to_string()))?;
+                (pixels, width, height, x as i32, y as i32)
+            }
+            None => (frame.0, frame.1, frame.2, 0, 0),
+        };
         let template = load_gray(context, &template_source)?;
-        let result = match_template(
-            &frame.0,
-            frame.1,
-            frame.2,
+        let mut result = match_template(
+            &frame_pixels,
+            frame_width,
+            frame_height,
             &template.0,
             template.1,
             template.2,
             threshold,
         )
         .map_err(|error| NodeError::Execution(error.to_string()))?;
+        result.x += offset_x;
+        result.y += offset_y;
+        result.center_x += offset_x;
+        result.center_y += offset_y;
 
-        let value = serde_json::to_value(&result)
-            .map_err(|error| NodeError::Execution(error.to_string()))?;
-        context.set_variable(output_var, value.clone());
         context.log(
             nodara_schema::LogLevel::Info,
             format!(
@@ -270,7 +353,34 @@ impl NodeExecutor for TemplateMatchExecutor {
                 result.score, result.x, result.y
             ),
         );
+        if fail_if_missing && !result.found {
+            return Err(NodeError::Execution(format!(
+                "template was not found: score {:.3} is below threshold {threshold:.3}",
+                result.score
+            )));
+        }
+
+        let value = serde_json::to_value(&result)
+            .map_err(|error| NodeError::Execution(error.to_string()))?;
+        context.set_variable(output_var, value.clone());
         Ok(NodeOutput::new().with_output("match", value))
+    }
+}
+
+fn region_config(input: &NodeInput) -> NodeResult<Option<(i64, i64, i64, i64)>> {
+    let values = (
+        input.config_i64("region_x"),
+        input.config_i64("region_y"),
+        input.config_i64("region_width"),
+        input.config_i64("region_height"),
+    );
+    match values {
+        (None, None, None, None) => Ok(None),
+        (Some(x), Some(y), Some(width), Some(height)) => Ok(Some((x, y, width, height))),
+        _ => Err(NodeError::InvalidConfig(
+            "`region_x`, `region_y`, `region_width` and `region_height` must be supplied together"
+                .to_string(),
+        )),
     }
 }
 
@@ -321,11 +431,24 @@ mod tests {
         let result = match_template(&frame, fw, fh, &needle, nw, nh, 0.8).unwrap();
         assert!(result.found);
         assert_eq!((result.x, result.y), (12, 7));
+        assert_eq!((result.center_x, result.center_y), (14, 8));
         assert!(
             (result.score - 1.0).abs() < 1e-3,
             "score was {}",
             result.score
         );
+    }
+
+    #[test]
+    fn crops_a_search_region_and_keeps_local_coordinates() {
+        let (frame, fw, fh) = frame();
+        let (cropped, width, height) = crop_gray(&frame, fw, fh, 10, 5, 20, 15).unwrap();
+        let (needle, nw, nh) = needle();
+        let result = match_template(&cropped, width, height, &needle, nw, nh, 0.8).unwrap();
+        assert_eq!((width, height), (20, 15));
+        assert_eq!((result.x, result.y), (2, 2));
+        assert_eq!((result.center_x, result.center_y), (4, 3));
+        assert!(crop_gray(&frame, fw, fh, 35, 5, 10, 10).is_err());
     }
 
     #[test]

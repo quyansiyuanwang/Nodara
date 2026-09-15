@@ -21,6 +21,10 @@ pub enum VisionError {
     #[error("image source not found: {0}")]
     NotFound(String),
 
+    /// The requested search region is outside the frame.
+    #[error("invalid search region: {0}")]
+    InvalidRegion(String),
+
     /// The template is larger than the frame it is being searched in.
     #[error("template ({tw}x{th}) is larger than the frame ({fw}x{fh})")]
     TemplateTooLarge {

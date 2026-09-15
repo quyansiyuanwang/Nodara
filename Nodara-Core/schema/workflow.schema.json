@@ -958,15 +958,45 @@
       "additionalProperties": false,
       "description": "Locates a template image inside a captured frame",
       "properties": {
+        "fail_if_missing": {
+          "default": false,
+          "description": "Fail the node when the best score is below the threshold. When false, the result is still published with `found=false`.",
+          "title": "Fail when not found",
+          "type": "boolean"
+        },
         "frame": {
           "description": "Artefact id produced by a capture node, or a path to an image file to search.",
           "title": "Frame",
           "type": "string"
         },
         "output_var": {
-          "description": "Variable receiving the match (`found`, `score`, `x`, `y`, `width`, `height`).",
+          "description": "Variable receiving the match (`found`, `score`, `x`, `y`, `width`, `height`, `center_x`, `center_y`).",
           "title": "Output variable",
           "type": "string"
+        },
+        "region_height": {
+          "description": "Optional height of the search region. Supply all four region fields together.",
+          "minimum": 1,
+          "title": "Search region height",
+          "type": "integer"
+        },
+        "region_width": {
+          "description": "Optional width of the search region. Supply all four region fields together.",
+          "minimum": 1,
+          "title": "Search region width",
+          "type": "integer"
+        },
+        "region_x": {
+          "description": "Optional left edge of a region inside the frame. Supply all four region fields together.",
+          "minimum": 0,
+          "title": "Search region X",
+          "type": "integer"
+        },
+        "region_y": {
+          "description": "Optional top edge of a region inside the frame. Supply all four region fields together.",
+          "minimum": 0,
+          "title": "Search region Y",
+          "type": "integer"
         },
         "template": {
           "description": "Artefact id or image path of the template to find.",

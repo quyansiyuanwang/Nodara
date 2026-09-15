@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `vision.TemplateMatch` supports a bounded search region, `fail_if_missing`, and publishes `center_x` / `center_y` in addition to the matched rectangle. The centre values can feed directly into later mouse or click nodes through typed templates.
 - Node configuration templates now preserve JSON types according to the target
   schema: an exact value such as `{{match.x}}` remains an integer/number/boolean,
   while mixed strings such as `"x={{match.x}}"` still render as text. Dynamic

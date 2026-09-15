@@ -440,12 +440,18 @@ cross-correlation (ZNCC), and publishes the match.
 | `frame` | string | **yes** | — | Artefact id from a capture node, or a path to an image file to search. |
 | `template` | string | **yes** | — | Artefact id or image path of the template to find. |
 | `threshold` | number | no | `0.8` | Minimum ZNCC score for a match; between `-1` and `1`. |
-| `output_var` | string | **yes** | — | Variable receiving `found`, `score`, `x`, `y`, `width`, `height`. |
+| `region_x` | integer | no | — | Left edge of an optional search region inside the frame; must be supplied with the other region fields. |
+| `region_y` | integer | no | — | Top edge of the search region. |
+| `region_width` | integer | no | — | Width of the search region. |
+| `region_height` | integer | no | — | Height of the search region. |
+| `fail_if_missing` | boolean | no | `false` | Fail the node when the best score is below the threshold instead of publishing `found=false`. |
+| `output_var` | string | **yes** | — | Variable receiving `found`, `score`, `x`, `y`, `width`, `height`, `center_x`, `center_y`. |
 
 ```json
 { "id": "find_button", "type": "vision.TemplateMatch",
   "config": { "frame": "shot", "template": "C:/images/ok.png",
-              "threshold": 0.85, "output_var": "hit" } }
+              "region_x": 100, "region_y": 80, "region_width": 640, "region_height": 480,
+              "threshold": 0.85, "fail_if_missing": true, "output_var": "hit" } }
 ```
 
 ### `vision.Ocr` — OCR

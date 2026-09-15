@@ -417,12 +417,18 @@
 | `frame` | string | **是** | — | 捕获节点产生的 artefact id，或要搜索的图片路径。 |
 | `template` | string | **是** | — | 要查找的模板 artefact id 或图片路径。 |
 | `threshold` | number | 否 | `0.8` | 判定匹配的最小 ZNCC 分数，取值 `-1` 到 `1`。 |
-| `output_var` | string | **是** | — | 接收 `found`、`score`、`x`、`y`、`width`、`height` 的变量。 |
+| `region_x` | integer | 否 | — | 可选搜索区域的左边界；必须与其他区域字段一起提供。 |
+| `region_y` | integer | 否 | — | 搜索区域的上边界。 |
+| `region_width` | integer | 否 | — | 搜索区域宽度。 |
+| `region_height` | integer | 否 | — | 搜索区域高度。 |
+| `fail_if_missing` | boolean | 否 | `false` | 最佳分数低于阈值时直接失败，而不是发布 `found=false`。 |
+| `output_var` | string | **是** | — | 接收 `found`、`score`、`x`、`y`、`width`、`height`、`center_x`、`center_y` 的变量。 |
 
 ```json
 { "id": "find_button", "type": "vision.TemplateMatch",
   "config": { "frame": "shot", "template": "C:/images/ok.png",
-              "threshold": 0.85, "output_var": "hit" } }
+              "region_x": 100, "region_y": 80, "region_width": 640, "region_height": 480,
+              "threshold": 0.85, "fail_if_missing": true, "output_var": "hit" } }
 ```
 
 ### `vision.Ocr` — OCR
