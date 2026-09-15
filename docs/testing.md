@@ -94,8 +94,9 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 13. Selecting `windows.Desktop.Capture` and choosing **Select screen region** hides and restores Studio; the captured image does not contain the picker dialog, and applying a drag writes matching X/Y/width/height values.
 14. A `core.Log` message containing artifact JSON, such as `{{screenshot}}`, also renders the image inline.
 15. `examples/system-command.json` runs successfully; the Command node's `out` contains stdout and the following Log interpolates it. Verify non-zero exit and cancellation/timeout behavior against the documented outputs.
-16. The Audit tab shows capability and node records.
-17. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+16. With Notepad open, `examples/window-find.json` finds it using both the `Notepad` title and `notepad.exe` process filters; the output contains the resolved process name and `visible=true`.
+17. The Audit tab shows capability and node records.
+18. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

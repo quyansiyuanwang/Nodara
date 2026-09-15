@@ -14,32 +14,23 @@ fn port(name: &str, display: &str, kind: PortKind, value_type: ValueType) -> Por
 }
 
 fn input_window_properties() -> serde_json::Value {
-    serde_json::json!({
+    let mut properties = serde_json::json!({
         "focus": {
             "type": "boolean",
             "title": "Focus target window",
             "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
             "default": false
-        },
-        "title": {
-            "type": "string",
-            "title": "Window title",
-            "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
-            "examples": ["Notepad", "Settings"]
-        },
-        "class": {
-            "type": "string",
-            "title": "Window class",
-            "description": "Target Win32 window class used when `focus` is true.",
-            "examples": ["Notepad"]
-        },
-        "exact": {
-            "type": "boolean",
-            "title": "Exact match",
-            "description": "Require the target title and class to match exactly.",
-            "default": false
         }
-    })
+    });
+    if let (Some(base), Some(shared)) = (
+        properties.as_object_mut(),
+        window::window_match_properties().as_object(),
+    ) {
+        for (key, value) in shared {
+            base.insert(key.clone(), value.clone());
+        }
+    }
+    properties
 }
 
 fn config_schema(mut properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
@@ -66,12 +57,14 @@ fn focus_target(input: &NodeInput) -> NodeResult<()> {
     let selector = WindowSelector {
         title: input.config_str("title").map(str::to_string),
         class: input.config_str("class").map(str::to_string),
+        process: input.config_str("process").map(str::to_string),
         exact: input.config_bool("exact").unwrap_or(false),
+        visible_only: input.config_bool("visible_only").unwrap_or(true),
         foreground: false,
     };
-    if selector.title.is_none() && selector.class.is_none() {
+    if selector.title.is_none() && selector.class.is_none() && selector.process.is_none() {
         return Err(NodeError::InvalidConfig(
-            "`focus` requires a target window `title` or `class`".to_string(),
+            "`focus` requires a target window `title`, `class` or `process`".to_string(),
         ));
     }
     let record =

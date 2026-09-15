@@ -19,11 +19,8 @@ fn config_schema(properties: serde_json::Value, required: &[&str]) -> serde_json
     })
 }
 
-/// Configuration properties shared by every node that selects a window.
-///
-/// Keeping them in one place means the published schema documents `title`,
-/// `class`, `exact` and `foreground` identically for find, focus and capture.
-fn selector_properties() -> serde_json::Value {
+/// Matching properties shared by window nodes and input targeting.
+pub(crate) fn window_match_properties() -> serde_json::Value {
     serde_json::json!({
         "title": {
             "type": "string",
@@ -37,21 +34,46 @@ fn selector_properties() -> serde_json::Value {
             "description": "Win32 window class name to match, e.g. `Notepad`.",
             "examples": ["Notepad"]
         },
+        "process": {
+            "type": "string",
+            "title": "Process name",
+            "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+            "examples": ["notepad.exe", "chrome.exe"]
+        },
         "exact": {
             "type": "boolean",
             "title": "Exact match",
-            "description": "Require the title and class to match exactly instead of as \
-                            substrings.",
+            "description": "Require title, class and process name to match exactly instead of as substrings.",
             "default": false
         },
-        "foreground": {
+        "visible_only": {
             "type": "boolean",
-            "title": "Foreground window",
-            "description": "Use the foreground window instead of searching. Overrides \
-                            `title` and `class`.",
-            "default": false
+            "title": "Visible windows only",
+            "description": "Ignore hidden and minimised-away windows while searching.",
+            "default": true
         }
     })
+}
+
+/// Configuration properties shared by every node that selects a window.
+fn selector_properties() -> serde_json::Value {
+    let mut properties = window_match_properties();
+    if let Some(base) = properties.as_object_mut() {
+        base.insert(
+            "foreground".to_string(),
+            serde_json::json!({
+                "type": "boolean",
+                "title": "Foreground window",
+                "description": "Use the foreground window instead of searching. Overrides title, class and process filters.",
+                "default": false
+            }),
+        );
+    }
+    properties
+}
+
+fn default_visible_only() -> bool {
+    true
 }
 
 /// A window selector schema plus any node-specific properties.
@@ -83,9 +105,15 @@ pub struct WindowSelector {
     /// Window class name.
     #[serde(default)]
     pub class: Option<String>,
+    /// Process executable name.
+    #[serde(default)]
+    pub process: Option<String>,
     /// Require an exact title match.
     #[serde(default)]
     pub exact: bool,
+    /// Ignore hidden windows while searching.
+    #[serde(default = "default_visible_only")]
+    pub visible_only: bool,
     /// Use the foreground window instead of searching.
     #[serde(default)]
     pub foreground: bool,
@@ -99,7 +127,15 @@ impl WindowSelector {
     /// happens to be active. `output_var` is a node-level key that travels in
     /// the same configuration object, so it is tolerated here.
     pub fn from_config(config: &serde_json::Value) -> Result<Self, NodeError> {
-        const SELECTOR_KEYS: &[&str] = &["title", "class", "exact", "foreground", "output_var"];
+        const SELECTOR_KEYS: &[&str] = &[
+            "title",
+            "class",
+            "process",
+            "exact",
+            "visible_only",
+            "foreground",
+            "output_var",
+        ];
         let object = config.as_object().ok_or_else(|| {
             NodeError::InvalidConfig("window selector must be an object".to_string())
         })?;
@@ -119,11 +155,23 @@ impl WindowSelector {
         if self.foreground {
             return "the foreground window".to_string();
         }
-        match (&self.title, &self.class) {
-            (Some(title), Some(class)) => format!("title `{title}` and class `{class}`"),
-            (Some(title), None) => format!("title `{title}`"),
-            (None, Some(class)) => format!("class `{class}`"),
-            (None, None) => "any visible window".to_string(),
+        let mut filters = Vec::new();
+        if let Some(title) = &self.title {
+            filters.push(format!("title `{title}`"));
+        }
+        if let Some(class) = &self.class {
+            filters.push(format!("class `{class}`"));
+        }
+        if let Some(process) = &self.process {
+            filters.push(format!("process `{process}`"));
+        }
+        if self.visible_only {
+            filters.push("visible".to_string());
+        }
+        if filters.is_empty() {
+            "any window".to_string()
+        } else {
+            filters.join(" and ")
         }
     }
 }
@@ -139,7 +187,15 @@ fn matches(record: &native::WindowRecord, selector: &WindowSelector) -> bool {
         Some(wanted) => record.class_name.contains(wanted.as_str()),
         None => true,
     };
-    title_ok && class_ok
+    let process_ok = match &selector.process {
+        Some(wanted) if selector.exact => record.process_name.eq_ignore_ascii_case(wanted),
+        Some(wanted) => record
+            .process_name
+            .to_ascii_lowercase()
+            .contains(&wanted.to_ascii_lowercase()),
+        None => true,
+    };
+    title_ok && class_ok && process_ok
 }
 
 /// Find exactly one window matching a selector.
@@ -155,7 +211,7 @@ pub fn find(selector: &WindowSelector) -> Result<native::WindowRecord, PlatformE
     }
     native::windows()
         .into_iter()
-        .filter(|record| record.visible && matches(record, selector))
+        .filter(|record| (!selector.visible_only || record.visible) && matches(record, selector))
         .max_by_key(|record| record.rect.width * record.rect.height)
         .ok_or_else(|| PlatformError::WindowNotFound {
             query: selector.describe(),
@@ -187,7 +243,7 @@ impl NodeExecutor for FindExecutor {
             ),
             allows_additional_config: false,
             ..NodeDescriptor::new("windows.Window.Find", "Find Window", "Window")
-                .with_description("Locates a window by title or class")
+                .with_description("Locates a window by title, class or process")
         }
     }
 
@@ -199,6 +255,8 @@ impl NodeExecutor for FindExecutor {
             "handle": record.id,
             "title": record.title,
             "class": record.class_name,
+            "process": record.process_name,
+            "visible": record.visible,
             "rect": {
                 "x": record.rect.x,
                 "y": record.rect.y,
@@ -299,11 +357,13 @@ mod tests {
     #[test]
     fn a_well_formed_selector_parses() {
         let selector = WindowSelector::from_config(&serde_json::json!({
-            "title": "Notepad", "exact": true
+            "title": "Notepad", "process": "notepad.exe", "exact": true
         }))
         .unwrap();
         assert_eq!(selector.title.as_deref(), Some("Notepad"));
+        assert_eq!(selector.process.as_deref(), Some("notepad.exe"));
         assert!(selector.exact);
+        assert!(selector.visible_only);
         assert!(!selector.foreground);
     }
 
@@ -318,5 +378,35 @@ mod tests {
         let error = WindowSelector::from_config(&serde_json::json!({ "exact": "yes" }))
             .expect_err("wrong types must be rejected");
         assert_eq!(error.code(), "E_INVALID_CONFIG");
+    }
+
+    #[test]
+    fn a_selector_matches_the_window_process_name() {
+        let record = native::WindowRecord {
+            id: 1,
+            title: "Untitled - Notepad".to_string(),
+            class_name: "Notepad".to_string(),
+            process_name: "notepad.exe".to_string(),
+            rect: native::Rect {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            },
+            visible: true,
+        };
+        let selector = WindowSelector::from_config(&serde_json::json!({
+            "process": "notepad",
+            "visible_only": true
+        }))
+        .unwrap();
+        assert!(matches(&record, &selector));
+
+        let excluded = WindowSelector::from_config(&serde_json::json!({
+            "process": "chrome.exe",
+            "exact": true
+        }))
+        .unwrap();
+        assert!(!matches(&record, &excluded));
     }
 }

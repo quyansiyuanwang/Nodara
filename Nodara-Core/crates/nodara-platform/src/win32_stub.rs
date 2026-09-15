@@ -30,6 +30,8 @@ pub struct WindowRecord {
     pub title: String,
     /// Window class.
     pub class_name: String,
+    /// Executable file name that owns the window.
+    pub process_name: String,
     /// Screen geometry.
     pub rect: Rect,
     /// Whether the window is visible.

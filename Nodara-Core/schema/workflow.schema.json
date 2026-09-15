@@ -516,7 +516,7 @@
               },
               "type": {
                 "const": "windows.Window.Find",
-                "description": "Locates a window by title or class"
+                "description": "Locates a window by title, class or process"
               }
             }
           }
@@ -993,7 +993,7 @@
       "description": "Sends a key or key chord to the focused window",
       "properties": {
         "class": {
-          "description": "Target Win32 window class used when `focus` is true.",
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [
             "Notepad"
           ],
@@ -1002,7 +1002,7 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the target title and class to match exactly.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
@@ -1022,14 +1022,29 @@
           "title": "Key chord",
           "type": "string"
         },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
+          "type": "string"
+        },
         "title": {
-          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "description": "Window title to match. Substring match unless `exact` is set.",
           "examples": [
             "Notepad",
             "Settings"
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1059,7 +1074,7 @@
           "type": "string"
         },
         "class": {
-          "description": "Target Win32 window class used when `focus` is true.",
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [
             "Notepad"
           ],
@@ -1068,7 +1083,7 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the target title and class to match exactly.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
@@ -1078,14 +1093,29 @@
           "title": "Focus target window",
           "type": "boolean"
         },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
+          "type": "string"
+        },
         "title": {
-          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "description": "Window title to match. Substring match unless `exact` is set.",
           "examples": [
             "Notepad",
             "Settings"
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         },
         "x": {
           "description": "Absolute screen X in pixels. Omitted for `click` and `move` keeps the current position.",
@@ -1110,7 +1140,7 @@
       "description": "Types literal text into the focused window",
       "properties": {
         "class": {
-          "description": "Target Win32 window class used when `focus` is true.",
+          "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [
             "Notepad"
           ],
@@ -1119,7 +1149,7 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the target title and class to match exactly.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
@@ -1136,19 +1166,34 @@
           "title": "Key interval (ms)",
           "type": "integer"
         },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
+          "type": "string"
+        },
         "text": {
           "description": "Literal text to type into the focused window.",
           "title": "Text",
           "type": "string"
         },
         "title": {
-          "description": "Target window title used when `focus` is true. Substring match unless `exact` is set.",
+          "description": "Window title to match. Substring match unless `exact` is set.",
           "examples": [
             "Notepad",
             "Settings"
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1172,19 +1217,28 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the title and class to match exactly instead of as substrings.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
         "foreground": {
           "default": false,
-          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "description": "Use the foreground window instead of searching. Overrides title, class and process filters.",
           "title": "Foreground window",
           "type": "boolean"
         },
         "output_var": {
           "description": "Variable receiving the captured artefact metadata.",
           "title": "Output variable",
+          "type": "string"
+        },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
           "type": "string"
         },
         "title": {
@@ -1195,6 +1249,12 @@
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1206,7 +1266,7 @@
     },
     "NodeConfig.windows.Window.Find": {
       "additionalProperties": false,
-      "description": "Locates a window by title or class",
+      "description": "Locates a window by title, class or process",
       "properties": {
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",
@@ -1218,19 +1278,28 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the title and class to match exactly instead of as substrings.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
         "foreground": {
           "default": false,
-          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "description": "Use the foreground window instead of searching. Overrides title, class and process filters.",
           "title": "Foreground window",
           "type": "boolean"
         },
         "output_var": {
           "description": "Variable receiving the window record (`handle`, `title`, `class`, `rect`).",
           "title": "Output variable",
+          "type": "string"
+        },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
           "type": "string"
         },
         "title": {
@@ -1241,6 +1310,12 @@
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1264,15 +1339,24 @@
         },
         "exact": {
           "default": false,
-          "description": "Require the title and class to match exactly instead of as substrings.",
+          "description": "Require title, class and process name to match exactly instead of as substrings.",
           "title": "Exact match",
           "type": "boolean"
         },
         "foreground": {
           "default": false,
-          "description": "Use the foreground window instead of searching. Overrides `title` and `class`.",
+          "description": "Use the foreground window instead of searching. Overrides title, class and process filters.",
           "title": "Foreground window",
           "type": "boolean"
+        },
+        "process": {
+          "description": "Executable file name that owns the window, for example `notepad.exe`. Matching is case-insensitive; substring unless `exact` is set.",
+          "examples": [
+            "notepad.exe",
+            "chrome.exe"
+          ],
+          "title": "Process name",
+          "type": "string"
         },
         "title": {
           "description": "Window title to match. Substring match unless `exact` is set.",
@@ -1282,6 +1366,12 @@
           ],
           "title": "Window title",
           "type": "string"
+        },
+        "visible_only": {
+          "default": true,
+          "description": "Ignore hidden and minimised-away windows while searching.",
+          "title": "Visible windows only",
+          "type": "boolean"
         }
       },
       "required": [],

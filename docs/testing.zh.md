@@ -191,6 +191,7 @@ $plugins.plugins | Select-Object id,version
 13. 选中 `windows.Desktop.Capture` 后点击 **拖框选择截图区域**，Studio 隐藏并恢复，截图中不含选择弹窗；拖框读数和写回节点的 X/Y/宽度/高度一致；
 14. `core.Log` 的消息为 artifact JSON（例如 `{{screenshot}}`）时，Events 页同样显示图片预览。
 15. `examples/system-command.json` 运行成功，Command 节点的 `out` 包含 stdout，后续 Log 显示命令输出；非零退出和取消超时场景按文档返回失败或可检查的 `exit_code`。
+16. 打开一个记事本窗口后运行 `examples/window-find.json`，Find 节点应通过 `Notepad` 标题和 `notepad.exe` 进程筛选找到窗口，输出包含一致的 `process` 与 `visible=true`。
 
 ### 6.4 Audit
 

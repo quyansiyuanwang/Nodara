@@ -125,6 +125,10 @@ All notable changes to this project are documented here. The format follows
   timeout or run cancellation. The capability is registered as the separate
   `process` plugin feature and requires `process.execute`. Studio expands its
   stdout, stderr, exit code and PID directly in Events.
+- Window selection now supports executable **process name** and **visible-only**
+  filters in addition to title and class. The shared selector is used by Find,
+  Focus, window capture and input targeting, and Find publishes the resolved
+  process and visibility in its output record.
 
 ### Changed
 

@@ -217,6 +217,12 @@
 | 配置项 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `keys` | string | **是** | — | 按键或组合键，修饰键与按键用 `+` 连接。示例：`ctrl+shift+s`、`win+i`、`enter` |
+| `focus` | boolean | 否 | `false` | 发送按键前查找并聚焦目标窗口。 |
+| `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
+| `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
+| `process` | string | 否 | — | `focus` 为 true 时匹配的目标进程名，例如 `notepad.exe`；不区分大小写。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 仅搜索可见窗口。 |
 
 ```json
 { "id": "open_settings", "type": "windows.Input.Keyboard",
@@ -237,7 +243,9 @@
 | `focus` | boolean | 否 | `false` | 输入文本前查找并聚焦目标窗口。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
 | `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
-| `exact` | boolean | 否 | `false` | 要求目标标题和类名精确匹配。 |
+| `process` | string | 否 | — | `focus` 为 true 时匹配的目标进程名，例如 `notepad.exe`；不区分大小写。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 仅搜索可见窗口。 |
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
@@ -259,7 +267,9 @@
 | `focus` | boolean | 否 | `false` | 执行鼠标操作前查找并聚焦目标窗口。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
 | `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
-| `exact` | boolean | 否 | `false` | 要求目标标题和类名精确匹配。 |
+| `process` | string | 否 | — | `focus` 为 true 时匹配的目标进程名，例如 `notepad.exe`；不区分大小写。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 仅搜索可见窗口。 |
 
 ```json
 { "id": "click_ok", "type": "windows.Input.Mouse",
@@ -279,9 +289,11 @@
 |---|---|---|---|---|
 | `title` | string | 否 | — | 要匹配的窗口标题；除非设置 `exact`，否则为子串匹配。示例：`Notepad`、`Settings` |
 | `class` | string | 否 | — | 要匹配的 Win32 窗口类名，如 `Notepad`。 |
-| `exact` | boolean | 否 | `false` | 要求标题与类名精确匹配。 |
-| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖 `title` 与 `class`。 |
-| `output_var` | string | **是** | — | 接收窗口记录的变量：`handle`、`title`、`class`、`rect`。 |
+| `process` | string | 否 | — | 拥有窗口的可执行文件名，例如 `notepad.exe`；不区分大小写。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 搜索时忽略隐藏窗口。 |
+| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖标题、窗口类与进程筛选。 |
+| `output_var` | string | **是** | — | 接收窗口记录的变量：`handle`、`title`、`class`、`process`、`visible`、`rect`。 |
 
 ```json
 { "id": "find", "type": "windows.Window.Find",
@@ -299,8 +311,10 @@
 |---|---|---|---|---|
 | `title` | string | 否 | — | 要匹配的窗口标题；除非设置 `exact`，否则为子串匹配。 |
 | `class` | string | 否 | — | 要匹配的 Win32 窗口类名。 |
-| `exact` | boolean | 否 | `false` | 要求标题与类名精确匹配。 |
-| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖 `title` 与 `class`。 |
+| `process` | string | 否 | — | 拥有窗口的可执行文件名。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 搜索时忽略隐藏窗口。 |
+| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖标题、窗口类与进程筛选。 |
 
 ```json
 { "id": "focus", "type": "windows.Window.Focus",
@@ -318,8 +332,10 @@
 |---|---|---|---|---|
 | `title` | string | 否 | — | 要匹配的窗口标题；除非设置 `exact`，否则为子串匹配。 |
 | `class` | string | 否 | — | 要匹配的 Win32 窗口类名。 |
-| `exact` | boolean | 否 | `false` | 要求标题与类名精确匹配。 |
-| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖 `title` 与 `class`。 |
+| `process` | string | 否 | — | 拥有窗口的可执行文件名。 |
+| `exact` | boolean | 否 | `false` | 要求标题、窗口类和进程名精确匹配。 |
+| `visible_only` | boolean | 否 | `true` | 搜索时忽略隐藏窗口。 |
+| `foreground` | boolean | 否 | `false` | 使用前台窗口，覆盖标题、窗口类与进程筛选。 |
 | `output_var` | string | **是** | — | 接收捕获 artefact 元数据的变量。 |
 
 ```json

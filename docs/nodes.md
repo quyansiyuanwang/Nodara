@@ -234,6 +234,12 @@ Sends a key or key chord.
 | Key | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `keys` | string | **yes** | — | Key or chord; modifiers and keys are joined with `+`. Examples: `ctrl+shift+s`, `win+i`, `enter` |
+| `focus` | boolean | no | `false` | Find and focus a target window before sending the key. |
+| `title` | string | no | — | Target window title when `focus` is true. |
+| `class` | string | no | — | Target Win32 window class when `focus` is true. |
+| `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Search only visible windows. |
 
 ```json
 { "id": "open_settings", "type": "windows.Input.Keyboard",
@@ -254,7 +260,9 @@ Types literal text into the focused window.
 | `focus` | boolean | no | `false` | Find and focus a target window before typing. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
-| `exact` | boolean | no | `false` | Require the target title and class to match exactly. |
+| `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Search only visible windows. |
 
 ```json
 { "id": "type_note", "type": "windows.Input.Text",
@@ -277,7 +285,9 @@ clicking where the cursor already is.
 | `focus` | boolean | no | `false` | Find and focus a target window before performing the mouse action. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
-| `exact` | boolean | no | `false` | Require the target title and class to match exactly. |
+| `process` | string | no | — | Target executable name when `focus` is true, for example `notepad.exe`; case-insensitive. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Search only visible windows. |
 
 ```json
 { "id": "click_ok", "type": "windows.Input.Mouse",
@@ -298,9 +308,11 @@ window metadata, so it carries no permission.
 |---|---|---|---|---|
 | `title` | string | no | — | Window title to match; substring match unless `exact`. Examples: `Notepad`, `Settings` |
 | `class` | string | no | — | Win32 window class name to match, e.g. `Notepad`. |
-| `exact` | boolean | no | `false` | Require title and class to match exactly. |
-| `foreground` | boolean | no | `false` | Use the foreground window; overrides `title` and `class`. |
-| `output_var` | string | **yes** | — | Variable receiving the record: `handle`, `title`, `class`, `rect`. |
+| `process` | string | no | — | Executable file name that owns the window, for example `notepad.exe`; case-insensitive. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Ignore hidden windows while searching. |
+| `foreground` | boolean | no | `false` | Use the foreground window; overrides title, class and process filters. |
+| `output_var` | string | **yes** | — | Variable receiving the record: `handle`, `title`, `class`, `process`, `visible`, `rect`. |
 
 ```json
 { "id": "find", "type": "windows.Window.Find",
@@ -318,8 +330,10 @@ Brings a matched window to the foreground.
 |---|---|---|---|---|
 | `title` | string | no | — | Window title to match; substring match unless `exact`. |
 | `class` | string | no | — | Win32 window class name to match. |
-| `exact` | boolean | no | `false` | Require title and class to match exactly. |
-| `foreground` | boolean | no | `false` | Use the foreground window; overrides `title` and `class`. |
+| `process` | string | no | — | Executable file name that owns the window. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Ignore hidden windows while searching. |
+| `foreground` | boolean | no | `false` | Use the foreground window; overrides title, class and process filters. |
 
 ```json
 { "id": "focus", "type": "windows.Window.Focus",
@@ -338,8 +352,10 @@ read by id.
 |---|---|---|---|---|
 | `title` | string | no | — | Window title to match; substring match unless `exact`. |
 | `class` | string | no | — | Win32 window class name to match. |
-| `exact` | boolean | no | `false` | Require title and class to match exactly. |
-| `foreground` | boolean | no | `false` | Use the foreground window; overrides `title` and `class`. |
+| `process` | string | no | — | Executable file name that owns the window. |
+| `exact` | boolean | no | `false` | Require title, class and process name to match exactly. |
+| `visible_only` | boolean | no | `true` | Ignore hidden windows while searching. |
+| `foreground` | boolean | no | `false` | Use the foreground window; overrides title, class and process filters. |
 | `output_var` | string | **yes** | — | Variable receiving the captured artefact metadata. |
 
 ```json

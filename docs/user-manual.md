@@ -125,6 +125,19 @@ The same behavior is available over the API by starting a run with
 
 ### Screenshots and artifacts
 
+Window lookup, focus, window capture and the **Focus target window** option on
+keyboard/mouse/text nodes share one selector:
+
+* **Window title** matches the title text;
+* **Window class** matches the Win32 class;
+* **Process name** matches the owning executable case-insensitively, such as `notepad.exe`;
+* **Exact match** switches all supplied filters from substring to equality;
+* **Visible windows only** is enabled by default and excludes hidden windows.
+
+When several windows match, the node chooses the largest. A Find node publishes
+the resolved `process` and `visible` values alongside `handle`, `title`, `class`
+and `rect`, so later branches can inspect what was selected.
+
 Capture nodes publish artifact metadata such as `{ "id", "name", "content_type", "size" }`.
 The image bytes are transferred from the plugin process into the run's artifact
 store. In Studio, open the **Events** tab: the Capture node's `node_finished`

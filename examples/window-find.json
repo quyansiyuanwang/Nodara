@@ -4,7 +4,7 @@
   "id": "workflow.window-find",
   "metadata": {
     "name": "Find a window",
-    "description": "Locates a window by title and logs its geometry. Read-only; requires the platform plugin.",
+    "description": "Locates a visible Notepad process by title and process name, then logs its geometry.",
     "tags": ["windows", "plugin"]
   },
   "nodes": [
@@ -13,12 +13,17 @@
       "id": "find",
       "type": "windows.Window.Find",
       "label": "Find Notepad",
-      "config": { "title": "Notepad", "output_var": "window" }
+      "config": {
+        "title": "Notepad",
+        "process": "notepad.exe",
+        "visible_only": true,
+        "output_var": "window"
+      }
     },
     {
       "id": "report",
       "type": "core.Log",
-      "config": { "message": "found {{window.title}} at {{window.rect.width}}x{{window.rect.height}}" }
+      "config": { "message": "found {{window.process}} ({{window.title}}) at {{window.rect.width}}x{{window.rect.height}}" }
     },
     { "id": "end", "type": "core.End" }
   ],

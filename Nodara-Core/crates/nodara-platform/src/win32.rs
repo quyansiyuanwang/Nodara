@@ -5,7 +5,7 @@
 
 #![allow(unsafe_code)]
 
-use windows_sys::Win32::Foundation::{GlobalFree, HGLOBAL, HWND, LPARAM, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HGLOBAL, HWND, LPARAM, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
     ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
@@ -15,14 +15,17 @@ use windows_sys::Win32::System::DataExchange::{
     SetClipboardData,
 };
 use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+use windows_sys::Win32::System::Threading::{
+    OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     keybd_event, mouse_event, KEYEVENTF_KEYUP, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
-    GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, SetCursorPos, SetForegroundWindow,
-    SM_CXSCREEN, SM_CYSCREEN,
+    GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, SetCursorPos,
+    SetForegroundWindow, SM_CXSCREEN, SM_CYSCREEN,
 };
 
 use crate::error::{PlatformError, PlatformResult};
@@ -58,6 +61,8 @@ pub struct WindowRecord {
     pub title: String,
     /// Window class name.
     pub class_name: String,
+    /// Executable file name that owns the window, when it can be queried.
+    pub process_name: String,
     /// Screen geometry.
     pub rect: Rect,
     /// Whether the window is visible.
@@ -190,6 +195,36 @@ fn window_rect(hwnd: HWND) -> Rect {
     }
 }
 
+fn window_process_name(hwnd: HWND) -> String {
+    // SAFETY: `GetWindowThreadProcessId` only writes the process id into the
+    // supplied stack value. The process handle returned by `OpenProcess` is
+    // closed on every path, and the query buffer is sized before the call.
+    unsafe {
+        let mut process_id = 0u32;
+        GetWindowThreadProcessId(hwnd, &mut process_id);
+        if process_id == 0 {
+            return String::new();
+        }
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id);
+        if process == 0 {
+            return String::new();
+        }
+        let mut buffer = vec![0u16; 1024];
+        let mut length = buffer.len() as u32;
+        let ok = QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length);
+        CloseHandle(process);
+        if ok == 0 || length == 0 {
+            return String::new();
+        }
+        let path = read_wide(&buffer[..length as usize]);
+        std::path::Path::new(&path)
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .unwrap_or(&path)
+            .to_string()
+    }
+}
+
 /// Enumerate every top-level window.
 pub fn windows() -> Vec<WindowRecord> {
     let mut records: Vec<WindowRecord> = Vec::new();
@@ -204,6 +239,7 @@ pub fn windows() -> Vec<WindowRecord> {
             id: hwnd,
             title: window_title(hwnd),
             class_name: window_class(hwnd),
+            process_name: window_process_name(hwnd),
             rect: window_rect(hwnd),
             // SAFETY: read-only query on a handle supplied by the system.
             visible: IsWindowVisible(hwnd) != 0,
