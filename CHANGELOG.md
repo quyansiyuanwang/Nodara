@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Keyboard nodes can repeat a chord with `repeat` / `repeat_interval_ms`, and mouse click actions accept `click_count` / `click_interval_ms` while retaining the legacy double-click interval.
 - Canvas and Runtime validation now enforce explicit port names and value-type
   compatibility. Studio refuses incompatible connections immediately with a
   visible status message, while imported JSON receives the stable `WF115`,

@@ -220,6 +220,8 @@
 | `keys` | string | **是** | — | 按键或组合键，修饰键与按键用 `+` 连接。示例：`ctrl+shift+s`、`win+i`、`enter` |
 | `action` | string | 否 | `type` | `type` 按下并释放，`press` 保持按下，`release` 释放之前保持的组合键。 |
 | `hold_ms` | integer | 否 | `0` | `type` 操作中从按下到释放之间的时间。最小 `0`。 |
+| `repeat` | integer | 否 | `1` | 重复发送此按键或组合键的次数；仅适用于 `action=type`。 |
+| `repeat_interval_ms` | integer | 否 | `0` | 重复 `type` 操作之间的等待时间。 |
 | `focus` | boolean | 否 | `false` | 发送按键前查找并聚焦目标窗口。 |
 | `background` | boolean | 否 | `false` | 不改变焦点，直接向目标窗口发送按键消息；必须有窗口选择器，且不能与 `focus` 同时启用。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
@@ -275,7 +277,9 @@
 | `y` | integer | 否 | — | 目标 Y；拖拽终点 Y。开启 `relative` 时表示相对偏移。 |
 | `relative` | boolean | 否 | `false` | 把 X/Y 视为相对当前光标的偏移。 |
 | `duration_ms` | integer | 否 | `0` | 点击按住时长或拖拽移动时长；拖拽未指定时默认 `300` 毫秒。 |
-| `double_click_interval_ms` | integer | 否 | `100` | 双击两次点击之间的等待时间。 |
+| `click_count` | integer | 否 | `1` | `click`、`right_click`、`middle_click` 的点击次数；`double_click` 固定发送两次。 |
+| `click_interval_ms` | integer | 否 | `100` | 重复点击之间的等待时间。 |
+| `double_click_interval_ms` | integer | 否 | `100` | `click_interval_ms` 的兼容回退值。 |
 | `start_x` | integer | 否 | — | 可选拖拽起点 X；留空时使用当前光标。 |
 | `start_y` | integer | 否 | — | 可选拖拽起点 Y；留空时使用当前光标。 |
 | `focus` | boolean | 否 | `false` | 执行鼠标操作前查找并聚焦目标窗口。 |

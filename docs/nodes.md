@@ -237,6 +237,8 @@ Sends a key or key chord.
 | `keys` | string | **yes** | — | Key or chord; modifiers and keys are joined with `+`. Examples: `ctrl+shift+s`, `win+i`, `enter` |
 | `action` | string | no | `type` | `type` taps and releases, `press` holds the chord down, and `release` releases it. |
 | `hold_ms` | integer | no | `0` | For `type`, delay between key-down and key-up. Minimum `0`. |
+| `repeat` | integer | no | `1` | Number of times to send the chord; only valid with `action=type`. |
+| `repeat_interval_ms` | integer | no | `0` | Delay between repeated `type` actions. |
 | `focus` | boolean | no | `false` | Find and focus a target window before sending the key. |
 | `background` | boolean | no | `false` | Send key messages without changing focus; requires a window selector and cannot be combined with `focus`. |
 | `title` | string | no | — | Target window title when `focus` is true. |
@@ -293,7 +295,9 @@ clicking where the cursor already is.
 | `y` | integer | no | — | Target Y; drag destination Y. Treated as an offset when `relative` is true. |
 | `relative` | boolean | no | `false` | Treat X/Y as offsets from the current cursor. |
 | `duration_ms` | integer | no | `0` | Click hold time or drag movement time; drag defaults to `300` ms. |
-| `double_click_interval_ms` | integer | no | `100` | Delay between the two clicks of `double_click`. |
+| `click_count` | integer | no | `1` | Number of clicks for `click`, `right_click` or `middle_click`; `double_click` always sends two. |
+| `click_interval_ms` | integer | no | `100` | Delay between repeated clicks. |
+| `double_click_interval_ms` | integer | no | `100` | Legacy fallback for `click_interval_ms`. |
 | `start_x` | integer | no | — | Optional drag start X; uses the current cursor when omitted. |
 | `start_y` | integer | no | — | Optional drag start Y; uses the current cursor when omitted. |
 | `focus` | boolean | no | `false` | Find and focus a target window before performing the mouse action. |

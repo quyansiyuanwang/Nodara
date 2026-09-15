@@ -161,13 +161,16 @@ Input nodes expose additional real-world timing and movement controls:
   messages to a selected window without changing focus; text also offers the
   direct `set_text` fallback and a clipboard-paste strategy that restores the
   previous clipboard contents;
+* keyboard `action=type` can repeat with `repeat` and `repeat_interval_ms`;
 * mouse actions choose `left`, `right` or `middle` buttons;
+* `click_count` and `click_interval_ms` control repeated clicks;
 * `relative=true` treats X/Y as offsets from the current cursor;
 * mouse `drag` supports optional `start_x/start_y`, destination `x/y` and a
   smooth `duration_ms`;
 * background mouse input uses client coordinates, sends `WM_MOUSEMOVE` and
   button messages, and restores the original system cursor position afterward;
-* `double_click_interval_ms` controls the delay between the two clicks.
+* `double_click_interval_ms` remains as a compatibility fallback for click
+  intervals.
 
 `background` requires a title, class or process selector and cannot be combined
 with `focus`. Not every application consumes these messages, so test the target

@@ -166,7 +166,7 @@ fn execute_background_mouse(
     count: usize,
     duration_ms: u64,
     relative: bool,
-    double_click_interval_ms: u64,
+    click_interval_ms: u64,
 ) -> NodeResult<NodeOutput> {
     let screen_cursor = cursor_position()?;
     let origin = native::screen_to_client(target.window, screen_cursor.0, screen_cursor.1)
@@ -234,8 +234,8 @@ fn execute_background_mouse(
                     let release = send_mouse_button(target.window, point, button, false);
                     wait?;
                     release?;
-                    if index + 1 < count && double_click_interval_ms > 0 {
-                        wait_interruptible(context, double_click_interval_ms)?;
+                    if index + 1 < count && click_interval_ms > 0 {
+                        wait_interruptible(context, click_interval_ms)?;
                     }
                 }
             }
@@ -252,6 +252,8 @@ fn execute_background_mouse(
             "x": target_point.map_or(origin.0, |point| point.0),
             "y": target_point.map_or(origin.1, |point| point.1),
             "duration_ms": duration_ms,
+            "click_count": count,
+            "click_interval_ms": click_interval_ms,
             "moved": moved,
             "background": true,
             "coordinate_space": "client",
@@ -483,6 +485,21 @@ impl NodeExecutor for KeyboardExecutor {
                             "description": "For the Type action, time between key-down and key-up.",
                             "minimum": 0,
                             "default": 0
+                        },
+                        "repeat": {
+                            "type": "integer",
+                            "title": "Repeat count",
+                            "description": "Number of times to send this key or chord. Only supported for the Type action.",
+                            "minimum": 1,
+                            "maximum": 100000,
+                            "default": 1
+                        },
+                        "repeat_interval_ms": {
+                            "type": "integer",
+                            "title": "Repeat interval (ms)",
+                            "description": "Delay between repeated Type actions. Cancellation remains responsive.",
+                            "minimum": 0,
+                            "default": 0
                         }
                     }),
                     &["keys"],
@@ -500,41 +517,54 @@ impl NodeExecutor for KeyboardExecutor {
         let chord = input.require_str("keys")?;
         let action = input.config_str("action").unwrap_or("type");
         let hold_ms = input.config_i64("hold_ms").unwrap_or(0).max(0) as u64;
+        let repeat = input.config_i64("repeat").unwrap_or(1).max(1) as u64;
+        let repeat_interval_ms = input.config_i64("repeat_interval_ms").unwrap_or(0).max(0) as u64;
+        if action != "type" && repeat != 1 {
+            return Err(NodeError::InvalidConfig(
+                "`repeat` is only supported with the Type action".to_string(),
+            ));
+        }
         context.check_cancelled()?;
         let target = input_target(&input)?;
         let (modifiers, stroke) = keys::parse_chord(&chord)
             .ok_or_else(|| NodeError::InvalidConfig(format!("unknown key chord `{chord}`")))?;
-        if let Some(target) = target.filter(|target| target.background) {
-            background_keyboard_action(context, &target, &modifiers, stroke, action, hold_ms)?;
-        } else {
-            match action {
-                "type" => {
-                    for modifier in &modifiers {
-                        native::key(*modifier, false);
+        for iteration in 0..repeat {
+            context.check_cancelled()?;
+            if let Some(target) = target.as_ref().filter(|target| target.background) {
+                background_keyboard_action(context, target, &modifiers, stroke, action, hold_ms)?;
+            } else {
+                match action {
+                    "type" => {
+                        for modifier in &modifiers {
+                            native::key(*modifier, false);
+                        }
+                        let tap_result = tap(context, stroke, hold_ms);
+                        for modifier in modifiers.iter().rev() {
+                            native::key(*modifier, true);
+                        }
+                        tap_result?;
                     }
-                    let tap_result = tap(context, stroke, hold_ms);
-                    for modifier in modifiers.iter().rev() {
-                        native::key(*modifier, true);
+                    "press" => {
+                        for modifier in &modifiers {
+                            native::key(*modifier, false);
+                        }
+                        key_down(stroke);
                     }
-                    tap_result?;
-                }
-                "press" => {
-                    for modifier in &modifiers {
-                        native::key(*modifier, false);
+                    "release" => {
+                        key_up(stroke);
+                        for modifier in modifiers.iter().rev() {
+                            native::key(*modifier, true);
+                        }
                     }
-                    key_down(stroke);
-                }
-                "release" => {
-                    key_up(stroke);
-                    for modifier in modifiers.iter().rev() {
-                        native::key(*modifier, true);
+                    other => {
+                        return Err(NodeError::InvalidConfig(format!(
+                            "unknown keyboard action `{other}`"
+                        )))
                     }
                 }
-                other => {
-                    return Err(NodeError::InvalidConfig(format!(
-                        "unknown keyboard action `{other}`"
-                    )))
-                }
+            }
+            if iteration + 1 < repeat {
+                wait_interruptible(context, repeat_interval_ms)?;
             }
         }
         context.log(
@@ -715,10 +745,25 @@ impl NodeExecutor for MouseExecutor {
                             "minimum": 0,
                             "default": 0
                         },
+                        "click_count": {
+                            "type": "integer",
+                            "title": "Click count",
+                            "description": "Number of times click, right_click or middle_click repeats. Double-click always sends two clicks.",
+                            "minimum": 1,
+                            "maximum": 100000,
+                            "default": 1
+                        },
+                        "click_interval_ms": {
+                            "type": "integer",
+                            "title": "Click interval (ms)",
+                            "description": "Delay between repeated clicks. Falls back to double_click_interval_ms when omitted.",
+                            "minimum": 0,
+                            "default": 100
+                        },
                         "double_click_interval_ms": {
                             "type": "integer",
                             "title": "Double-click interval (ms)",
-                            "description": "Delay between the two clicks of a double-click action.",
+                            "description": "Legacy fallback delay between clicks when click_interval_ms is omitted.",
                             "minimum": 0,
                             "default": 100
                         },
@@ -748,10 +793,12 @@ impl NodeExecutor for MouseExecutor {
         let action = input.require_str("action")?;
         let duration_ms = input.config_i64("duration_ms").unwrap_or(0).max(0) as u64;
         let relative = input.config_bool("relative").unwrap_or(false);
-        let double_click_interval_ms = input
-            .config_i64("double_click_interval_ms")
+        let click_interval_ms = input
+            .config_i64("click_interval_ms")
+            .or_else(|| input.config_i64("double_click_interval_ms"))
             .unwrap_or(100)
             .max(0) as u64;
+        let click_count = input.config_i64("click_count").unwrap_or(1).max(1) as usize;
         context.check_cancelled()?;
         let target = input_target(&input)?;
         let requested_button = input
@@ -762,7 +809,7 @@ impl NodeExecutor for MouseExecutor {
             "move" => (None, 0),
             "click" => (
                 Some(requested_button.unwrap_or(native::MouseButton::Left)),
-                1,
+                click_count,
             ),
             "double_click" => (
                 Some(requested_button.unwrap_or(native::MouseButton::Left)),
@@ -770,11 +817,11 @@ impl NodeExecutor for MouseExecutor {
             ),
             "right_click" => (
                 Some(requested_button.unwrap_or(native::MouseButton::Right)),
-                1,
+                click_count,
             ),
             "middle_click" => (
                 Some(requested_button.unwrap_or(native::MouseButton::Middle)),
-                1,
+                click_count,
             ),
             "down" | "up" => (
                 Some(requested_button.unwrap_or(native::MouseButton::Left)),
@@ -802,7 +849,7 @@ impl NodeExecutor for MouseExecutor {
                 count,
                 duration_ms,
                 relative,
-                double_click_interval_ms,
+                click_interval_ms,
             );
             let restore = native::set_cursor(screen_cursor.0, screen_cursor.1)
                 .map_err(|error| NodeError::Execution(error.to_string()));
@@ -876,8 +923,8 @@ impl NodeExecutor for MouseExecutor {
                         let release = native::mouse_button(button, false).map_err(map);
                         wait?;
                         release?;
-                        if index + 1 < count && double_click_interval_ms > 0 {
-                            wait_interruptible(context, double_click_interval_ms)?;
+                        if index + 1 < count && click_interval_ms > 0 {
+                            wait_interruptible(context, click_interval_ms)?;
                         }
                     }
                 }
@@ -896,6 +943,8 @@ impl NodeExecutor for MouseExecutor {
                 "x": final_cursor.0,
                 "y": final_cursor.1,
                 "duration_ms": duration_ms,
+                "click_count": count,
+                "click_interval_ms": click_interval_ms,
                 "moved": moved,
                 "foreground": cursor,
             }),
@@ -951,6 +1000,15 @@ mod tests {
         assert!(schema["properties"]["background"].is_object());
         assert!(schema["properties"]["relative"].is_object());
         assert!(schema["properties"]["duration_ms"].is_object());
+        assert!(schema["properties"]["click_count"].is_object());
+        assert!(schema["properties"]["click_interval_ms"].is_object());
+    }
+
+    #[test]
+    fn keyboard_descriptor_exposes_repetition_controls() {
+        let schema = KeyboardExecutor.descriptor().config_schema;
+        assert!(schema["properties"]["repeat"].is_object());
+        assert!(schema["properties"]["repeat_interval_ms"].is_object());
     }
 
     #[test]

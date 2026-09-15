@@ -296,7 +296,8 @@ http://127.0.0.1:8710/api/v1/schema/workflow
   可显式保持和释放组合键；
 - 键盘、文本和鼠标节点可开启 `background`，向指定窗口发送输入而不改变当前焦点；
   文本节点还可选择 `set_text` 直接替换窗口文本，或 `clipboard` 临时写入剪贴板、发送 Ctrl+V，再恢复原剪贴板；
-- 鼠标可选 `left/right/middle` 按钮；
+- 键盘 `action=type` 可通过 `repeat` 与 `repeat_interval_ms` 重复发送；
+- 鼠标可选 `left/right/middle` 按钮，并通过 `click_count` 与 `click_interval_ms` 控制重复点击；
 - 鼠标 `relative=true` 时，X/Y 是相对当前光标的位置；
 - 鼠标 `drag` 支持可选起点 `start_x/start_y`、终点 `x/y` 和
   `duration_ms` 平滑移动时间；

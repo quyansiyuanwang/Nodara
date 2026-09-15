@@ -1129,6 +1129,21 @@
           "title": "Process name",
           "type": "string"
         },
+        "repeat": {
+          "default": 1,
+          "description": "Number of times to send this key or chord. Only supported for the Type action.",
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Repeat count",
+          "type": "integer"
+        },
+        "repeat_interval_ms": {
+          "default": 0,
+          "description": "Delay between repeated Type actions. Cancellation remains responsive.",
+          "minimum": 0,
+          "title": "Repeat interval (ms)",
+          "type": "integer"
+        },
         "title": {
           "description": "Window title to match. Substring match unless `exact` is set.",
           "examples": [
@@ -1197,9 +1212,24 @@
           "title": "Window class",
           "type": "string"
         },
+        "click_count": {
+          "default": 1,
+          "description": "Number of times click, right_click or middle_click repeats. Double-click always sends two clicks.",
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Click count",
+          "type": "integer"
+        },
+        "click_interval_ms": {
+          "default": 100,
+          "description": "Delay between repeated clicks. Falls back to double_click_interval_ms when omitted.",
+          "minimum": 0,
+          "title": "Click interval (ms)",
+          "type": "integer"
+        },
         "double_click_interval_ms": {
           "default": 100,
-          "description": "Delay between the two clicks of a double-click action.",
+          "description": "Legacy fallback delay between clicks when click_interval_ms is omitted.",
           "minimum": 0,
           "title": "Double-click interval (ms)",
           "type": "integer"
