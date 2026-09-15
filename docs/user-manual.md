@@ -264,9 +264,10 @@ the same management surface.
 ### Runs and events
 
 The **Runs** tab lists the runtime's execution history with status, workflow,
-node count, and start time. Select **Open** on any row to load its full event
+node/event/artifact counts, exact started and finished timestamps, and duration.
+Filter by text or status, then select **Open** on any row to load its full event
 stream into the **Events** tab. Refresh the list after starting or controlling a
-run; completed, failed, and running rows are visually distinguished.
+run; completed, failed, running and paused rows are visually distinguished.
 
 ## CLI
 

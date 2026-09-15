@@ -112,6 +112,16 @@
         </div>
         <div id="panel-runs" class="drawer__panel" hidden>
           <div class="runs-toolbar">
+            <input id="runs-filter" class="input input--small" placeholder="Filter runs…" data-i18n-placeholder="runs.filter" />
+            <select id="runs-status" class="input input--small" aria-label="Run status">
+              <option value="" data-i18n="runs.allStatuses">All statuses</option>
+              <option value="pending" data-i18n="status.pending">Pending</option>
+              <option value="running" data-i18n="status.running">Running</option>
+              <option value="paused" data-i18n="status.paused">Paused</option>
+              <option value="completed" data-i18n="status.completed">Completed</option>
+              <option value="failed" data-i18n="status.failed">Failed</option>
+              <option value="cancelled" data-i18n="status.cancelled">Cancelled</option>
+            </select>
             <button id="runs-refresh" class="btn btn--small" data-i18n="actions.refresh">Refresh</button>
           </div>
           <div id="runs" class="runs"></div>

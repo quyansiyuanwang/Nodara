@@ -331,6 +331,11 @@ class Studio {
 
     element("audit-refresh").addEventListener("click", () => void this.refreshAudit());
     element("audit-current-run").addEventListener("change", () => void this.refreshAudit());
+    const runsFilter = element<HTMLInputElement>("runs-filter");
+    const runsStatus = element<HTMLSelectElement>("runs-status");
+    const filterRuns = () => this.runsPanel.filter(runsFilter.value, runsStatus.value);
+    runsFilter.addEventListener("input", filterRuns);
+    runsStatus.addEventListener("change", filterRuns);
     element("runs-refresh").addEventListener("click", () => void this.refreshRuns());
     element("extensions-refresh").addEventListener("click", () => void this.refreshExtensions());
 

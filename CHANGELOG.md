@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- The Runs panel now reports accurate started/finished timestamps, duration, event and artifact counts, and supports text/status filtering. The previous `Started` column incorrectly displayed the finished time for completed runs.
 - Added `core.CalculateMany` for ordered named calculations. Results are published as they are evaluated, so later expressions can reuse earlier names, and an optional `output_var` receives the complete result object.
 - Keyboard nodes can repeat a chord with `repeat` / `repeat_interval_ms`, and mouse click actions accept `click_count` / `click_interval_ms` while retaining the legacy double-click interval.
 - Canvas and Runtime validation now enforce explicit port names and value-type
