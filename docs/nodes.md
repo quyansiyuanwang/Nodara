@@ -234,6 +234,8 @@ Sends a key or key chord.
 | Key | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `keys` | string | **yes** | — | Key or chord; modifiers and keys are joined with `+`. Examples: `ctrl+shift+s`, `win+i`, `enter` |
+| `action` | string | no | `type` | `type` taps and releases, `press` holds the chord down, and `release` releases it. |
+| `hold_ms` | integer | no | `0` | For `type`, delay between key-down and key-up. Minimum `0`. |
 | `focus` | boolean | no | `false` | Find and focus a target window before sending the key. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |
@@ -279,9 +281,15 @@ clicking where the cursor already is.
 
 | Key | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `action` | string | **yes** | `click` | `move`, `click`, `double_click`, `right_click`, `middle_click`, `down` or `up`. |
-| `x` | integer | no | — | Absolute screen X in pixels. |
-| `y` | integer | no | — | Absolute screen Y in pixels. |
+| `action` | string | **yes** | `click` | `move`, `click`, `double_click`, `right_click`, `middle_click`, `down`, `up` or `drag`. |
+| `button` | string | no | `left` | `left`, `right` or `middle`. |
+| `x` | integer | no | — | Target X; drag destination X. Treated as an offset when `relative` is true. |
+| `y` | integer | no | — | Target Y; drag destination Y. Treated as an offset when `relative` is true. |
+| `relative` | boolean | no | `false` | Treat X/Y as offsets from the current cursor. |
+| `duration_ms` | integer | no | `0` | Click hold time or drag movement time; drag defaults to `300` ms. |
+| `double_click_interval_ms` | integer | no | `100` | Delay between the two clicks of `double_click`. |
+| `start_x` | integer | no | — | Optional drag start X; uses the current cursor when omitted. |
+| `start_y` | integer | no | — | Optional drag start Y; uses the current cursor when omitted. |
 | `focus` | boolean | no | `false` | Find and focus a target window before performing the mouse action. |
 | `title` | string | no | — | Target window title when `focus` is true. |
 | `class` | string | no | — | Target Win32 window class when `focus` is true. |

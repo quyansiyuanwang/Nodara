@@ -62,6 +62,11 @@ pub fn set_cursor(_x: i32, _y: i32) -> PlatformResult<()> {
 }
 
 /// Unsupported on this host.
+pub fn cursor_position() -> PlatformResult<(i32, i32)> {
+    Err(unsupported())
+}
+
+/// Unsupported on this host.
 pub fn mouse_button(_button: MouseButton, _down: bool) -> PlatformResult<()> {
     Err(unsupported())
 }

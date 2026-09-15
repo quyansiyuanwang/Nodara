@@ -129,6 +129,10 @@ All notable changes to this project are documented here. The format follows
   filters in addition to title and class. The shared selector is used by Find,
   Focus, window capture and input targeting, and Find publishes the resolved
   process and visibility in its output record.
+- Keyboard input now supports `type`, `press` and `release` actions with an
+  optional hold duration. Mouse input now supports explicit left/right/middle
+  buttons, relative coordinates, configurable click/double-click timing and
+  smooth `drag` with optional start coordinates and destination duration.
 
 ### Changed
 

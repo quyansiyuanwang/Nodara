@@ -5,7 +5,7 @@
 
 #![allow(unsafe_code)]
 
-use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HGLOBAL, HWND, LPARAM, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, GlobalFree, HGLOBAL, HWND, LPARAM, POINT, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
     ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, SRCCOPY,
@@ -23,7 +23,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetClassNameW, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
+    EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowRect,
     GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, SetCursorPos,
     SetForegroundWindow, SM_CXSCREEN, SM_CYSCREEN,
 };
@@ -104,6 +104,19 @@ pub fn set_cursor(x: i32, y: i32) -> PlatformResult<()> {
         Err(last_error("SetCursorPos"))
     } else {
         Ok(())
+    }
+}
+
+/// Current cursor position in virtual-screen coordinates.
+pub fn cursor_position() -> PlatformResult<(i32, i32)> {
+    // SAFETY: `POINT` is a plain value struct that the call fills in.
+    unsafe {
+        let mut point: POINT = std::mem::zeroed();
+        if GetCursorPos(&mut point) == 0 {
+            Err(last_error("GetCursorPos"))
+        } else {
+            Ok((point.x, point.y))
+        }
     }
 }
 

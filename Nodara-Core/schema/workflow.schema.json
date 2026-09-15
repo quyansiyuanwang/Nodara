@@ -992,6 +992,17 @@
       "additionalProperties": false,
       "description": "Sends a key or key chord to the focused window",
       "properties": {
+        "action": {
+          "default": "type",
+          "description": "Type taps and releases the chord. Press holds it down; Release releases a previously held chord.",
+          "enum": [
+            "type",
+            "press",
+            "release"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
         "class": {
           "description": "Win32 window class name to match, e.g. `Notepad`.",
           "examples": [
@@ -1011,6 +1022,13 @@
           "description": "Find and focus a target window before sending input. When false, input goes to the current foreground window.",
           "title": "Focus target window",
           "type": "boolean"
+        },
+        "hold_ms": {
+          "default": 0,
+          "description": "For the Type action, time between key-down and key-up.",
+          "minimum": 0,
+          "title": "Hold duration (ms)",
+          "type": "integer"
         },
         "keys": {
           "description": "Key or chord to send to the focused window. Modifiers and keys are joined with `+`.",
@@ -1068,9 +1086,21 @@
             "right_click",
             "middle_click",
             "down",
-            "up"
+            "up",
+            "drag"
           ],
           "title": "Action",
+          "type": "string"
+        },
+        "button": {
+          "default": "left",
+          "description": "Button used for click, double-click, down, up and drag actions.",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ],
+          "title": "Mouse button",
           "type": "string"
         },
         "class": {
@@ -1080,6 +1110,20 @@
           ],
           "title": "Window class",
           "type": "string"
+        },
+        "double_click_interval_ms": {
+          "default": 100,
+          "description": "Delay between the two clicks of a double-click action.",
+          "minimum": 0,
+          "title": "Double-click interval (ms)",
+          "type": "integer"
+        },
+        "duration_ms": {
+          "default": 0,
+          "description": "Hold time for clicks or movement time for drag. Drag defaults to 300 ms when omitted.",
+          "minimum": 0,
+          "title": "Mouse duration (ms)",
+          "type": "integer"
         },
         "exact": {
           "default": false,
@@ -1102,6 +1146,22 @@
           "title": "Process name",
           "type": "string"
         },
+        "relative": {
+          "default": false,
+          "description": "Treat X/Y as offsets from the current cursor instead of absolute screen coordinates.",
+          "title": "Relative movement",
+          "type": "boolean"
+        },
+        "start_x": {
+          "description": "Optional drag start X. Omit to start at the current cursor position.",
+          "title": "Start X",
+          "type": "integer"
+        },
+        "start_y": {
+          "description": "Optional drag start Y. Omit to start at the current cursor position.",
+          "title": "Start Y",
+          "type": "integer"
+        },
         "title": {
           "description": "Window title to match. Substring match unless `exact` is set.",
           "examples": [
@@ -1118,12 +1178,12 @@
           "type": "boolean"
         },
         "x": {
-          "description": "Absolute screen X in pixels. Omitted for `click` and `move` keeps the current position.",
+          "description": "Target X in pixels. Relative to the current cursor when `relative` is enabled. For drag this is the destination X.",
           "title": "X",
           "type": "integer"
         },
         "y": {
-          "description": "Absolute screen Y in pixels. Omitted for `click` and `move` keeps the current position.",
+          "description": "Target Y in pixels. Relative to the current cursor when `relative` is enabled. For drag this is the destination Y.",
           "title": "Y",
           "type": "integer"
         }

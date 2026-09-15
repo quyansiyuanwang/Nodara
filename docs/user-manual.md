@@ -138,6 +138,16 @@ When several windows match, the node chooses the largest. A Find node publishes
 the resolved `process` and `visible` values alongside `handle`, `title`, `class`
 and `rect`, so later branches can inspect what was selected.
 
+Input nodes expose additional real-world timing and movement controls:
+
+* keyboard `action=type` taps the chord and supports `hold_ms`; `press` and
+  `release` keep or release a chord explicitly;
+* mouse actions choose `left`, `right` or `middle` buttons;
+* `relative=true` treats X/Y as offsets from the current cursor;
+* mouse `drag` supports optional `start_x/start_y`, destination `x/y` and a
+  smooth `duration_ms`;
+* `double_click_interval_ms` controls the delay between the two clicks.
+
 Capture nodes publish artifact metadata such as `{ "id", "name", "content_type", "size" }`.
 The image bytes are transferred from the plugin process into the run's artifact
 store. In Studio, open the **Events** tab: the Capture node's `node_finished`

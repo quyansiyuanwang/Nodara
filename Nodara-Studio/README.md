@@ -122,6 +122,9 @@ known validation code has a Studio translation.
   retry count, retry delay and common result mapping (`result_var` /
   `result_port`). Plugin nodes also expose a per-attempt timeout. The node
   context menu can toggle a node on or off immediately.
+* Keyboard nodes expose `type`/`press`/`release` and hold duration directly.
+  Mouse nodes expose button, relative coordinates, click duration, double-click
+  interval and smooth drag start/end/duration controls.
 * Every edit is validated automatically after a short debounce. The status
   beside **Validate** shows `checking`, `valid`, or the error count; errors
   disable **Run** until they are fixed and are listed in **Problems**.

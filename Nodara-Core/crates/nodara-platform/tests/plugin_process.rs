@@ -136,6 +136,37 @@ fn executes_a_command_through_the_plugin_boundary() {
 }
 
 #[test]
+fn mouse_relative_zero_move_reports_cursor_metadata() {
+    let manifest = manifest();
+    let client =
+        PluginClient::connect(&manifest, std::path::Path::new(".")).expect("plugin launches");
+
+    let result = client
+        .execute(nodara_plugin::ExecuteParams {
+            run_id: "run-mouse".to_string(),
+            node_id: "mouse".to_string(),
+            node_type: "windows.Input.Mouse".to_string(),
+            config: serde_json::json!({
+                "action": "move",
+                "x": 0,
+                "y": 0,
+                "relative": true,
+                "duration_ms": 0
+            }),
+            inputs: Default::default(),
+            variables: Default::default(),
+            artifacts: Vec::new(),
+            timeout_ms: Some(5_000),
+        })
+        .expect("relative zero move executes without changing the cursor");
+
+    assert_eq!(result.outputs["out"]["action"], "move");
+    assert!(result.outputs["out"]["x"].is_number());
+    assert!(result.outputs["out"]["y"].is_number());
+    client.shutdown().expect("shutdown succeeds");
+}
+
+#[test]
 fn cancels_a_running_node() {
     let manifest = manifest();
     let client = std::sync::Arc::new(

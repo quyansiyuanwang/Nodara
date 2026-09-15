@@ -95,8 +95,9 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 14. A `core.Log` message containing artifact JSON, such as `{{screenshot}}`, also renders the image inline.
 15. `examples/system-command.json` runs successfully; the Command node's `out` contains stdout and the following Log interpolates it. Verify non-zero exit and cancellation/timeout behavior against the documented outputs.
 16. With Notepad open, `examples/window-find.json` finds it using both the `Notepad` title and `notepad.exe` process filters; the output contains the resolved process name and `visible=true`.
-17. The Audit tab shows capability and node records.
-18. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+17. On an isolated test desktop, verify input timing: Keyboard `press shift` → Text `a` → Keyboard `release shift` produces an uppercase `A`; Mouse `drag` accepts optional start coordinates, destination coordinates and duration and moves smoothly.
+18. The Audit tab shows capability and node records.
+19. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

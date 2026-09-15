@@ -217,6 +217,8 @@
 | 配置项 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `keys` | string | **是** | — | 按键或组合键，修饰键与按键用 `+` 连接。示例：`ctrl+shift+s`、`win+i`、`enter` |
+| `action` | string | 否 | `type` | `type` 按下并释放，`press` 保持按下，`release` 释放之前保持的组合键。 |
+| `hold_ms` | integer | 否 | `0` | `type` 操作中从按下到释放之间的时间。最小 `0`。 |
 | `focus` | boolean | 否 | `false` | 发送按键前查找并聚焦目标窗口。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
 | `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
@@ -261,9 +263,15 @@
 
 | 配置项 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
-| `action` | string | **是** | `click` | `move`、`click`、`double_click`、`right_click`、`middle_click`、`down`、`up`。 |
-| `x` | integer | 否 | — | 屏幕绝对 X 像素。 |
-| `y` | integer | 否 | — | 屏幕绝对 Y 像素。 |
+| `action` | string | **是** | `click` | `move`、`click`、`double_click`、`right_click`、`middle_click`、`down`、`up`、`drag`。 |
+| `button` | string | 否 | `left` | `left`、`right`、`middle`。 |
+| `x` | integer | 否 | — | 目标 X；拖拽终点 X。开启 `relative` 时表示相对偏移。 |
+| `y` | integer | 否 | — | 目标 Y；拖拽终点 Y。开启 `relative` 时表示相对偏移。 |
+| `relative` | boolean | 否 | `false` | 把 X/Y 视为相对当前光标的偏移。 |
+| `duration_ms` | integer | 否 | `0` | 点击按住时长或拖拽移动时长；拖拽未指定时默认 `300` 毫秒。 |
+| `double_click_interval_ms` | integer | 否 | `100` | 双击两次点击之间的等待时间。 |
+| `start_x` | integer | 否 | — | 可选拖拽起点 X；留空时使用当前光标。 |
+| `start_y` | integer | 否 | — | 可选拖拽起点 Y；留空时使用当前光标。 |
 | `focus` | boolean | 否 | `false` | 执行鼠标操作前查找并聚焦目标窗口。 |
 | `title` | string | 否 | — | `focus` 为 true 时匹配的目标窗口标题。 |
 | `class` | string | 否 | — | `focus` 为 true 时匹配的目标 Win32 窗口类名。 |
