@@ -89,8 +89,11 @@ Edges default to `branch: "always"`. A `"success"` edge is only eligible after
 the source node finishes successfully; a `"failure"` edge is only eligible after
 the source executor returns an error. When a failure edge is active it handles
 the error and activates the recovery path without requiring the node-wide
-`continue_on_error` flag. Guard conditions are evaluated after the branch match,
-so a failure path can still be narrowed with its own expression.
+`continue_on_error` flag. Before failure routing, the runtime publishes
+`last_error` with `code`, `message`, `node_id` and `retryable`; recovery nodes
+can interpolate it or use numeric/boolean fields in guards. Guard conditions are
+evaluated after the branch match, so a failure path can still be narrowed with
+its own expression.
 
 ## Validation
 

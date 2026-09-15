@@ -109,6 +109,13 @@ of the workflow document and are honored by the runtime:
 
 The node context menu also provides an immediate enable/disable action.
 
+### Failure recovery context
+
+When a node executor fails, the runtime exposes `last_error` to the rest of the
+run: `last_error.code`, `last_error.message`, `last_error.node_id` and
+`last_error.retryable`. Failure branches can use those values in guard
+expressions and downstream nodes can interpolate them in messages.
+
 ### Runs and events
 
 The **Runs** tab lists the runtime's execution history with status, workflow,

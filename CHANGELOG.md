@@ -31,6 +31,9 @@ All notable changes to this project are documented here. The format follows
   independent of its node-specific configuration. Studio exposes both fields in
   Execution settings; validation reports `WF144`/`WF145` for invalid mappings
   and treats mapped names as declared for later `{{template}}` references.
+- Failed executions now publish a structured `last_error` run variable with
+  `code`, `message`, `node_id` and `retryable`. Failure branches can use it in
+  guards and recovery logs, and validation treats the namespace as declared.
 - Edges now support explicit `success` and `failure` branches. A failure edge
   handles executor errors and activates a recovery path without requiring a
   node-wide `continue_on_error`; Studio exposes the outcome in connection

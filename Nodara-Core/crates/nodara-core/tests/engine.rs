@@ -212,7 +212,9 @@ fn a_failure_branch_recovers_without_continue_on_error() {
             .with_config(serde_json::json!({ "message": "unexpected success" })),
     );
     workflow.add_node(
-        Node::new("recover", "core.Log").with_config(serde_json::json!({ "message": "recovered" })),
+        Node::new("recover", "core.Log").with_config(serde_json::json!({
+            "message": "recovered {{last_error.code}} at {{last_error.node_id}}"
+        })),
     );
     workflow.add_node(Node::new("end", "core.End"));
     workflow.add_edge(Edge::new("e1", "start", "flaky"));
@@ -242,7 +244,7 @@ fn a_failure_branch_recovers_without_continue_on_error() {
             _ => None,
         })
         .collect();
-    assert!(logs.contains(&"recovered".to_string()));
+    assert!(logs.contains(&"recovered E_EXECUTION at flaky".to_string()));
     assert!(!logs.contains(&"unexpected success".to_string()));
 }
 

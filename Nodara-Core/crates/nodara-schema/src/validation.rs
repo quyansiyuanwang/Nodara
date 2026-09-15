@@ -427,6 +427,8 @@ pub fn validate_with_options(
 
     if options.check_variable_references {
         let mut declared: HashSet<&str> = workflow.variables.keys().map(String::as_str).collect();
+        // Runtime-provided after the first failed executor call.
+        declared.insert("last_error");
         for node in &workflow.nodes {
             if let Some(name) = node
                 .result_var
@@ -439,7 +441,10 @@ pub fn validate_with_options(
         let mut reported: HashSet<(String, String)> = HashSet::new();
         for node in &workflow.nodes {
             for reference in collect_variable_references(&node.config) {
-                if declared.contains(reference.as_str()) {
+                if declared.contains(reference.as_str())
+                    || reference == "last_error"
+                    || reference.starts_with("last_error.")
+                {
                     continue;
                 }
                 if reported.insert((format!("node:{}", node.id), reference.clone())) {
@@ -774,10 +779,9 @@ mod tests {
         let mut calc = Node::new("calc", "core.Calculate");
         calc.result_var = Some("answer".to_string());
         wf.add_node(calc);
-        wf.add_node(
-            Node::new("log", "core.Log")
-                .with_config(serde_json::json!({ "message": "answer={{answer}}" })),
-        );
+        wf.add_node(Node::new("log", "core.Log").with_config(serde_json::json!({
+            "message": "answer={{answer}} error={{last_error.code}}"
+        })));
         wf.add_node(Node::new("end", "core.End"));
         wf.add_edge(Edge::new("e1", "start", "calc"));
         wf.add_edge(Edge::new("e2", "calc", "log"));

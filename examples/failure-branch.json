@@ -24,7 +24,7 @@
     {
       "id": "recover",
       "type": "core.Log",
-      "config": { "message": "calculation failed; recovery branch executed", "level": "warn" }
+      "config": { "message": "calculation failed: {{last_error.code}} at {{last_error.node_id}}; recovery branch executed", "level": "warn" }
     },
     { "id": "end", "type": "core.End" }
   ],

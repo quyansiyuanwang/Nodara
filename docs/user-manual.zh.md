@@ -260,6 +260,10 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 - 画布高亮正在执行、成功或失败的节点；
 - `Audit` 页按运行过滤策略决策、审批和节点结果。
 
+### 失败恢复上下文
+
+节点执行失败时，运行作用域会发布 `last_error`，包含 `code`、`message`、`node_id` 和 `retryable`。失败分支可在条件表达式中使用这些字段，后续节点也可用 `{{last_error.code}}` 等模板渲染。
+
 ### Agent 与审批
 
 `Agent` 页只读取 runtime 中的会话，不直接调用 Agent 进程。运行时需要审批的节点会

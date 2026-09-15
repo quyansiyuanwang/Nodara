@@ -645,6 +645,15 @@ impl WorkflowEngine {
                 }
                 Err(error) => {
                     let duration_ms = node_started.elapsed().as_millis() as u64;
+                    context.set_variable(
+                        "last_error",
+                        serde_json::json!({
+                            "code": error.code(),
+                            "message": error.to_string(),
+                            "node_id": node.id,
+                            "retryable": error.retryable(),
+                        }),
+                    );
                     bus.emit(ExecutionEvent::NodeFailed {
                         node_id: node.id.clone(),
                         code: error.code().to_string(),
