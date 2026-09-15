@@ -116,7 +116,7 @@ of the workflow document and are honored by the runtime:
 | Store result as | Publish one of this node's output ports under a run-scope variable for later nodes and expressions |
 | Result port | Output port selected by Store result as; blank uses `out` or the first available output |
 
-The node context menu also provides immediate enable/disable and breakpoint actions.
+The node context menu also provides immediate enable/disable and breakpoint actions; `F9` toggles a breakpoint on the selected node.
 
 ### Run and debug
 

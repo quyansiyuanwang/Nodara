@@ -536,8 +536,21 @@ export class Canvas {
       this.duplicateNode(this.selected);
       return;
     }
+    if (event.key === "F9" && this.selected) {
+      event.preventDefault();
+      this.toggleBreakpoint(this.selected);
+      return;
+    }
     if (event.key !== "Delete" && event.key !== "Backspace") return;
     this.deleteSelection();
+  }
+
+  private toggleBreakpoint(id: string): void {
+    const node = this.workflow.nodes.find((candidate) => candidate.id === id);
+    if (!node) return;
+    if (node.breakpoint) delete node.breakpoint;
+    else node.breakpoint = true;
+    this.handlers.onChange();
   }
 
   private duplicateNode(id: string): void {
@@ -634,14 +647,17 @@ export class Canvas {
         breakpoint.type = "button";
         breakpoint.className = "context-menu__item";
         breakpoint.dataset.action = "breakpoint";
-        breakpoint.textContent = node.breakpoint
+        const breakpointLabel = document.createElement("span");
+        breakpointLabel.textContent = node.breakpoint
           ? t("canvas.clearBreakpoint")
           : t("canvas.setBreakpoint");
+        const breakpointShortcut = document.createElement("span");
+        breakpointShortcut.className = "context-menu__shortcut";
+        breakpointShortcut.textContent = "F9";
+        breakpoint.append(breakpointLabel, breakpointShortcut);
         breakpoint.addEventListener("click", () => {
-          if (node.breakpoint) delete node.breakpoint;
-          else node.breakpoint = true;
           this.contextMenu.hidden = true;
-          this.handlers.onChange();
+          this.toggleBreakpoint(node.id);
         });
         this.contextMenu.appendChild(breakpoint);
 

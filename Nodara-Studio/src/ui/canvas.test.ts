@@ -390,6 +390,18 @@ describe("graph editing on the canvas", () => {
     expect(workflow.nodes.find((candidate) => candidate.id === "log")?.breakpoint).toBeUndefined();
   });
 
+  it("toggles a breakpoint with F9", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.select("log");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9" }));
+    expect(workflow.nodes.find((candidate) => candidate.id === "log")?.breakpoint).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9" }));
+    expect(workflow.nodes.find((candidate) => candidate.id === "log")?.breakpoint).toBeUndefined();
+  });
+
   it("duplicates a configured node with Ctrl+D", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);

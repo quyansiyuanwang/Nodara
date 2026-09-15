@@ -129,7 +129,8 @@ workflow variables marked secret are not persisted beyond the browser session.
   continue-on-error, retry count and backoff, and common result mapping
   (`result_var` / `result_port`). Plugin nodes also expose a per-attempt
   timeout. The node context menu can toggle a node on or off and set or clear
-  its breakpoint immediately; breakpointed nodes carry a visible canvas marker.
+  its breakpoint immediately; `F9` toggles a breakpoint on the selected node,
+  and breakpointed nodes carry a visible canvas marker.
 * Execution, Configuration and Variables are collapsible sections. Their
   expanded state is remembered locally so complex nodes remain manageable.
 * Keyboard nodes expose `type`/`press`/`release` and hold duration directly.
