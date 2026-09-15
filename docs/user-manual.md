@@ -92,6 +92,19 @@ copy.
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 
+### Compact layout and motion
+
+The Studio uses a compact operator layout: toolbar controls, inspector fields, event rows and the default bottom drawer are intentionally dense. Node categories in the left palette are collapsible and remember their state; only **Core** opens initially. Drag the dividers to enlarge any pane when a particular task needs more room.
+
+Motion is part of execution feedback, not decoration:
+
+- a running node pulses blue, a successful node pops green and a failed node glows red;
+- ports enlarge on hover and selected quick-config/menu/panel surfaces animate in;
+- activated control and data edges animate a moving dash phase plus a glowing arrow along the actual SVG path;
+- completed paths keep their highlight until the next run or **Clear**.
+
+If a desktop policy disables general operating-system animations, Studio still keeps its workflow-edge motion enabled so execution direction remains visible.
+
 ### Workflow settings and variables
 
 When no node or connection is selected, Properties edits the workflow ID, name, description, tags, author and version. It also lists workflow variables and provides controls to add, edit or delete them, including descriptions and secret flags. Each variable can have a session-only **Run value override**, which is passed to `/runs` without changing the workflow default. Schema-valued arrays are edited as reorderable lists with add, remove and reset controls.

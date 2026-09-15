@@ -270,7 +270,7 @@ export class Canvas {
     if (!runner) {
       runner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
       runner.classList.add("edge-runner");
-      runner.setAttribute("points", "-6,-4 8,0 -6,4");
+      runner.setAttribute("points", "-7,-5 10,0 -7,5");
       group.appendChild(runner);
     }
     runner.classList.toggle("edge-runner--data", state === "data");

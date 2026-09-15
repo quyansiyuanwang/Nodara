@@ -72,6 +72,23 @@ describe("dynamic node discovery in the palette", () => {
     setLocale("en");
   });
 
+  it("keeps secondary categories collapsed by default for a denser palette", () => {
+    const palette = new Palette(host, { onAdd: () => undefined });
+    palette.setDescriptors([
+      descriptor("core.Start", "Start", "Core"),
+      descriptor("windows.Input.Keyboard", "Keyboard", "Input", true),
+    ]);
+
+    const groups = [...host.querySelectorAll<HTMLDetailsElement>(".palette__group")];
+    expect(groups).toHaveLength(2);
+    expect(groups[0].open).toBe(true);
+    expect(groups[1].open).toBe(false);
+    expect(groups[1].querySelector(".palette__category")?.getAttribute("data-count")).toBe("1");
+
+    palette.filter("keyboard");
+    expect(host.querySelector<HTMLDetailsElement>(".palette__group")?.open).toBe(true);
+  });
+
   it("badges gated nodes with the permission they need", () => {
     const palette = new Palette(host, { onAdd: () => undefined });
     palette.setDescriptors([descriptor("windows.Input.Keyboard", "Keyboard", "Input", true)]);

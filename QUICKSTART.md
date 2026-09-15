@@ -177,7 +177,8 @@ Canvas interaction:
 - dragging any selected node moves the whole selection; `Delete`, enable/disable and breakpoint actions apply to the selection;
 - single/multi-selection shows a floating execution card for enabled, breakpoint, condition, delay, continue-on-error, retry and timeout;
 - round data ports create `kind: "data"` edges; diamond execution ports create `kind: "control"` edges with Always, Success or Failure output;
-- data edges are blue and control edges are neutral/green/red. The static arrow always remains, and received `edge_activated` / `data_transferred` events animate a moving arrow and dash flow along the actual traversed edge, then retain path highlighting until the next run or clear. Moving the pointer to a viewport edge never pans the canvas.
+- data edges are blue and control edges are neutral/green/red. The static arrow always remains, and received `edge_activated` / `data_transferred` events animate a moving arrow and dash flow along the actual traversed edge, then retain path highlighting until the next run or clear. Moving the pointer to a viewport edge never pans the canvas;
+- the compact palette collapses secondary categories while remembering their state, and running/completed/failed nodes plus panel changes have visible motion feedback.
 
 Open the bottom **Agent** tab for a conversational workflow operator. Configure any OpenAI-compatible endpoint/model in Provider settings (the API key stays in process memory), choose a baseline (**current canvas** or **previous Agent plan**) and choose one of four modes:
 

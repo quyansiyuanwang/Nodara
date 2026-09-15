@@ -112,9 +112,14 @@ workflow variables marked secret are not persisted beyond the browser session.
   the delete command. Connections have a wide invisible hit target. Control
   edges switch between Always, Success and Failure; data edges show explicit
   ports instead.
-* Edge arrows are always visible. Runtime `edge_activated` and
-  `data_transferred` events add a requestAnimationFrame-driven moving arrow and
-  animated dash flow plus persistent path highlighting until the next run or clear.
+* The operator shell is tuned for high information density: compact toolbar and
+  inspector controls, a shallower default drawer, and collapsible node categories
+  that remember their expanded state. Only the Core category starts open.
+* Motion is built into the interaction surface: nodes pulse while running and pop
+  when complete or glow when failed; ports lift on hover; panels, menus and event
+  rows animate in. Edge arrows are always visible, and runtime
+  `edge_activated` / `data_transferred` events add a requestAnimationFrame-driven
+  moving arrow plus animated dash flow and persistent path highlighting.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.

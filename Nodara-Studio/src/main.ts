@@ -401,8 +401,8 @@ class Studio {
     const left = element("resize-left");
     const right = element("resize-right");
     const drawer = element("resize-drawer");
-    let leftWidth = 240;
-    let rightWidth = 300;
+    let leftWidth = 208;
+    let rightWidth = 268;
     let storedDrawerHeight: number | null = null;
     try {
       const stored = localStorage.getItem("nodara.drawer.height");
@@ -411,7 +411,7 @@ class Studio {
       // Hardened webviews may disable local storage; keep the default.
     }
     const defaultDrawerHeight = Math.round(
-      Math.max(280, Math.min(420, window.innerHeight * 0.34)),
+      Math.max(180, Math.min(280, window.innerHeight * 0.24)),
     );
     let drawerHeight = storedDrawerHeight !== null && Number.isFinite(storedDrawerHeight)
       ? Math.max(180, Math.min(640, storedDrawerHeight))
@@ -421,8 +421,8 @@ class Studio {
     installResizer(left, {
       axis: "x",
       value: leftWidth,
-      min: 170,
-      max: () => Math.max(260, Math.min(460, window.innerWidth - rightWidth - 360)),
+      min: 160,
+      max: () => Math.max(250, Math.min(430, window.innerWidth - rightWidth - 340)),
       onChange: (value) => {
         leftWidth = value;
         app.style.setProperty("--left-panel", `${value}px`);
@@ -431,8 +431,8 @@ class Studio {
     installResizer(right, {
       axis: "x",
       value: rightWidth,
-      min: 220,
-      max: () => Math.max(220, Math.min(560, window.innerWidth - leftWidth - 360)),
+      min: 210,
+      max: () => Math.max(210, Math.min(500, window.innerWidth - leftWidth - 340)),
       invert: true,
       onChange: (value) => {
         rightWidth = value;

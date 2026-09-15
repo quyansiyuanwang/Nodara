@@ -2061,12 +2061,6 @@ button.problem {
   resize: vertical;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .edge-flow,
-  .edge-runner {
-    display: none;
-  }
-}
 #panel-agent {
   overflow: hidden;
 }
@@ -2075,4 +2069,595 @@ button.problem {
   display: block;
   height: 100%;
   min-height: 360px;
+}
+
+/* Compact operator layout and motion ------------------------------------ */
+:root {
+  --radius: 7px;
+  --motion-fast: 120ms;
+  --motion-medium: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+html,
+body {
+  font-size: 13px;
+}
+
+.app {
+  --left-panel: 208px;
+  --right-panel: 268px;
+  --drawer-height: 210px;
+  grid-template-rows: auto minmax(0, 1fr) 4px var(--drawer-height);
+}
+
+.toolbar {
+  min-height: 34px;
+  gap: 10px;
+  padding: 4px 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.toolbar__group {
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.brand {
+  font-size: 13px;
+}
+
+.connection,
+.validation-status {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.btn {
+  min-height: 27px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    transform 80ms ease,
+    box-shadow var(--motion-fast) ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.btn--small {
+  min-height: 24px;
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.workspace {
+  grid-template-columns: var(--left-panel) 4px minmax(0, 1fr) 4px var(--right-panel);
+}
+
+.panel {
+  padding: 7px 8px;
+}
+
+.panel__title {
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.input {
+  min-height: 27px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition:
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    background var(--motion-fast) ease;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(91 141 239 / 14%);
+}
+
+/* Collapsible, compact palette. */
+.palette {
+  gap: 0;
+  margin-top: 5px;
+}
+
+.palette__group {
+  margin: 0 0 3px;
+  border: 1px solid #202536;
+  border-radius: 6px;
+  background: #131721;
+  overflow: hidden;
+}
+
+.palette__category {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 5px 6px;
+  background: #181c27;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  list-style: none;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.palette__category::-webkit-details-marker {
+  display: none;
+}
+
+.palette__category::before {
+  content: "›";
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.palette__group[open] > .palette__category::before {
+  color: var(--accent);
+  transform: rotate(90deg);
+}
+
+.palette__category::after {
+  content: attr(data-count);
+  min-width: 17px;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #252b3b;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.palette__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+}
+
+.palette__item {
+  min-height: 27px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: #1b202c;
+  font-size: 12px;
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.palette__item:hover:not(:disabled) {
+  background: #232a3a;
+  transform: translateX(2px);
+}
+
+.badge {
+  padding: 0 4px;
+  font-size: 9px;
+}
+
+/* Dense inspector: labels and controls stay in one scan line. */
+.inspector__title {
+  margin-bottom: 0;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.inspector__title + .muted {
+  margin: 2px 0 6px;
+  line-height: 1.3;
+}
+
+.inspector__section {
+  margin: 8px 0 4px;
+  font-size: 10px;
+}
+
+.inspector__fold {
+  margin-top: 7px;
+}
+
+.inspector__fold > summary {
+  padding: 6px 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.inspector__fold-body {
+  padding-bottom: 2px;
+}
+
+.field {
+  margin-bottom: 7px;
+}
+
+.field__label {
+  margin-bottom: 2px;
+  font-size: 11px;
+}
+
+.field__info {
+  width: 13px;
+  height: 13px;
+  font-size: 9px;
+}
+
+.field__hint {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.field--group {
+  padding: 5px;
+}
+
+.array {
+  gap: 3px;
+}
+
+.array__item {
+  gap: 4px;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.array__actions {
+  gap: 2px;
+  padding-top: 14px;
+}
+
+.array__button {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.gate {
+  margin: 5px 0;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.muted {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.variable-card {
+  gap: 4px;
+  margin: 5px 0;
+  padding: 6px;
+}
+
+/* Bottom drawer defaults to a practical split view instead of a large slab. */
+.resizer--horizontal::after {
+  inset: 1px 0;
+}
+
+.resizer--vertical::after {
+  inset: 0 1px;
+}
+
+.drawer__tabs {
+  gap: 2px;
+  padding: 2px 7px 0;
+}
+
+.tab {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.drawer__panel {
+  padding: 6px 8px 8px;
+}
+
+.events-toolbar,
+.runs-toolbar,
+.extensions-toolbar,
+.audit-toolbar,
+.json-toolbar {
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.events-toolbar {
+  top: -6px;
+  padding: 2px 0;
+}
+
+.events-toolbar .input,
+.runs-toolbar .input {
+  min-height: 24px;
+}
+
+.events,
+.problems {
+  font-size: 11px;
+}
+
+.event-entry {
+  animation: event-row-in 140ms var(--ease-out) both;
+}
+
+.event {
+  grid-template-columns: 72px 92px 1fr;
+  gap: 6px;
+  padding: 1px 0;
+  line-height: 1.35;
+}
+
+.event-artifact {
+  margin: 4px 0 7px;
+  padding: 6px;
+}
+
+.event-outputs,
+.event-command {
+  margin: 4px 0 7px;
+}
+
+#panel-json {
+  gap: 0;
+}
+
+.json {
+  padding: 6px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Canvas chrome and nodes, with the slimmer visual weight of the redesign. */
+.canvas-tools {
+  top: 7px;
+  right: 7px;
+  gap: 3px;
+  padding: 2px;
+  border: 1px solid #242a3a;
+  border-radius: 7px;
+  background: rgb(20 24 33 / 86%);
+  backdrop-filter: blur(8px);
+}
+
+.canvas-tool {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11px;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform 80ms ease;
+}
+
+.canvas-tool:active {
+  transform: scale(0.96);
+}
+
+.canvas-hint {
+  left: 8px;
+  bottom: 7px;
+  max-width: min(920px, calc(100% - 20px));
+  padding: 4px 7px;
+  border: 1px solid rgb(42 47 66 / 72%);
+  border-radius: 6px;
+  background: rgb(15 17 23 / 76%);
+  font-size: 10px;
+  line-height: 1.35;
+  backdrop-filter: blur(6px);
+}
+
+.node__body {
+  transition: fill var(--motion-fast) ease, stroke var(--motion-fast) ease, filter var(--motion-fast) ease;
+}
+
+.node:hover .node__body {
+  filter: drop-shadow(0 6px 12px rgb(0 0 0 / 38%));
+  stroke: #66708d;
+}
+
+.port,
+.exec-port {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--motion-fast) var(--ease-out), fill var(--motion-fast) ease, stroke var(--motion-fast) ease, filter var(--motion-fast) ease;
+}
+
+.port:hover,
+.exec-port:hover {
+  transform: scale(1.35);
+  filter: drop-shadow(0 0 5px rgb(91 141 239 / 75%));
+}
+
+.node-quick-config:not(.is-hidden) {
+  animation: quick-config-in 150ms var(--ease-out) both;
+}
+
+.context-menu:not([hidden]) {
+  animation: context-menu-in 120ms var(--ease-out) both;
+}
+
+.topology-toolbar,
+.drawer__panel:not([hidden]) {
+  animation: panel-in 160ms var(--ease-out) both;
+}
+
+.validation-status[data-state="checking"],
+.connection--warn {
+  animation: status-pulse 1.25s ease-in-out infinite;
+}
+
+/* Edge motion is intentionally independent of SMIL and OS reduced motion.
+   The runtime state persists after completion, so the traversed path stays
+   readable while the dash phase and runner continue to show direction. */
+.edge {
+  transition: stroke var(--motion-fast) ease, stroke-width var(--motion-fast) ease, filter var(--motion-fast) ease, opacity var(--motion-fast) ease;
+}
+
+.edge-group:hover .edge {
+  animation: edge-march 760ms linear infinite;
+  stroke-dasharray: 6 5;
+}
+
+.edge--active,
+.edge--data-active {
+  stroke-linecap: round;
+  stroke-dasharray: 10 7;
+  animation: edge-march 560ms linear infinite;
+  filter: drop-shadow(0 0 6px rgb(246 200 95 / 85%));
+}
+
+.edge--data-active {
+  filter: drop-shadow(0 0 6px rgb(88 166 255 / 85%));
+}
+
+.edge-flow,
+.edge-runner {
+  display: inline;
+}
+
+.edge-flow {
+  stroke-width: 4;
+  opacity: 0.95;
+}
+
+.edge-runner {
+  filter: drop-shadow(0 0 6px rgb(255 232 145 / 95%));
+}
+
+.node--active .node__body {
+  animation: node-running-pulse 1.05s ease-in-out infinite;
+}
+
+.node--done .node__body {
+  animation: node-done-pop 420ms var(--ease-out) both;
+}
+
+.node--failed .node__body {
+  animation: node-failed-shake 380ms ease-in-out both;
+}
+
+@keyframes edge-march {
+  to {
+    stroke-dashoffset: -17;
+  }
+}
+
+@keyframes node-running-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgb(91 141 239 / 45%));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgb(91 141 239 / 95%));
+  }
+}
+
+@keyframes node-done-pop {
+  0% {
+    filter: drop-shadow(0 0 0 rgb(63 178 127 / 0%));
+  }
+  45% {
+    filter: drop-shadow(0 0 11px rgb(63 178 127 / 90%));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 rgb(63 178 127 / 0%));
+  }
+}
+
+@keyframes node-failed-shake {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgb(224 96 96 / 0%));
+  }
+  25% {
+    filter: drop-shadow(0 0 10px rgb(224 96 96 / 95%));
+  }
+  75% {
+    filter: drop-shadow(0 0 10px rgb(224 96 96 / 95%));
+  }
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(224 163 62 / 0%);
+    opacity: 0.82;
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(224 163 62 / 12%);
+    opacity: 1;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes event-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes quick-config-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

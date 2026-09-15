@@ -73,10 +73,33 @@ export class Palette {
       if (visible.length === 0) continue;
       matches += visible.length;
 
-      const heading = document.createElement("h3");
+      const group = document.createElement("details");
+      group.className = "palette__group";
+      const storageKey = `nodara.palette.${category}.open`;
+      let open = category.toLowerCase() === "core";
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored !== null) open = stored === "true";
+      } catch {
+        // Palette state is optional in hardened webviews.
+      }
+      group.open = query !== "" || open;
+      group.addEventListener("toggle", () => {
+        try {
+          localStorage.setItem(storageKey, String(group.open));
+        } catch {
+          // Keep working without storage.
+        }
+      });
+
+      const heading = document.createElement("summary");
       heading.className = "palette__category";
       heading.textContent = localizeCategory(category);
-      this.root.appendChild(heading);
+      heading.dataset.count = String(visible.length);
+      group.appendChild(heading);
+
+      const items = document.createElement("div");
+      items.className = "palette__items";
 
       for (const descriptor of visible) {
         const admission = this.handlers.allowed?.(descriptor) ?? { allowed: true };
@@ -132,8 +155,10 @@ export class Palette {
           window.addEventListener("pointercancel", onEnd);
           this.handlers.onDragStart(descriptor, event);
         });
-        this.root.appendChild(item);
+        items.appendChild(item);
       }
+      group.appendChild(items);
+      this.root.appendChild(group);
     }
 
     if (matches === 0) {
