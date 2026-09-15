@@ -1,4 +1,4 @@
-import { Diagnostic, NodeDescriptor, JsonSchema } from "./runtime/types";
+import { Diagnostic, ExtensionKind, NodeDescriptor, JsonSchema } from "./runtime/types";
 
 export type Locale = "en" | "zh-CN";
 
@@ -177,6 +177,7 @@ const EN: Record<string, string> = {
   "tabs.audit": "Audit",
   "tabs.problems": "Problems",
   "tabs.runs": "Runs",
+  "tabs.extensions": "Extensions",
   "tabs.json": "Workflow JSON",
   "audit.currentRun": "this run only",
   "event.studio": "studio",
@@ -207,6 +208,21 @@ const EN: Record<string, string> = {
   "agent.planRejected": "Plan rejected ({errors} error(s))",
   "agent.planSummary": "{nodes} node(s), {edges} edge(s), {warnings} warning(s)",
   "audit.empty": "No audit records yet.",
+  "extensions.empty": "No extensions registered.",
+  "extensions.name": "Extension",
+  "extensions.kind": "Kind",
+  "extensions.source": "Source",
+  "extensions.capabilities": "Capabilities",
+  "extensions.nodes": "Node types",
+  "extensions.status": "Status",
+  "extensions.loaded": "loaded",
+  "extensions.discovered": "discovered",
+  "extensions.kindBuiltin": "built-in",
+  "extensions.kindInProcess": "in-process",
+  "extensions.kindPlugin": "plugin",
+  "extensions.kindUi": "UI",
+  "extensions.kindPolicy": "policy",
+  "extensions.kindOther": "other",
   "runs.empty": "No runs yet.",
   "runs.id": "Run",
   "runs.workflow": "Workflow",
@@ -402,6 +418,7 @@ const ZH: Record<string, string> = {
   "tabs.audit": "审计",
   "tabs.problems": "问题",
   "tabs.runs": "运行记录",
+  "tabs.extensions": "扩展",
   "tabs.json": "工作流 JSON",
   "audit.currentRun": "仅当前运行",
   "event.studio": "工作台",
@@ -432,6 +449,21 @@ const ZH: Record<string, string> = {
   "agent.planRejected": "计划被拒绝（{errors} 个错误）",
   "agent.planSummary": "{nodes} 个节点，{edges} 条连线，{warnings} 个警告",
   "audit.empty": "尚无审计记录。",
+  "extensions.empty": "尚未注册扩展。",
+  "extensions.name": "扩展",
+  "extensions.kind": "类型",
+  "extensions.source": "来源",
+  "extensions.capabilities": "能力数",
+  "extensions.nodes": "节点类型数",
+  "extensions.status": "状态",
+  "extensions.loaded": "已加载",
+  "extensions.discovered": "已发现",
+  "extensions.kindBuiltin": "内置",
+  "extensions.kindInProcess": "进程内扩展",
+  "extensions.kindPlugin": "插件",
+  "extensions.kindUi": "界面",
+  "extensions.kindPolicy": "策略",
+  "extensions.kindOther": "其他",
   "runs.empty": "尚无运行记录。",
   "runs.id": "运行",
   "runs.workflow": "工作流",
@@ -689,6 +721,20 @@ const RUN_STATUS_ZH: Record<string, string> = {
 export function localizeRunStatus(status: string): string {
   return activeLocale === "zh-CN" ? (RUN_STATUS_ZH[status] ?? status) : status;
 }
+const EXTENSION_KIND_ZH: Record<ExtensionKind, string> = {
+  builtin: "内置",
+  in_process: "进程内扩展",
+  plugin: "插件",
+  ui: "界面",
+  policy: "策略",
+  other: "其他",
+};
+
+export function localizeExtensionKind(kind: ExtensionKind): string {
+  if (activeLocale === "zh-CN") return EXTENSION_KIND_ZH[kind] ?? kind;
+  return kind === "in_process" ? "in-process" : kind;
+}
+
 
 export function localizeAgentStatus(status: string): string {
   return activeLocale === "zh-CN" ? (STATUS_ZH[status] ?? status) : status.replace(/_/g, " ");

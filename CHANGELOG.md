@@ -45,6 +45,10 @@ All notable changes to this project are documented here. The format follows
   item controls instead of falling back to a raw JSON textarea.
 - Workflow Properties now edit the metadata author and workflow version fields,
   so these common document settings no longer require the JSON tab.
+- Built-in, in-process and plugin capabilities now share one
+  `ExtensionRegistry`. The runtime exposes unified registration metadata at
+  `GET /api/v1/extensions`, including source, kind, capabilities, permissions,
+  node types and load state. Studio adds an **Extensions** tab for this view.
 - Studio now has a **Variables…** run dialog. It collects every workflow variable
   in one place, supports temporary run-only overrides, masks stored secrets,
   validates numeric/JSON input before Run and can clear overrides individually.

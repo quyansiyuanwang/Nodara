@@ -14,6 +14,7 @@ import {
   ApiErrorBody,
   AuditRecord,
   EventEnvelope,
+  ExtensionDescriptor,
   JsonSchema,
   NodeDescriptor,
   PluginListResponse,
@@ -39,6 +40,7 @@ export class RuntimeError extends Error {
 export interface RuntimeHealth {
   status: string;
   node_types: number;
+  extensions: number;
   plugins: number;
   runs: number;
 }
@@ -124,6 +126,11 @@ export class RuntimeClient {
   async nodeTypes(): Promise<NodeDescriptor[]> {
     const payload = await this.request<{ node_types: NodeDescriptor[] }>("/node-types");
     return payload.node_types;
+  }
+
+  async extensions(): Promise<ExtensionDescriptor[]> {
+    const payload = await this.request<{ extensions: ExtensionDescriptor[] }>("/extensions");
+    return payload.extensions;
   }
 
   validate(workflow: Workflow, options?: ValidationOptions): Promise<ValidationReport> {

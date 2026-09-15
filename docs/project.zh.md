@@ -67,7 +67,7 @@ Agent 的隔离是最极端的例子：它只依赖 `nodara-schema`，不依赖�
 | Crate | 职责 | 依赖 |
 |---|---|---|
 | `nodara-schema` | 工作流、插件 manifest、节点描述符、执行事件、会话、工具调用契约；校验；图算法；迁移；JSON Schema 生成 | `serde`、`schemars` |
-| `nodara-core` | `NodeExecutor` SDK、`CapabilityRegistry`、`WorkflowEngine`、运行控制、策略、审计、事件、内置节点、表达式求值 | `nodara-schema` |
+| `nodara-core` | `NodeExecutor` SDK、`CapabilityRegistry`、`ExtensionRegistry`、`WorkflowEngine`、运行控制、策略、审计、事件、内置节点、表达式求值 | `nodara-schema` |
 | `nodara-plugin` | stdio 上的 JSON-RPC 2.0、进程内传输、插件发现、插件宿主 | `nodara-schema`、`nodara-core` |
 | `nodara-runtime` | 组装根：引擎 + 插件 + 策略 + 审计、运行管理、Agent 会话、HTTP/WebSocket API | `nodara-schema`、`nodara-core`、`nodara-plugin` |
 | `nodara-platform` | Windows 键鼠输入、窗口管理、屏幕捕获、剪贴板 | `nodara-core`、`nodara-schema` |
@@ -112,7 +112,8 @@ RunManager.start
 
 同一份实现有两种运行方式：
 
-* **进程内** —— 注册进运行时的 `CapabilityRegistry`；
+* **进程内** —— 注册进运行时的 `CapabilityRegistry`，并由
+  `ExtensionRegistry` 统一记录来源、类型、节点和加载状态；
 * **插件** —— 用 `nodara_plugin::serve_stdio` 通过 stdio 提供服务，并在二进制旁放置 `manifest.json`。
 
 运行时通过 JSON-RPC 懒加载插件（`initialize`、`describe`、`execute`、`cancel`、`health`、`shutdown`），
@@ -131,6 +132,7 @@ RunManager.start
 | `GET` | `/api/v1` | 服务标识、三个版本轴、已发布的 schema 名称 |
 | `GET` | `/api/v1/health` | 存活状态与能力数量 |
 | `GET` | `/api/v1/plugins` | 已安装插件与加载失败信息 |
+| `GET` | `/api/v1/extensions` | 统一列出内置、进程内与插件扩展注册 |
 | `GET` | `/api/v1/node-types` | 每个节点类型的描述符 |
 | `GET` | `/api/v1/schema/{document}` | 按当前部署合成的 JSON Schema |
 | `POST` | `/api/v1/workflows/validate` | 返回文档的诊断信息 |

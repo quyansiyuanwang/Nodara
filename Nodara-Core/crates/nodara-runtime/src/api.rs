@@ -29,6 +29,7 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
     let api = Router::new()
         .route("/health", get(health))
         .route("/plugins", get(list_plugins))
+        .route("/extensions", get(list_extensions))
         .route("/node-types", get(list_node_types))
         .route("/schema/{document}", get(get_schema))
         .route("/workflows/validate", post(validate_workflow))
@@ -139,6 +140,7 @@ async fn get_schema(
 struct HealthResponse {
     status: &'static str,
     node_types: usize,
+    extensions: usize,
     plugins: usize,
     runs: usize,
 }
@@ -147,6 +149,7 @@ async fn health(State(state): State<Arc<RuntimeState>>) -> Json<HealthResponse> 
     Json(HealthResponse {
         status: "ok",
         node_types: state.registry.node_types().len(),
+        extensions: state.extensions.len(),
         plugins: state.host.summaries().len(),
         runs: state.runs.list().len(),
     })
@@ -162,6 +165,17 @@ async fn list_plugins(State(state): State<Arc<RuntimeState>>) -> Json<PluginList
     Json(PluginListResponse {
         plugins: state.host.summaries(),
         failures: state.plugin_failures.clone(),
+    })
+}
+
+#[derive(Debug, Serialize)]
+struct ExtensionListResponse {
+    extensions: Vec<nodara_core::ExtensionDescriptor>,
+}
+
+async fn list_extensions(State(state): State<Arc<RuntimeState>>) -> Json<ExtensionListResponse> {
+    Json(ExtensionListResponse {
+        extensions: state.extensions.descriptors(),
     })
 }
 

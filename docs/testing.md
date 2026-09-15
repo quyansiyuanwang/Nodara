@@ -12,7 +12,7 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A02 | Versions | All components report 2.0.0 and `build-info.json` names the expected commit |
 | A03 | CLI smoke | Validate, simulate, and run examples succeed |
 | A04 | Plugins | Runtime reports 2 plugins and 16 node types |
-| A05 | HTTP API | Health, plugins, node types, and schema endpoints respond |
+| A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
 | A06 | Studio | Desktop Studio connects and runs hello-world |
 | A07 | Agent mock | A canned workflow plans and runs without an API key |
 | A08 | Events/audit | Events and policy decisions are visible |
@@ -84,11 +84,12 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 4. The Events tab reaches `run_completed`.
 5. Runs lists the execution and **Open** reloads its event stream.
 6. **Variables…** accepts a temporary value, does not alter the workflow default, and rejects invalid JSON before Run.
-7. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
-8. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
-9. Pause, Resume, and Cancel work with a delayed workflow.
-10. The Audit tab shows capability and node records.
-11. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
+7. **Extensions** lists the built-in registration and any loaded/discovered plugins with node counts and status.
+8. `examples/failure-branch.json` validates cleanly and its failure edge recovers from the failing Calculate node.
+9. `examples/result-mapping.json` publishes its `out` port as `waited_ms` and the following Log interpolates it.
+10. Pause, Resume, and Cancel work with a delayed workflow.
+11. The Audit tab shows capability and node records.
+12. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 
 ## Agent
 

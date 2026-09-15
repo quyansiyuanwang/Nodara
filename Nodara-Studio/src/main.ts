@@ -35,6 +35,7 @@ import { AgentPanel } from "./ui/agent-panel";
 import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
+import { ExtensionPanel } from "./ui/extension-panel";
 import { Inspector } from "./ui/inspector";
 import { Palette } from "./ui/palette";
 import { installResizer } from "./ui/resizer";
@@ -69,6 +70,7 @@ class Studio {
   private workflowRevision = 0;
   private auditToken = 0;
   private runsToken = 0;
+  private extensionsToken = 0;
   private lastAgentPollError: string | null = null;
   private connected = false;
   private currentRunStatus: RunStatus | null = null;
@@ -82,6 +84,7 @@ class Studio {
   private readonly agents: AgentPanel;
   private readonly audit: AuditPanel;
   private readonly runsPanel: RunPanel;
+  private readonly extensionsPanel: ExtensionPanel;
   private readonly runDialog: RunDialog;
   private agentPoll: number | null = null;
   private history!: WorkflowHistory;
@@ -126,6 +129,7 @@ class Studio {
     this.runsPanel = new RunPanel(element("runs"), {
       onOpenRun: (runId) => void this.openRun(runId),
     });
+    this.extensionsPanel = new ExtensionPanel(element("extensions"));
     this.runDialog = new RunDialog(
       element<HTMLDialogElement>("run-dialog"),
       this.workflow,
@@ -157,12 +161,14 @@ class Studio {
     try {
       const health = await this.client.health();
       const plugins = await this.client.plugins();
+      const extensions = await this.client.extensions();
       const descriptors = await this.client.nodeTypes();
       const firstConnection = !this.connected;
       this.connected = true;
       const localized = descriptors.map(localizeDescriptor);
       this.descriptors = new Map(localized.map((descriptor) => [descriptor.node_type, descriptor]));
       this.palette.setDescriptors(localized);
+      this.extensionsPanel.setExtensions(extensions);
 
       const failed = plugins.failures.length;
       badge.textContent = t(failed ? "toolbar.nodeSummaryFailed" : "toolbar.nodeSummary", {
@@ -266,6 +272,7 @@ class Studio {
     element("audit-refresh").addEventListener("click", () => void this.refreshAudit());
     element("audit-current-run").addEventListener("change", () => void this.refreshAudit());
     element("runs-refresh").addEventListener("click", () => void this.refreshRuns());
+    element("extensions-refresh").addEventListener("click", () => void this.refreshExtensions());
 
     element("btn-apply-json").addEventListener("click", () => {
       try {
@@ -359,6 +366,7 @@ class Studio {
     }
     if (name === "json") this.renderJson();
     if (name === "runs") void this.refreshRuns();
+    if (name === "extensions") void this.refreshExtensions();
   }
 
   private updateZoomLabel(scale: number): void {
@@ -798,6 +806,18 @@ class Studio {
       this.audit.setRecords(records);
     } catch (error) {
       this.reportError(error);
+    }
+  }
+
+  /** Load unified built-in, in-process and plugin registration metadata. */
+  private async refreshExtensions(): Promise<void> {
+    const token = ++this.extensionsToken;
+    try {
+      const extensions = await this.client.extensions();
+      if (token !== this.extensionsToken) return;
+      this.extensionsPanel.setExtensions(extensions);
+    } catch (error) {
+      if (token === this.extensionsToken) this.reportError(error);
     }
   }
 

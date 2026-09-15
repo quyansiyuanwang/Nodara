@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use nodara_core::{ExtensionDescriptor, ExtensionKind};
 use nodara_runtime::{RuntimeBuilder, RuntimeConfig, RuntimeState};
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -75,6 +76,7 @@ async fn health_reports_capabilities() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
     assert!(body["node_types"].as_u64().unwrap() >= 6);
+    assert!(body["extensions"].as_u64().unwrap() >= 1);
 }
 
 #[tokio::test]
@@ -108,6 +110,67 @@ async fn node_types_include_builtins_with_schemas() {
         .as_array()
         .unwrap()
         .contains(&json!("message")));
+}
+
+#[tokio::test]
+async fn builders_can_register_unified_extension_metadata() {
+    let mut builder = RuntimeBuilder::new(RuntimeConfig::default());
+    builder.register_extension(ExtensionDescriptor {
+        id: "test.ui.console".to_string(),
+        name: "Test UI Console".to_string(),
+        version: "1.0.0".to_string(),
+        kind: ExtensionKind::Ui,
+        source: "test-host".to_string(),
+        description: Some("Registered by an embedding host.".to_string()),
+        capabilities: vec!["Console".to_string()],
+        permissions: Vec::new(),
+        node_types: Vec::new(),
+        loaded: true,
+    });
+    let state = builder.build().expect("runtime builds");
+    let (status, body) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/extensions")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let registered = body["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|extension| extension["id"] == "test.ui.console")
+        .expect("custom extension");
+    assert_eq!(registered["kind"], "ui");
+    assert_eq!(registered["source"], "test-host");
+}
+
+#[tokio::test]
+async fn extensions_endpoint_lists_builtin_registration() {
+    let state = state().await;
+    let (status, body) = call(
+        &state,
+        Request::builder()
+            .uri("/api/v1/extensions")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let builtin = body["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|extension| extension["id"] == "nodara.builtins")
+        .expect("built-in extension");
+    assert_eq!(builtin["kind"], "builtin");
+    assert_eq!(builtin["loaded"], true);
+    assert!(builtin["node_types"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("core.Log")));
 }
 
 #[tokio::test]

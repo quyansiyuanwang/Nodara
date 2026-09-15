@@ -38,6 +38,35 @@ describe("runtime client", () => {
     );
   });
 
+  it("maps unified extension registrations", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        extensions: [
+          {
+            id: "nodara.builtins",
+            name: "Nodara built-ins",
+            version: "2.0.0",
+            kind: "builtin",
+            source: "runtime",
+            capabilities: [],
+            permissions: [],
+            node_types: ["core.Log"],
+            loaded: true,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new RuntimeClient();
+    const extensions = await client.extensions();
+    expect(extensions[0].id).toBe("nodara.builtins");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/extensions",
+      expect.objectContaining({ headers: { "content-type": "application/json" } }),
+    );
+  });
+
   it("surfaces the runtime's structured error", async () => {
     vi.stubGlobal(
       "fetch",

@@ -20,6 +20,7 @@ pub async fn serve(state: Arc<RuntimeState>) -> RuntimeResult<()> {
     tracing::info!(
         address = %address,
         node_types = state.registry.node_types().len(),
+        extensions = state.extensions.len(),
         plugins = state.host.summaries().len(),
         "runtime listening"
     );

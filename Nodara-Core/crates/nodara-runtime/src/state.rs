@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use nodara_core::{
     register_builtins, AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove,
-    CapabilityPolicy, CapabilityRegistry, DefaultPolicy, InMemoryAuditLog, JsonlAuditLog,
-    NodeExecutor, WorkflowEngine,
+    CapabilityPolicy, CapabilityRegistry, DefaultPolicy, ExtensionDescriptor, ExtensionKind,
+    ExtensionRegistry, InMemoryAuditLog, JsonlAuditLog, NodeExecutor, WorkflowEngine,
 };
 use nodara_plugin::PluginHost;
 
@@ -21,6 +21,8 @@ pub struct RuntimeState {
     pub config: RuntimeConfig,
     /// All runnable node types.
     pub registry: Arc<CapabilityRegistry>,
+    /// Unified built-in, in-process and plugin registration metadata.
+    pub extensions: Arc<ExtensionRegistry>,
     /// Installed plugins.
     pub host: Arc<PluginHost>,
     /// Active and completed runs.
@@ -39,6 +41,7 @@ impl std::fmt::Debug for RuntimeState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RuntimeState")
             .field("node_types", &self.registry.node_types().len())
+            .field("extensions", &self.extensions.len())
             .field("plugins", &self.host.summaries().len())
             .finish()
     }
@@ -58,6 +61,7 @@ pub struct PluginFailure {
 pub struct RuntimeBuilder {
     config: RuntimeConfig,
     registry: CapabilityRegistry,
+    extensions: ExtensionRegistry,
     policy: Option<Arc<dyn CapabilityPolicy>>,
     approval: Option<Arc<dyn ApprovalHandler>>,
 }
@@ -67,6 +71,7 @@ impl std::fmt::Debug for RuntimeBuilder {
         f.debug_struct("RuntimeBuilder")
             .field("config", &self.config)
             .field("registry", &self.registry)
+            .field("extensions", &self.extensions.descriptors())
             .finish()
     }
 }
@@ -76,9 +81,25 @@ impl RuntimeBuilder {
     pub fn new(config: RuntimeConfig) -> Self {
         let mut registry = CapabilityRegistry::new();
         register_builtins(&mut registry);
+        let mut extensions = ExtensionRegistry::new();
+        extensions.register(ExtensionDescriptor {
+            id: "nodara.builtins".to_string(),
+            name: "Nodara built-ins".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            kind: ExtensionKind::Builtin,
+            source: "runtime".to_string(),
+            description: Some(
+                "Core workflow control, logging, calculation and variables.".to_string(),
+            ),
+            capabilities: Vec::new(),
+            permissions: Vec::new(),
+            node_types: registry.node_types(),
+            loaded: true,
+        });
         Self {
             config,
             registry,
+            extensions,
             policy: None,
             approval: None,
         }
@@ -86,7 +107,9 @@ impl RuntimeBuilder {
 
     /// Register one extra in-process node.
     pub fn register_executor<E: NodeExecutor + 'static>(&mut self, executor: E) -> &mut Self {
+        let node_type = executor.descriptor().node_type;
         self.registry.register(executor);
+        self.add_in_process_node(node_type);
         self
     }
 
@@ -95,8 +118,47 @@ impl RuntimeBuilder {
     where
         F: FnOnce(&mut CapabilityRegistry),
     {
+        let before = self.registry.node_types();
         register(&mut self.registry);
+        for node_type in self.registry.node_types() {
+            if !before.contains(&node_type) {
+                self.add_in_process_node(node_type);
+            }
+        }
         self
+    }
+
+    /// Register arbitrary extension metadata for an embedding host.
+    pub fn register_extension(&mut self, descriptor: ExtensionDescriptor) -> &mut Self {
+        self.extensions.register(descriptor);
+        self
+    }
+
+    fn add_in_process_node(&mut self, node_type: String) {
+        let mut descriptor =
+            self.extensions
+                .get("nodara.in-process")
+                .cloned()
+                .unwrap_or(ExtensionDescriptor {
+                    id: "nodara.in-process".to_string(),
+                    name: "In-process extensions".to_string(),
+                    version: env!("CARGO_PKG_VERSION").to_string(),
+                    kind: ExtensionKind::InProcess,
+                    source: "host".to_string(),
+                    description: Some(
+                        "Capabilities registered directly by an embedding host.".to_string(),
+                    ),
+                    capabilities: Vec::new(),
+                    permissions: Vec::new(),
+                    node_types: Vec::new(),
+                    loaded: true,
+                });
+        if !descriptor.node_types.contains(&node_type) {
+            descriptor.node_types.push(node_type);
+            descriptor.node_types.sort();
+        }
+        descriptor.loaded = true;
+        self.extensions.register(descriptor);
     }
 
     /// Override the capability policy.
@@ -136,6 +198,20 @@ impl RuntimeBuilder {
             }
         }
         host.install_into(&mut self.registry);
+        for plugin in host.summaries() {
+            self.extensions.register(ExtensionDescriptor {
+                id: plugin.id,
+                name: plugin.name,
+                version: plugin.version,
+                kind: ExtensionKind::Plugin,
+                source: "plugin".to_string(),
+                description: plugin.description,
+                capabilities: plugin.capabilities,
+                permissions: plugin.permissions,
+                node_types: plugin.node_types,
+                loaded: plugin.loaded,
+            });
+        }
 
         let sessions = AgentSessionStore::new(self.config.approval_timeout);
         let policy = self
@@ -150,6 +226,7 @@ impl RuntimeBuilder {
         };
 
         let registry = Arc::new(self.registry);
+        let extensions = Arc::new(self.extensions);
         let engine = WorkflowEngine::new(registry.clone())
             .with_policy(policy)
             .with_approval(approval)
@@ -159,6 +236,7 @@ impl RuntimeBuilder {
         Ok(Arc::new(RuntimeState {
             config: self.config,
             registry,
+            extensions,
             host,
             runs,
             sessions,

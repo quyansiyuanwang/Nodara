@@ -159,7 +159,9 @@ src/
 * `Run`, `Pause`, `Resume`, `Step`, `Cancel` map one-to-one onto run control;
 * the **Runs** tab lists runtime history and opens a selected run in the
   **Events** tab; the event stream highlights the running, finished and failed
-  nodes on the canvas.
+  nodes on the canvas;
+* the **Extensions** tab lists built-in, in-process and plugin registrations,
+  including source, capabilities, node counts and load state.
 
 ## The Agent tab
 

@@ -1108,6 +1108,60 @@ body.is-resizing-y * {
   color: var(--ok);
 }
 
+/* Extensions view -------------------------------------------------------- */
+.extensions-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.extensions {
+  overflow: auto;
+  max-height: 190px;
+}
+
+.extensions__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.extensions__table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--text-dim);
+  text-align: left;
+  font-weight: 500;
+  padding: 3px 8px 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.extensions__table td {
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+  border-bottom: 1px solid #1c2030;
+}
+
+.extensions__table td:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.extensions__table small {
+  color: var(--text-dim);
+}
+
+.extension-status--loaded {
+  color: var(--ok);
+}
+
+.extension-status--pending {
+  color: var(--warn);
+}
+
 /* Runs view -------------------------------------------------------------- */
 .runs-toolbar {
   display: flex;

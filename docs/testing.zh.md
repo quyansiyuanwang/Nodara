@@ -13,7 +13,7 @@
 | A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.0.0；构建信息含正确 Git commit |
 | A03 | CLI 核心流程 | `validate`、`simulate`、`run` 对三个基础示例返回成功 |
 | A04 | 插件进程模式 | runtime 报告 2 个插件、16 个节点 |
-| A05 | HTTP API | health、plugins、node-types、schema 端点可访问 |
+| A05 | HTTP API | health、plugins、extensions、node-types、schema 端点可访问 |
 | A06 | Studio 桌面版 | 能连接 runtime，显示 16 个节点，导入/校验/运行 hello-world 成功 |
 | A07 | Agent mock | 无 API Key 时可规划并运行最小工作流 |
 | A08 | 运行历史、事件与审计 | Runs 可重新打开历史运行，Events/Audit 或 API 可看到对应记录 |
@@ -180,10 +180,11 @@ $plugins.plugins | Select-Object id,version
 3. Runs 页刷新后能看到该运行，点击“打开”可重新载入完整事件；
 4. `examples/failure-branch.json` 校验无错误，Calculate 节点失败后通过 failure 连线进入恢复分支；
 5. `Variables…` 可设置临时变量且不修改工作流默认值，JSON 无效时 Run 保持禁用；
-6. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
-7. 画布运行状态与事件一致；
-8. Pause/Resume 对延迟工作流有效；
-9. Cancel 能终止延迟节点。
+6. `Extensions` 页列出内置扩展以及已发现/已加载的插件、节点数和状态；
+7. `examples/result-mapping.json` 将 Delay 的 `out` 发布为 `waited_ms`，后续 Log 能正确渲染。
+8. 画布运行状态与事件一致；
+9. Pause/Resume 对延迟工作流有效；
+10. Cancel 能终止延迟节点。
 
 ### 6.4 Audit
 

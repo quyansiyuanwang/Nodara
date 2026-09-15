@@ -116,6 +116,14 @@ run: `last_error.code`, `last_error.message`, `last_error.node_id` and
 `last_error.retryable`. Failure branches can use those values in guard
 expressions and downstream nodes can interpolate them in messages.
 
+### Extensions
+
+The **Extensions** tab presents the runtime's unified registration registry. It
+lists built-in, in-process and plugin entries with their source, capability and
+node-type counts, and whether the executable side is loaded. Adding a new
+runtime feature through the extension registry therefore makes it visible to
+the same management surface.
+
 ### Runs and events
 
 The **Runs** tab lists the runtime's execution history with status, workflow,

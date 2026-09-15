@@ -10,6 +10,7 @@ API; neither links against runtime internals.
 | `GET` | `/api/v1` | Service identity and version axes |
 | `GET` | `/api/v1/health` | Liveness plus capability counts |
 | `GET` | `/api/v1/plugins` | Installed plugins and load failures |
+| `GET` | `/api/v1/extensions` | Unified built-in, in-process and plugin registrations |
 | `GET` | `/api/v1/node-types` | Descriptors for every known node type |
 | `GET` | `/api/v1/schema/{document}` | Published JSON Schema, composed for this deployment |
 | `POST` | `/api/v1/workflows/validate` | Validate a workflow document |

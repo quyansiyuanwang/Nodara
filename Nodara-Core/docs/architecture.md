@@ -33,7 +33,7 @@ Arrows point from a consumer to what it consumes. The important properties:
 | Crate | Responsibility | Depends on |
 |-------|----------------|------------|
 | `nodara-schema` | Workflow, manifest, descriptor and event types; validation; graph algorithms; migration; JSON Schema generation | serde, schemars |
-| `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes | `nodara-schema` |
+| `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `ExtensionRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes | `nodara-schema` |
 | `nodara-plugin` | JSON-RPC 2.0, stdio and in-process transports, plugin client, plugin server, discovery, host | `nodara-schema`, `nodara-core` |
 | `nodara-runtime` | Runtime composition, run manager, HTTP/WebSocket API | `nodara-schema`, `nodara-core`, `nodara-plugin` |
 | `nodara-platform` | Windows input, windows, capture, clipboard | `nodara-core`, `nodara-schema`, `nodara-plugin` (for its binary) |

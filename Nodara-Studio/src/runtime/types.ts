@@ -162,6 +162,27 @@ export interface RunSnapshot {
   event_count: number;
 }
 
+export type ExtensionKind =
+  | "builtin"
+  | "in_process"
+  | "plugin"
+  | "ui"
+  | "policy"
+  | "other";
+
+export interface ExtensionDescriptor {
+  id: string;
+  name: string;
+  version: string;
+  kind: ExtensionKind;
+  source: string;
+  description?: string;
+  capabilities: string[];
+  permissions: string[];
+  node_types: string[];
+  loaded: boolean;
+}
+
 export interface PluginSummary {
   id: string;
   name: string;

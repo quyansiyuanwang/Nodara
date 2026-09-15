@@ -76,7 +76,7 @@ property of the dependency graph.
 | Crate | Responsibility | Depends on |
 |---|---|---|
 | `nodara-schema` | Workflow, manifest, descriptor, event, session and tool-call contracts; validation; graph algorithms; migration; JSON Schema generation | `serde`, `schemars` |
-| `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes, expression evaluator | `nodara-schema` |
+| `nodara-core` | `NodeExecutor` SDK, `CapabilityRegistry`, `ExtensionRegistry`, `WorkflowEngine`, run control, policy, audit, events, built-in nodes, expression evaluator | `nodara-schema` |
 | `nodara-plugin` | JSON-RPC 2.0 over stdio, in-process transport, discovery, plugin host | `nodara-schema`, `nodara-core` |
 | `nodara-runtime` | Composition root: engine + plugins + policy + audit, run manager, agent sessions, HTTP/WebSocket API | `nodara-schema`, `nodara-core`, `nodara-plugin` |
 | `nodara-platform` | Windows input, window management, screen capture, clipboard | `nodara-core`, `nodara-schema` |
@@ -130,7 +130,8 @@ permissions it needs and whether it is dangerous.
 
 The same implementation can run two ways:
 
-* **in process** — register it in the runtime's `CapabilityRegistry`;
+* **in process** — register it in the runtime's `CapabilityRegistry`; the
+  `ExtensionRegistry` records its source, kind, node types and load state;
 * **as a plugin** — serve it over stdio with `nodara_plugin::serve_stdio` and drop a
   `manifest.json` next to the binary.
 
@@ -153,6 +154,7 @@ The runtime is the only process that executes anything. Both clients are thin:
 | `GET` | `/api/v1` | Identity, version axes, published schema names |
 | `GET` | `/api/v1/health` | Liveness and capability counts |
 | `GET` | `/api/v1/plugins` | Installed plugins and load failures |
+| `GET` | `/api/v1/extensions` | Unified built-in, in-process and plugin registrations |
 | `GET` | `/api/v1/node-types` | Descriptor for every node type |
 | `GET` | `/api/v1/schema/{document}` | JSON Schema, composed for this deployment |
 | `POST` | `/api/v1/workflows/validate` | Diagnostics for a document |

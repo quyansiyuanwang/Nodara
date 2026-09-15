@@ -29,6 +29,7 @@ pub mod error;
 pub mod events;
 pub mod executor;
 pub mod expr;
+pub mod extension;
 pub mod policy;
 pub mod registry;
 
@@ -43,6 +44,7 @@ pub use error::{ExecutionError, ExecutionResult, NodeError, NodeResult};
 pub use events::{ChannelEventSink, CollectingEventSink, EventBus, EventSink, NullEventSink};
 pub use executor::{NodeExecutor, NodeInput, NodeOutput};
 pub use expr::evaluate_expression;
+pub use extension::{ExtensionDescriptor, ExtensionKind, ExtensionRegistry};
 pub use policy::{
     AllowAllPolicy, AllowlistPolicy, ApprovalHandler, AutoApprove, AutoDeny, CapabilityPolicy,
     CapabilityRequest, Decision, DefaultPolicy, DenyAllPolicy, PolicyChain,
