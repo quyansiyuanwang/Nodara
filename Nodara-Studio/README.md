@@ -97,8 +97,10 @@ known validation code has a Studio translation.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.
-* Selecting a connection opens its Properties: edit the edge label or guard
-  expression directly, and the workflow revalidates automatically.
+* Selecting a connection opens its Properties: choose whether it follows
+  **Always**, **Success**, or **Failure**, then edit its label or guard
+  expression directly. Failure edges provide explicit recovery paths; branch
+  labels and colors are shown on the canvas.
 * Drag the dividers between the left/right panels or above the bottom drawer to
   resize them; double-click a divider to restore its default size.
 * A new document starts with a runnable `Start → Log → End` example so the

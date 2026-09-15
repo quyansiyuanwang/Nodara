@@ -77,7 +77,7 @@ Use the `中文` / `English` button in the toolbar. Studio persists the choice a
 | Move a node | Drag the node body |
 | Create a connection | Drag from an output port to an input port |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
-| Edit a connection | Select it and edit its label or guard condition in Properties |
+| Edit a connection | Select it to choose Always, Success, or Failure, then edit its label or guard condition in Properties |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
@@ -100,7 +100,7 @@ of the workflow document and are honored by the runtime:
 | Run condition | Optional expression; a false result skips the node and prunes its outgoing branches |
 | Delay before (ms) | Wait before executing the node |
 | Delay after (ms) | Wait after successful execution before activating outgoing branches |
-| Continue on error | After retries are exhausted, continue through outgoing branches instead of failing the run |
+| Continue on error | After retries are exhausted, continue through eligible Always/Failure branches instead of failing the run |
 | Timeout (ms) | Optional time limit for one plugin execution attempt |
 | Retries | Number of additional attempts after a failed execution |
 | Retry delay (ms) | Wait between failed attempts |

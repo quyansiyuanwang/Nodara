@@ -458,6 +458,26 @@ body {
   stroke: var(--warn);
 }
 
+.edge--success {
+  stroke: var(--ok);
+}
+
+.edge--failure {
+  stroke: var(--error);
+  stroke-dasharray: 3 3;
+}
+
+.edge__label {
+  fill: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
 .edge--selected,
 .edge-group:hover .edge {
   stroke: var(--accent);

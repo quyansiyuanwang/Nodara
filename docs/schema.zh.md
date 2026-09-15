@@ -99,6 +99,7 @@
 | `source` | string | **是** | 源节点 id（不存在报 `WF112`）。 |
 | `target` | string | **是** | 目标节点 id（不存在报 `WF113`）。 |
 | `source_port`、`target_port` | string / null | 否 | 命名端口。省略时视为 `out` → `in`。 |
+| `branch` | `always` / `success` / `failure` | 否 | 选择源节点达到哪种结果时激活边。省略或 `always` 表示成功和失败都可走；`failure` 会处理节点错误并激活恢复路径，无需开启“失败后继续”。 |
 | `condition` | string / null | 否 | 守卫表达式；仅当表达式为真时走这条边。没有 `condition` 的边永远走。表达式可读取运行变量与 `{{模板}}`。 |
 | `label` | string / null | 否 | 显示标签。 |
 

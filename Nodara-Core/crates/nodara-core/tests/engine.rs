@@ -10,7 +10,9 @@ use nodara_core::{
     EngineOptions, ExecutionContext, NodeError, NodeExecutor, NodeInput, NodeOutput, RunControl,
     RunRequest, WorkflowEngine,
 };
-use nodara_schema::{Edge, ExecutionEvent, Node, NodeDescriptor, RunStatus, Variable, Workflow};
+use nodara_schema::{
+    Edge, EdgeBranch, ExecutionEvent, Node, NodeDescriptor, RunStatus, Variable, Workflow,
+};
 
 fn registry() -> Arc<CapabilityRegistry> {
     let mut registry = CapabilityRegistry::new();
@@ -190,6 +192,145 @@ fn continue_on_error_takes_outgoing_branches() {
         &envelope.event,
         ExecutionEvent::NodeFailed { node_id, .. } if node_id == "flaky"
     )));
+}
+
+#[test]
+fn a_failure_branch_recovers_without_continue_on_error() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(FlakyExecutor {
+        calls,
+        failures: 10,
+    });
+
+    let mut workflow = Workflow::new("wf.failure-branch");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("flaky", "test.Flaky"));
+    workflow.add_node(
+        Node::new("healthy", "core.Log")
+            .with_config(serde_json::json!({ "message": "unexpected success" })),
+    );
+    workflow.add_node(
+        Node::new("recover", "core.Log").with_config(serde_json::json!({ "message": "recovered" })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "flaky"));
+    let mut success_edge = Edge::new("e2", "flaky", "healthy");
+    success_edge.branch = EdgeBranch::Success;
+    let mut failure_edge = Edge::new("e3", "flaky", "recover");
+    failure_edge.branch = EdgeBranch::Failure;
+    workflow.add_edge(success_edge);
+    workflow.add_edge(failure_edge);
+    workflow.add_edge(Edge::new("e4", "healthy", "end"));
+    workflow.add_edge(Edge::new("e5", "recover", "end"));
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(Arc::new(registry)).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    // The failed node is reported as a failure event, not a successful execution.
+    assert_eq!(outcome.nodes_executed, 3);
+    let logs: Vec<String> = sink
+        .snapshot()
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            ExecutionEvent::Log { message, .. } => Some(message.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(logs.contains(&"recovered".to_string()));
+    assert!(!logs.contains(&"unexpected success".to_string()));
+}
+
+#[test]
+fn an_inactive_failure_guard_does_not_hide_the_error() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(FlakyExecutor {
+        calls,
+        failures: 10,
+    });
+
+    let mut workflow = Workflow::new("wf.inactive-failure-branch");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("flaky", "test.Flaky"));
+    workflow.add_node(
+        Node::new("recover", "core.Log").with_config(serde_json::json!({ "message": "recovered" })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "flaky"));
+    let mut failure_edge = Edge::new("e2", "flaky", "recover");
+    failure_edge.branch = EdgeBranch::Failure;
+    failure_edge.condition = Some("allow_recovery".to_string());
+    workflow.add_edge(failure_edge);
+    workflow.add_edge(Edge::new("e3", "recover", "end"));
+    workflow.variables.insert(
+        "allow_recovery".to_string(),
+        Variable {
+            value: serde_json::json!(false),
+            ..Variable::default()
+        },
+    );
+
+    let outcome =
+        WorkflowEngine::new(Arc::new(registry)).run(RunRequest::new(workflow), &RunControl::new());
+
+    assert_eq!(outcome.status, RunStatus::Failed);
+    assert_eq!(outcome.failure.unwrap().code, "E_EXECUTION");
+}
+
+#[test]
+fn a_success_branch_ignores_the_failure_path() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(FlakyExecutor { calls, failures: 0 });
+
+    let mut workflow = Workflow::new("wf.success-branch");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("flaky", "test.Flaky"));
+    workflow.add_node(
+        Node::new("healthy", "core.Log")
+            .with_config(serde_json::json!({ "message": "healthy path" })),
+    );
+    workflow.add_node(
+        Node::new("recover", "core.Log")
+            .with_config(serde_json::json!({ "message": "unexpected recovery" })),
+    );
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("e1", "start", "flaky"));
+    let mut success_edge = Edge::new("e2", "flaky", "healthy");
+    success_edge.branch = EdgeBranch::Success;
+    let mut failure_edge = Edge::new("e3", "flaky", "recover");
+    failure_edge.branch = EdgeBranch::Failure;
+    workflow.add_edge(success_edge);
+    workflow.add_edge(failure_edge);
+    workflow.add_edge(Edge::new("e4", "healthy", "end"));
+    workflow.add_edge(Edge::new("e5", "recover", "end"));
+
+    let sink = Arc::new(CollectingEventSink::new());
+    let outcome = WorkflowEngine::new(Arc::new(registry)).run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert!(outcome.is_success(), "{:?}", outcome.failure);
+    assert_eq!(outcome.nodes_executed, 4);
+    let logs: Vec<String> = sink
+        .snapshot()
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            ExecutionEvent::Log { message, .. } => Some(message.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(logs.contains(&"healthy path".to_string()));
+    assert!(!logs.contains(&"unexpected recovery".to_string()));
 }
 
 #[test]

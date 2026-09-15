@@ -26,6 +26,12 @@ All notable changes to this project are documented here. The format follows
   `description`, `default`, `enum`, bounds and examples per property.
 - Studio opens a runnable `Start → Log → End` starter workflow on first
   launch and when creating a new document, so Run can be exercised immediately.
+- Edges now support explicit `success` and `failure` branches. A failure edge
+  handles executor errors and activates a recovery path without requiring a
+  node-wide `continue_on_error`; Studio exposes the outcome in connection
+  Properties and colors/labels the branch on the canvas.
+- Regenerated the published workflow and agent-session schemas so editor hints
+  include current execution controls and edge branches.
 - Studio now has a **Runs** tab that lists runtime run history. Any entry can be
   opened directly into its event stream, with status, workflow, node count and
   start time shown in the table.

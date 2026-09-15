@@ -9,6 +9,7 @@ Every file here is a workflow document in the current format
 | `hello-world.json` | Variables, `{{interpolation}}`, `core.Calculate` |
 | `delayed-log.json` | `system.Delay`, and a run you can cancel mid-flight |
 | `branching.json` | Edge guards (`condition`) pruning branches |
+| `failure-branch.json` | A `failure` edge recovering from a node error without `continue_on_error` |
 | `window-find.json` | A plugin-provided node type (`windows.Window.Find`) |
 | `legacy/v1-hello-world.json` | A pre-v2 document, kept as a migration fixture |
 

@@ -94,6 +94,30 @@ describe("node execution settings", () => {
     expect(workflow.variables.token.value).toBe("default");
   });
 
+  it("edits the connection outcome branch", () => {
+    const workflow = emptyWorkflow();
+    workflow.edges.push({ id: "e1", source: "start", target: "end" });
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inspector = new Inspector(
+      root,
+      workflow,
+      () => undefined,
+      { onChange: () => undefined },
+    );
+
+    inspector.render(null, [], "e1");
+    const branch = root.querySelector<HTMLSelectElement>("select.input")!;
+    expect(branch.value).toBe("always");
+    branch.value = "failure";
+    branch.dispatchEvent(new Event("change"));
+    expect(workflow.edges[0].branch).toBe("failure");
+
+    branch.value = "always";
+    branch.dispatchEvent(new Event("change"));
+    expect(workflow.edges[0].branch).toBeUndefined();
+  });
+
   it("edits connection labels and conditions directly", () => {
     const workflow = emptyWorkflow();
     workflow.edges.push({ id: "e1", source: "start", target: "end" });

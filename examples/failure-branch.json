@@ -1,0 +1,50 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.0",
+  "id": "workflow.failure-branch",
+  "metadata": {
+    "name": "Failure recovery",
+    "description": "Routes a failing Calculate node through an explicit failure branch."
+  },
+  "nodes": [
+    { "id": "start", "type": "core.Start" },
+    {
+      "id": "calculate",
+      "type": "core.Calculate",
+      "config": {
+        "expression": "missing_value + 1",
+        "output_var": "result"
+      }
+    },
+    {
+      "id": "success",
+      "type": "core.Log",
+      "config": { "message": "calculation succeeded" }
+    },
+    {
+      "id": "recover",
+      "type": "core.Log",
+      "config": { "message": "calculation failed; recovery branch executed", "level": "warn" }
+    },
+    { "id": "end", "type": "core.End" }
+  ],
+  "edges": [
+    { "id": "start-calculate", "source": "start", "target": "calculate" },
+    {
+      "id": "calculate-success",
+      "source": "calculate",
+      "target": "success",
+      "branch": "success"
+    },
+    {
+      "id": "calculate-failure",
+      "source": "calculate",
+      "target": "recover",
+      "branch": "failure",
+      "label": "recover"
+    },
+    { "id": "success-end", "source": "success", "target": "end" },
+    { "id": "recover-end", "source": "recover", "target": "end" }
+  ],
+  "variables": {}
+}

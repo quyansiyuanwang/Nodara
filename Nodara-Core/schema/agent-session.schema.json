@@ -160,6 +160,14 @@
     "Edge": {
       "description": "A directed edge between two nodes.",
       "properties": {
+        "branch": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EdgeBranch"
+            }
+          ],
+          "description": "Which source-node outcome may activate this edge. Omitted means always."
+        },
         "condition": {
           "description": "Optional guard expression. The edge is only taken when it evaluates truthy.",
           "type": [
@@ -207,6 +215,32 @@
         "target"
       ],
       "type": "object"
+    },
+    "EdgeBranch": {
+      "description": "Selects which source-node outcome activates an edge.",
+      "oneOf": [
+        {
+          "description": "Activate on either success or failure.",
+          "enum": [
+            "always"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Activate only after the source node succeeds.",
+          "enum": [
+            "success"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Activate only after the source node fails. At least one failure edge handles the error, so an explicit recovery branch does not require `continue_on_error`.",
+          "enum": [
+            "failure"
+          ],
+          "type": "string"
+        }
+      ]
     },
     "MessageRole": {
       "description": "Who authored a message.",
@@ -314,7 +348,7 @@
           "description": "Node-type specific configuration, validated against the node descriptor's config schema (published per node type in the workflow JSON Schema)."
         },
         "continue_on_error": {
-          "description": "Whether execution continues through this node's outgoing branches after all retry attempts fail. Policy denials and validation errors never use this escape hatch.",
+          "description": "Whether execution continues through this node's eligible outgoing branches after all retry attempts fail. An explicit `branch: failure` edge can handle the error without this escape hatch. Policy denials and validation errors never use either mechanism.",
           "type": "boolean"
         },
         "delay_after_ms": {
@@ -371,6 +405,15 @@
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
+        },
+        "timeout_ms": {
+          "description": "Maximum time an executor may spend on one attempt, in milliseconds.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "type": {
           "description": "Namespaced node type, e.g. `windows.Input.Keyboard`.\n\n`workflow_schema_for` publishes the enum of types the runtime installed, so an editor can complete this field.",

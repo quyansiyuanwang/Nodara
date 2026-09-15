@@ -178,9 +178,10 @@ $plugins.plugins | Select-Object id,version
 1. Run；
 2. Events 页最终显示 `run_completed`；
 3. Runs 页刷新后能看到该运行，点击“打开”可重新载入完整事件；
-4. 画布运行状态与事件一致；
-5. Pause/Resume 对延迟工作流有效；
-6. Cancel 能终止延迟节点。
+4. `examples/failure-branch.json` 校验无错误，Calculate 节点失败后通过 failure 连线进入恢复分支；
+5. 画布运行状态与事件一致；
+6. Pause/Resume 对延迟工作流有效；
+7. Cancel 能终止延迟节点。
 
 ### 6.4 Audit
 

@@ -104,6 +104,7 @@ The configuration keys available for a `type` are documented per node in the
 | `source` | string | **yes** | Source node id (`WF112` when it does not exist). |
 | `target` | string | **yes** | Target node id (`WF113` when it does not exist). |
 | `source_port`, `target_port` | string / null | no | Named ports. When omitted, `out` → `in` is assumed. |
+| `branch` | `always` / `success` / `failure` | no | Selects the source-node outcome that can activate the edge. Omitted or `always` follows both outcomes. A `failure` edge handles execution errors and activates the recovery path without requiring Continue on error. |
 | `condition` | string / null | no | Guard expression. The edge is taken only when it evaluates truthy; an edge without a condition is always taken. Expressions may read run variables and `{{templates}}`. |
 | `label` | string / null | no | Display label. |
 

@@ -77,12 +77,16 @@ export interface WorkflowNode {
   retry_delay_ms?: number;
 }
 
+export type EdgeBranch = "always" | "success" | "failure";
+
 export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
   source_port?: string;
   target_port?: string;
+  /** Selects whether the source node must succeed or fail to activate this edge. */
+  branch?: EdgeBranch;
   condition?: string;
   label?: string;
 }

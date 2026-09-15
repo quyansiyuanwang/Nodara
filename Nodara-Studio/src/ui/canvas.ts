@@ -815,18 +815,38 @@ export class Canvas {
       path.classList.add("edge");
       path.dataset.edgeId = edge.id;
       if (edge.condition) path.classList.add("edge--guarded");
+      if (edge.branch && edge.branch !== "always") {
+        path.classList.add(`edge--${edge.branch}`);
+      }
       if (this.selectedEdge === edge.id) path.classList.add("edge--selected");
       path.setAttribute("d", pathData);
       path.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "title"));
-      path.lastChild!.textContent = edge.condition
+      const branchLabel = edge.branch === "success"
+        ? t("inspector.edgeBranchSuccess")
+        : edge.branch === "failure"
+          ? t("inspector.edgeBranchFailure")
+          : "";
+      const tooltip = edge.condition
         ? t("canvas.edgeCondition", {
             source: edge.source,
             target: edge.target,
             condition: edge.condition,
           })
         : t("canvas.edge", { source: edge.source, target: edge.target });
+      path.lastChild!.textContent = branchLabel ? `${branchLabel}: ${tooltip}` : tooltip;
 
       group.append(hit, path);
+      const visibleLabel = edge.label?.trim() || branchLabel;
+      if (visibleLabel) {
+        const source = this.nodeCenter(edge.source, "output");
+        const target = this.nodeCenter(edge.target, "input");
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.classList.add("edge__label");
+        label.setAttribute("x", String((source.x + target.x) / 2));
+        label.setAttribute("y", String((source.y + target.y) / 2 - 9));
+        label.textContent = visibleLabel;
+        group.appendChild(label);
+      }
       this.edgesLayer.appendChild(group);
     }
   }

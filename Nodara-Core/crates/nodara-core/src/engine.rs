@@ -11,7 +11,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use nodara_schema::{
-    validate_with, ExecutionEvent, RunStatus, ValidationOptions, Workflow, WorkflowGraph,
+    validate_with, EdgeBranch, ExecutionEvent, RunStatus, ValidationOptions, Workflow,
+    WorkflowGraph,
 };
 
 use crate::audit::{AuditCategory, AuditLog, AuditRecord, NullAuditLog};
@@ -431,7 +432,7 @@ impl WorkflowEngine {
                     format!("node `{}` is disabled and was skipped", node.id),
                 );
                 for edge in graph.edges_from(&node.id) {
-                    if edge_is_taken(edge, &context, &bus) {
+                    if edge_is_taken(edge, &context, &bus, NodeOutcome::Success) {
                         activated.insert(edge.target.clone());
                     }
                 }
@@ -622,7 +623,7 @@ impl WorkflowEngine {
                         break;
                     }
                     for edge in graph.edges_from(&node.id) {
-                        if edge_is_taken(edge, &context, &bus) {
+                        if edge_is_taken(edge, &context, &bus, NodeOutcome::Success) {
                             activated.insert(edge.target.clone());
                         }
                     }
@@ -647,20 +648,32 @@ impl WorkflowEngine {
                         .node(node.id.clone(), node.node_type.clone())
                         .detail(serde_json::json!({ "duration_ms": duration_ms })),
                     );
-                    if node.continue_on_error && !matches!(error, NodeError::Cancelled) {
-                        context.log(
-                            nodara_schema::LogLevel::Warn,
-                            format!(
-                                "node `{}` failed; continuing because `continue_on_error` is enabled",
-                                node.id
-                            ),
-                        );
+                    let has_failure_route = graph
+                        .edges_from(&node.id)
+                        .iter()
+                        .any(|edge| edge.branch == EdgeBranch::Failure);
+                    if !matches!(error, NodeError::Cancelled)
+                        && (has_failure_route || node.continue_on_error)
+                    {
+                        let mut routed_failure = false;
                         for edge in graph.edges_from(&node.id) {
-                            if edge_is_taken(edge, &context, &bus) {
+                            if edge_is_taken(edge, &context, &bus, NodeOutcome::Failure) {
+                                routed_failure = true;
                                 activated.insert(edge.target.clone());
                             }
                         }
-                        continue;
+                        if routed_failure || node.continue_on_error {
+                            let reason = if routed_failure {
+                                "a failure branch handles it"
+                            } else {
+                                "`continue_on_error` is enabled"
+                            };
+                            context.log(
+                                nodara_schema::LogLevel::Warn,
+                                format!("node `{}` failed; continuing because {reason}", node.id),
+                            );
+                            continue;
+                        }
                     }
                     status = if matches!(error, NodeError::Cancelled) {
                         RunStatus::Cancelled
@@ -794,7 +807,27 @@ fn seeded_variables(
     variables
 }
 
-fn edge_is_taken(edge: &nodara_schema::Edge, context: &ExecutionContext, bus: &EventBus) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NodeOutcome {
+    Success,
+    Failure,
+}
+
+fn edge_is_taken(
+    edge: &nodara_schema::Edge,
+    context: &ExecutionContext,
+    bus: &EventBus,
+    outcome: NodeOutcome,
+) -> bool {
+    let branch_matches = match edge.branch {
+        EdgeBranch::Always => true,
+        EdgeBranch::Success => outcome == NodeOutcome::Success,
+        EdgeBranch::Failure => outcome == NodeOutcome::Failure,
+    };
+    if !branch_matches {
+        return false;
+    }
+
     let Some(condition) = &edge.condition else {
         return true;
     };

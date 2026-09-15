@@ -164,6 +164,21 @@ describe("graph editing on the canvas", () => {
     expect(document.body.classList.contains("is-canvas-dragging")).toBe(false);
   });
 
+  it("styles and labels success and failure branches", () => {
+    const { canvas, workflow } = harness();
+    workflow.edges.push({
+      id: "failure-path",
+      source: "start",
+      target: "end",
+      branch: "failure",
+    });
+    canvas.render();
+
+    const edge = document.querySelector<SVGPathElement>(".edge")!;
+    expect(edge.classList.contains("edge--failure")).toBe(true);
+    expect(document.querySelector(".edge__label")?.textContent).toBe("Failure");
+  });
+
   it("bends a tall connection so its arrow follows the approach", () => {
     const { canvas, workflow } = harness();
     workflow.edges.push({ id: "start-end", source: "start", target: "end" });

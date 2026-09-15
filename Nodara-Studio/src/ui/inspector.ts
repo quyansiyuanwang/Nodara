@@ -141,6 +141,37 @@ export class Inspector {
     })}`;
     this.root.appendChild(ports);
 
+    const branchField = document.createElement("div");
+    branchField.className = "field";
+    const branchLabel = document.createElement("label");
+    branchLabel.className = "field__label";
+    branchLabel.textContent = t("inspector.edgeBranch");
+    branchLabel.title = t("inspector.edgeBranchDetail");
+    const branch = document.createElement("select");
+    branch.className = "input";
+    for (const [value, key] of [
+      ["always", "inspector.edgeBranchAlways"],
+      ["success", "inspector.edgeBranchSuccess"],
+      ["failure", "inspector.edgeBranchFailure"],
+    ] as const) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = t(key);
+      branch.appendChild(option);
+    }
+    branch.value = edge.branch ?? "always";
+    branch.addEventListener("change", () => {
+      const next = branch.value as NonNullable<WorkflowEdge["branch"]>;
+      if (next === "always") delete edge.branch;
+      else edge.branch = next;
+      this.handlers.onChange();
+    });
+    const branchHint = document.createElement("p");
+    branchHint.className = "field__hint";
+    branchHint.textContent = t("inspector.edgeBranchDetail");
+    branchField.append(branchLabel, branch, branchHint);
+    this.root.appendChild(branchField);
+
     const labelField = document.createElement("div");
     labelField.className = "field";
     const label = document.createElement("label");

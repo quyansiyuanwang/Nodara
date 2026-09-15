@@ -42,6 +42,10 @@ fn is_zero_u64(value: &u64) -> bool {
     *value == 0
 }
 
+fn is_always_branch(value: &EdgeBranch) -> bool {
+    *value == EdgeBranch::Always
+}
+
 /// Human-facing metadata attached to a workflow.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Default)]
 #[serde(default)]
@@ -122,9 +126,10 @@ pub struct Node {
     /// Delay after successful execution, before outgoing branches activate.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub delay_after_ms: u64,
-    /// Whether execution continues through this node's outgoing branches after
-    /// all retry attempts fail. Policy denials and validation errors never use
-    /// this escape hatch.
+    /// Whether execution continues through this node's eligible outgoing
+    /// branches after all retry attempts fail. An explicit `branch: failure`
+    /// edge can handle the error without this escape hatch. Policy denials and
+    /// validation errors never use either mechanism.
     #[serde(default, skip_serializing_if = "is_false")]
     pub continue_on_error: bool,
     /// Maximum time an executor may spend on one attempt, in milliseconds.
@@ -181,6 +186,21 @@ impl Node {
     }
 }
 
+/// Selects which source-node outcome activates an edge.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EdgeBranch {
+    /// Activate on either success or failure.
+    #[default]
+    Always,
+    /// Activate only after the source node succeeds.
+    Success,
+    /// Activate only after the source node fails. At least one failure edge
+    /// handles the error, so an explicit recovery branch does not require
+    /// `continue_on_error`.
+    Failure,
+}
+
 /// A directed edge between two nodes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct Edge {
@@ -196,6 +216,9 @@ pub struct Edge {
     /// Optional named input port on the target node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_port: Option<String>,
+    /// Which source-node outcome may activate this edge. Omitted means always.
+    #[serde(default, skip_serializing_if = "is_always_branch")]
+    pub branch: EdgeBranch,
     /// Optional guard expression. The edge is only taken when it evaluates truthy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
@@ -217,6 +240,7 @@ impl Edge {
             target: target.into(),
             source_port: None,
             target_port: None,
+            branch: EdgeBranch::Always,
             condition: None,
             label: None,
         }
@@ -330,6 +354,21 @@ mod tests {
         let json = serde_json::to_string_pretty(&wf).unwrap();
         let back: Workflow = serde_json::from_str(&json).unwrap();
         assert_eq!(back, wf);
+    }
+
+    #[test]
+    fn edge_branch_round_trips_through_json() {
+        let mut edge = Edge::new("e1", "flaky", "recover");
+        edge.branch = EdgeBranch::Failure;
+        edge.condition = Some("retryable == true".to_string());
+
+        let json = serde_json::to_value(&edge).unwrap();
+        assert_eq!(json["branch"], "failure");
+        let back: Edge = serde_json::from_value(json).unwrap();
+        assert_eq!(back.branch, EdgeBranch::Failure);
+
+        let always = serde_json::to_value(Edge::new("e2", "start", "log")).unwrap();
+        assert!(always.get("branch").is_none());
     }
 
     #[test]
