@@ -24,6 +24,8 @@ const LABEL_KEYS: Record<string, string> = {
   run_completed: "event.completed",
   run_failed: "event.failed",
   capability_decision: "event.policy",
+  edge_activated: "event.edgeActivated",
+  data_transferred: "event.dataTransferred",
 };
 
 export class EventLog {
@@ -234,6 +236,12 @@ export class EventLog {
         this.canvas.setActiveNode(null);
         this.canvas.setNodeState(event.node_id, "failed");
         break;
+      case "edge_activated":
+        this.canvas.setEdgeState(event.edge_id, "active");
+        break;
+      case "data_transferred":
+        this.canvas.setEdgeState(event.edge_id, "data");
+        break;
       default:
         break;
     }
@@ -357,6 +365,10 @@ function describe(envelope: EventEnvelope): string {
       return event.reason ?? t("event.cancelled");
     case "capability_decision":
       return `${event.capability}: ${event.decision}`;
+    case "edge_activated":
+      return `${event.source} → ${event.target} (${event.branch})`;
+    case "data_transferred":
+      return `${event.source}.${event.source_port} → ${event.target}.${event.target_port}`;
     default:
       return "";
   }

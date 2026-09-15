@@ -50,7 +50,7 @@ types this runtime can actually run and `config` is described per type.
 ```jsonc
 {
   "$schema": "http://127.0.0.1:8710/api/v1/schema/workflow",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.example",
   "nodes": [
     // `type` completes from the catalog, and the description of each value
@@ -104,7 +104,7 @@ its own expression.
 
 ```json
 {
-  "workflow": { "schema_version": "2.0", "id": "...", "nodes": [], "edges": [] },
+  "workflow": { "schema_version": "2.1", "id": "...", "nodes": [], "edges": [] },
   "options": { "reject_cycles": true, "require_end": true }
 }
 ```
@@ -169,6 +169,11 @@ By default the runtime validates before starting and answers `422` with
 and let the engine fail at the offending node instead.
 
 `variables` in the request body override the workflow's own defaults.
+
+`session_id` binds the run to an Agent session. `approval` accepts `session` to
+use the session approval handler, or `auto` to auto-approve while still
+recording capability decisions and audit entries. Agent manual/partial modes use
+`session`; automatic mode uses `auto`.
 
 Set `"start_paused": true` to create the run suspended before its first node.
 The snapshot becomes `paused`; call `POST /runs/{id}/step` once per node or

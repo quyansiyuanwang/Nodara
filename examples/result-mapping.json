@@ -1,31 +1,56 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.result-mapping",
   "metadata": {
     "name": "Result mapping",
     "description": "Publishes a Delay node output through the common result_var configuration."
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "wait",
       "type": "system.Delay",
-      "config": { "duration_ms": 10 },
+      "config": {
+        "duration_ms": 10
+      },
       "result_var": "waited_ms",
       "result_port": "out"
     },
     {
       "id": "log",
       "type": "core.Log",
-      "config": { "message": "waited {{waited_ms}}ms" }
+      "config": {
+        "message": "waited {{waited_ms}}ms"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "start-wait", "source": "start", "target": "wait" },
-    { "id": "wait-log", "source": "wait", "target": "log" },
-    { "id": "log-end", "source": "log", "target": "end" }
+    {
+      "id": "start-wait",
+      "source": "start",
+      "target": "wait",
+      "kind": "control"
+    },
+    {
+      "id": "wait-log",
+      "source": "wait",
+      "target": "log",
+      "kind": "control"
+    },
+    {
+      "id": "log-end",
+      "source": "log",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

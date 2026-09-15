@@ -1227,8 +1227,19 @@ button.problem {
   color: var(--text-dim);
 }
 
+#panel-json {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#panel-json[hidden] {
+  display: none;
+}
+
 .json-toolbar {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
@@ -1241,12 +1252,15 @@ button.problem {
 
 .json {
   width: 100%;
-  min-height: 120px;
+  flex: 1 1 auto;
+  min-height: 0;
+  resize: vertical;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text);
   padding: 8px;
+  overflow: auto;
 }
 
 /* Agent panel ------------------------------------------------------------ */
@@ -1774,4 +1788,259 @@ button.problem {
   .event-command__grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 2.1 canvas, multi-selection and Agent chat ----------------------------- */
+.canvas-wrap {
+  background:
+    radial-gradient(circle at 1px 1px, #232838 1px, transparent 0)
+      var(--grid-x, 0) var(--grid-y, 0) / var(--grid-size, 24px) var(--grid-size, 24px),
+    var(--bg);
+  overflow: hidden;
+}
+
+.canvas-selection-box {
+  fill: rgb(91 141 239 / 14%);
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.node {
+  cursor: grab;
+}
+
+.node__label {
+  pointer-events: none;
+}
+
+.port--data {
+  stroke-width: 1.7;
+}
+
+.port--data:hover {
+  stroke: #fff;
+}
+
+.exec-port {
+  fill: #1c2130;
+  stroke: #a5aec4;
+  stroke-width: 1.6;
+  cursor: crosshair;
+  vector-effect: non-scaling-stroke;
+}
+
+.exec-port--input {
+  fill: #20283a;
+}
+
+.exec-port--success {
+  stroke: var(--ok);
+}
+
+.exec-port--failure {
+  stroke: var(--error);
+}
+
+.exec-port:hover {
+  fill: var(--accent);
+  stroke: #fff;
+}
+
+.edge,
+.edge--control {
+  stroke: #8b93a7;
+  stroke-width: 2.5;
+  marker-end: url(#arrow-control);
+}
+
+.edge--data {
+  stroke: #58a6ff;
+  stroke-width: 2;
+  marker-end: url(#arrow-data);
+}
+
+.edge--success {
+  stroke: var(--ok);
+  marker-end: url(#arrow-success);
+}
+
+.edge--failure {
+  stroke: var(--error);
+  marker-end: url(#arrow-failure);
+}
+
+.edge--active,
+.edge--data-active {
+  stroke: #f6c85f;
+  stroke-width: 4;
+  marker-end: url(#arrow-active);
+  filter: drop-shadow(0 0 4px rgb(246 200 95 / 70%));
+}
+
+.edge-pulse {
+  fill: #f6c85f;
+  stroke: #fff3c4;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.node-quick-config {
+  position: absolute;
+  z-index: 18;
+  width: 252px;
+  padding: 9px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  background: rgb(25 29 41 / 97%);
+  box-shadow: 0 14px 36px rgb(0 0 0 / 42%);
+}
+
+.node-quick-config.is-hidden {
+  display: none;
+}
+
+.node-quick-config__title {
+  margin-bottom: 7px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.node-quick-config__field {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.node-quick-config__field--check {
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+.node-quick-config__field .input {
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  padding: 2px 6px;
+}
+
+.session-run-actions,
+.agent-plan-actions,
+.agent-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.agent-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 360px;
+  height: 100%;
+}
+
+.agent-sidebar,
+.agent-main {
+  min-width: 0;
+  min-height: 0;
+}
+
+.agent-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.agent-provider {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.agent-provider summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-provider__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.agent-provider__grid .field {
+  margin: 0;
+}
+
+.agent-provider__grid .field__hint {
+  grid-column: 1 / -1;
+}
+
+.agent-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.agent-controls .input {
+  flex: 1 1 0;
+}
+
+.agent .sessions {
+  max-height: none;
+  height: calc(100% - 34px);
+}
+
+.agent .session-detail {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 80px;
+  overflow: auto;
+}
+
+.agent-plan-json pre,
+.agent-validation-result {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.agent-composer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-composer textarea {
+  resize: vertical;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-pulse {
+    display: none;
+  }
+}
+#panel-agent {
+  overflow: hidden;
+}
+
+.agent {
+  display: block;
+  height: 100%;
+  min-height: 360px;
 }

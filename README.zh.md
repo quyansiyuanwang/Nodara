@@ -75,7 +75,7 @@ artifacts\release\
 
 | 契约 | 字段 | 当前版本 |
 |---|---|---|
-| 工作流文档 | `schema_version` | `2.0` |
+| 工作流文档 | `schema_version` | `2.1` |
 | 插件/runtime 线协议 | `protocol_version` | `1` |
 | 公开 HTTP API | `api_version` | `v1` |
 

@@ -5,7 +5,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use nodara_core::{
-    ArtifactStore, EventSink, RunControl, RunFailure, RunOutcome, RunRequest, WorkflowEngine,
+    ApprovalHandler, ArtifactStore, EventSink, RunControl, RunFailure, RunOutcome, RunRequest,
+    WorkflowEngine,
 };
 use nodara_schema::{EventEnvelope, ExecutionEvent, RunStatus, Workflow};
 use parking_lot::Mutex;
@@ -321,6 +322,18 @@ impl RunManager {
         variables: BTreeMap<String, serde_json::Value>,
         start_paused: bool,
     ) -> Arc<RunHandle> {
+        self.start_with_options(run_id, workflow, variables, start_paused, None)
+    }
+
+    /// Start a run with an optional per-run approval strategy.
+    pub fn start_with_options(
+        self: &Arc<Self>,
+        run_id: String,
+        workflow: Workflow,
+        variables: BTreeMap<String, serde_json::Value>,
+        start_paused: bool,
+        approval: Option<Arc<dyn ApprovalHandler>>,
+    ) -> Arc<RunHandle> {
         let control = RunControl::new();
         if start_paused {
             control.pause();
@@ -337,12 +350,15 @@ impl RunManager {
         let sink: Arc<dyn EventSink> = Arc::new(HandleSink {
             handle: handle.clone(),
         });
-        let request = RunRequest::new(workflow)
+        let mut request = RunRequest::new(workflow)
             .with_run_id(run_id)
             .with_variables(variables)
             .with_event_sink(sink)
             .with_artifacts(artifacts)
             .with_start_paused(start_paused);
+        if let Some(approval) = approval {
+            request = request.with_approval(approval);
+        }
 
         let engine = self.engine.clone();
         let completion = handle.clone();

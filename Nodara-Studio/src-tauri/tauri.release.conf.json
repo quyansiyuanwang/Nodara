@@ -3,6 +3,7 @@
   "bundle": {
     "resources": {
       "../../Nodara-Core/target/release/nodara-runtime.exe": "nodara-runtime.exe",
+      "../../Nodara-Agent/target/release/nodara-agent.exe": "nodara-agent.exe",
       "../../Nodara-Core/target/release/nodara-platform-plugin.exe": "plugins/nodara-platform/nodara-platform-plugin.exe",
       "../../Nodara-Core/plugins/nodara-platform/manifest.json": "plugins/nodara-platform/manifest.json",
       "../../Nodara-Core/target/release/nodara-vision-plugin.exe": "plugins/nodara-vision/nodara-vision-plugin.exe",

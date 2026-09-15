@@ -47,7 +47,7 @@ impl NodeExecutor for OcrExecutor {
                         "description": "Variable receiving the recognized text."
                     }
                 },
-                "required": ["image", "output_var"],
+                "required": ["output_var"],
                 "additionalProperties": false
             }),
             permissions: vec!["vision.analyze".to_string()],
@@ -58,6 +58,9 @@ impl NodeExecutor for OcrExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "image");
         let output_var = input.require_str("output_var")?;
         let source = input.require_str("image")?;
         let language = input.config_str("language");

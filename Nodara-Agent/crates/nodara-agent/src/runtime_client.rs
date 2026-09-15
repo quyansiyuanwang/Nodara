@@ -12,6 +12,7 @@ use nodara_schema::{
 };
 use serde_json::Value;
 
+use crate::agent::RunApprovalMode;
 use crate::error::{AgentError, AgentResult};
 
 /// Percent-encode a caller-supplied id for use in a URL path segment or query
@@ -122,16 +123,34 @@ impl RuntimeClient {
         Ok(serde_json::from_value(payload)?)
     }
 
-    /// Start a run.
+    /// Start a run with explicit session, pause and approval options.
+    pub fn start_run_with_options(
+        &self,
+        workflow: &Workflow,
+        variables: serde_json::Value,
+        session_id: Option<&str>,
+        start_paused: bool,
+        approval: RunApprovalMode,
+    ) -> AgentResult<Value> {
+        self.post(
+            "/api/v1/runs",
+            serde_json::json!({
+                "workflow": workflow,
+                "variables": variables,
+                "session_id": session_id,
+                "start_paused": start_paused,
+                "approval": approval,
+            }),
+        )
+    }
+
+    /// Start a run using the runtime's default approval strategy.
     pub fn start_run(
         &self,
         workflow: &Workflow,
         variables: serde_json::Value,
     ) -> AgentResult<Value> {
-        self.post(
-            "/api/v1/runs",
-            serde_json::json!({ "workflow": workflow, "variables": variables }),
-        )
+        self.start_run_with_options(workflow, variables, None, false, RunApprovalMode::Auto)
     }
 
     /// Read a run snapshot.
@@ -263,13 +282,12 @@ impl RuntimeClient {
         workflow: &Workflow,
         variables: serde_json::Value,
     ) -> AgentResult<Value> {
-        self.post(
-            "/api/v1/runs",
-            serde_json::json!({
-                "workflow": workflow,
-                "variables": variables,
-                "session_id": session_id,
-            }),
+        self.start_run_with_options(
+            workflow,
+            variables,
+            Some(session_id),
+            false,
+            RunApprovalMode::Session,
         )
     }
 

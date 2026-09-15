@@ -1,22 +1,36 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.calculate-many",
   "metadata": {
     "name": "Named calculations",
     "description": "Evaluates multiple ordered expressions and publishes named results.",
-    "tags": ["calculate", "variables"]
+    "tags": [
+      "calculate",
+      "variables"
+    ]
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "calculate",
       "type": "core.CalculateMany",
       "config": {
-        "variables": { "offset": 2 },
+        "variables": {
+          "offset": 2
+        },
         "expressions": [
-          { "name": "base", "expression": "2 + 3" },
-          { "name": "answer", "expression": "base * 4 + offset" }
+          {
+            "name": "base",
+            "expression": "2 + 3"
+          },
+          {
+            "name": "answer",
+            "expression": "base * 4 + offset"
+          }
         ],
         "output_var": "calculation"
       }
@@ -24,14 +38,34 @@
     {
       "id": "log",
       "type": "core.Log",
-      "config": { "message": "answer={{answer}} all={{calculation}}" }
+      "config": {
+        "message": "answer={{answer}} all={{calculation}}"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "start-calculate", "source": "start", "target": "calculate" },
-    { "id": "calculate-log", "source": "calculate", "target": "log" },
-    { "id": "log-end", "source": "log", "target": "end" }
+    {
+      "id": "start-calculate",
+      "source": "start",
+      "target": "calculate",
+      "kind": "control"
+    },
+    {
+      "id": "calculate-log",
+      "source": "calculate",
+      "target": "log",
+      "kind": "control"
+    },
+    {
+      "id": "log-end",
+      "source": "log",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

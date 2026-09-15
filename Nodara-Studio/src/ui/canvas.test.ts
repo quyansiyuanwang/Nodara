@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Canvas } from "./canvas";
 import { emptyWorkflow } from "../model/workflow";
@@ -25,6 +25,8 @@ function descriptor(nodeType: string): NodeDescriptor {
     allows_additional_config: true,
   };
 }
+
+const activeCanvases: Canvas[] = [];
 
 interface Harness {
   canvas: Canvas;
@@ -59,6 +61,7 @@ function harness(): Harness {
     descriptorFor: (nodeType) => descriptors.get(nodeType),
   });
   canvas.render();
+  activeCanvases.push(canvas);
   return { canvas, workflow, changes: () => changes, descriptors };
 }
 
@@ -80,6 +83,10 @@ function pointerEvent(type: string, x = 0, y = 0): PointerEvent {
 describe("graph editing on the canvas", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    for (const canvas of activeCanvases.splice(0)) canvas.destroy();
   });
 
   it("refuses to add a second Start node", () => {
@@ -146,7 +153,7 @@ describe("graph editing on the canvas", () => {
     window.dispatchEvent(pointerEvent("pointerup", 300, 250));
     const added = workflow.nodes[workflow.nodes.length - 1];
     expect(added.type).toBe("core.Log");
-    expect(added.position).toEqual({ x: 116, y: 172 });
+    expect(added.position).toEqual({ x: 90, y: 135 });
     expect(document.body.classList.contains("is-palette-dragging")).toBe(false);
   });
 
@@ -168,6 +175,7 @@ describe("graph editing on the canvas", () => {
     const { canvas, workflow } = harness();
     workflow.edges.push({
       id: "failure-path",
+      kind: "control",
       source: "start",
       target: "end",
       branch: "failure",
@@ -181,7 +189,7 @@ describe("graph editing on the canvas", () => {
 
   it("bends a tall connection so its arrow follows the approach", () => {
     const { canvas, workflow } = harness();
-    workflow.edges.push({ id: "start-end", source: "start", target: "end" });
+    workflow.edges.push({ id: "start-end", kind: "control", source: "start", target: "end" });
     workflow.nodes[1].position = { x: 720, y: 660 };
     canvas.render();
 
@@ -201,9 +209,9 @@ describe("graph editing on the canvas", () => {
     canvas.addNode(descriptor("core.Log"), 200, 700);
     const logs = workflow.nodes.filter((node) => node.type === "core.Log");
     workflow.edges.push(
-      { id: "e1", source: "start", target: logs[0].id },
-      { id: "e2", source: logs[0].id, target: logs[1].id },
-      { id: "e3", source: logs[1].id, target: "end" },
+      { id: "e1", kind: "control", source: "start", target: logs[0].id },
+      { id: "e2", kind: "control", source: logs[0].id, target: logs[1].id },
+      { id: "e3", kind: "control", source: logs[1].id, target: "end" },
     );
     workflow.nodes.forEach((node) => { node.position = { x: 900, y: 900 }; });
     canvas.autoLayout();
@@ -259,6 +267,9 @@ describe("graph editing on the canvas", () => {
     expect(workflow.edges).toHaveLength(1);
     expect(workflow.edges[0].source).toBe("start");
     expect(workflow.edges[0].target).toBe("log");
+    expect(workflow.edges[0].kind).toBe("data");
+    expect(workflow.edges[0].source_port).toBe("out");
+    expect(workflow.edges[0].target_port).toBe("in");
     expect(changes()).toBeGreaterThan(0);
     expect(document.querySelectorAll(".edge")).toHaveLength(1);
   });
@@ -380,10 +391,10 @@ describe("graph editing on the canvas", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);
     canvas.render();
-    const outputs = document.querySelectorAll(".port--output");
-    const inputs = document.querySelectorAll(".port--input");
-    pointerDown(outputs[0]);
-    pointerUp(inputs[inputs.length - 1]);
+    const output = document.querySelector<SVGElement>(".exec-port--always")!;
+    const input = document.querySelector<SVGElement>('[data-node-id="log"] .exec-port--input')!;
+    pointerDown(output);
+    pointerUp(input);
 
     const hit = document.querySelector<SVGPathElement>(".edge-hit")!;
     hit.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 80 }));
@@ -519,4 +530,105 @@ describe("graph editing on the canvas", () => {
       "translate(0 0) scale(1)",
     );
   });
-});
+  it("creates control edges without data ports and data edges with explicit ports", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 320, 100);
+    canvas.render();
+
+    const dataOut = document.querySelector<SVGElement>('[data-node-id="start"] .port--output')!;
+    const dataIn = document.querySelector<SVGElement>('[data-node-id="log"] .port--input')!;
+    pointerDown(dataOut);
+    pointerUp(dataIn);
+    const controlOut = document.querySelector<SVGElement>('[data-node-id="log"] .exec-port--success')!;
+    const controlIn = document.querySelector<SVGElement>('[data-node-id="end"] .exec-port--input')!;
+    pointerDown(controlOut);
+    pointerUp(controlIn);
+
+    expect(workflow.edges).toHaveLength(2);
+    const data = workflow.edges.find((edge) => edge.kind === "data")!;
+    const control = workflow.edges.find((edge) => edge.kind === "control")!;
+    expect(data.source_port).toBe("out");
+    expect(data.target_port).toBe("in");
+    expect(control.source_port).toBeUndefined();
+    expect(control.target_port).toBeUndefined();
+    expect(control.branch).toBe("success");
+  });
+
+  it("supports ctrl multi-selection and moves every selected node", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 320, 80);
+    canvas.addNode(descriptor("core.Log"), 320, 260);
+    canvas.render();
+    canvas.select(null);
+    const start = document.querySelector<SVGGElement>('[data-node-id="start"]')!;
+    const logs = [...document.querySelectorAll<SVGGElement>('[data-node-id^="log"]')];
+    start.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, ctrlKey: true, clientX: 100, clientY: 100 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    logs[0].dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, ctrlKey: true, clientX: 350, clientY: 120 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    const selectedIds = canvas.selectedNodeIds();
+    expect(selectedIds).toHaveLength(2);
+    expect(selectedIds).toContain("start");
+    expect(selectedIds).toContain(logs[0].dataset.nodeId);
+
+    const beforeStart = { ...workflow.nodes.find((node) => node.id === "start")!.position! };
+    const beforeLog = { ...workflow.nodes.find((node) => node.id === logs[0].dataset.nodeId)!.position! };
+    logs[0].dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 350, clientY: 120 }));
+    window.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 390, clientY: 150 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    expect(workflow.nodes.find((node) => node.id === "start")!.position!.x).toBeGreaterThan(beforeStart.x);
+    expect(workflow.nodes.find((node) => node.id === logs[0].dataset.nodeId)!.position!.x).toBeGreaterThan(beforeLog.x);
+  });
+
+  it("uses shift to select all nodes on directed control paths", () => {
+    const { canvas, workflow } = harness();
+    workflow.edges.push(
+      { id: "s-a", kind: "control", source: "start", target: "end" },
+    );
+    const isolated = descriptor("core.Log");
+    canvas.addNode(isolated, 20, 500);
+    canvas.render();
+    canvas.select("start");
+    const end = document.querySelector<SVGGElement>('[data-node-id="end"]')!;
+    end.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, shiftKey: true, clientX: 750, clientY: 180 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    expect(canvas.selectedNodeIds()).toEqual(["start", "end"]);
+
+    const isolatedNode = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    isolatedNode.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, shiftKey: true, clientX: 40, clientY: 520 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    expect(canvas.selectedNodeIds()).toEqual(["start", "end"]);
+  });
+
+  it("box-selects intersected nodes and applies mixed quick settings to all", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 300, 500);
+    canvas.addNode(descriptor("core.Log"), 560, 500);
+    canvas.render();
+    workflow.nodes.find((node) => node.id === "log")!.retry = 2;
+    canvas.render();
+    const svg = document.getElementById("canvas") as unknown as SVGSVGElement;
+    svg.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: 280, clientY: 470 }));
+    window.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 760, clientY: 660 }));
+    window.dispatchEvent(new MouseEvent("pointerup"));
+    expect(canvas.selectedNodeIds()).toHaveLength(2);
+
+    const retry = document.querySelector<HTMLInputElement>(
+      '.node-quick-config input[data-field="retry"]',
+    )!;
+    expect(retry.placeholder).toBe("Multiple values");
+    retry.value = "4";
+    retry.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(workflow.nodes.filter((node) => node.id.startsWith("log")).every((node) => node.retry === 4)).toBe(true);
+  });
+
+  it("keeps an active edge decorated until states are cleared", () => {
+    const { canvas, workflow } = harness();
+    workflow.edges.push({ id: "s-e", kind: "control", source: "start", target: "end" });
+    canvas.render();
+    canvas.setEdgeState("s-e", "active");
+    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge--active')).not.toBeNull();
+    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge-pulse')).not.toBeNull();
+    canvas.clearStates();
+    expect(document.querySelector('.edge-group[data-edge-id="s-e"] .edge--active')).toBeNull();
+  });});

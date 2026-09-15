@@ -26,7 +26,7 @@ pub mod report;
 pub mod runtime_client;
 pub mod selector;
 
-pub use agent::{Agent, AgentConfig, AgentOutcome, ExplainTarget};
+pub use agent::{Agent, AgentConfig, AgentOutcome, ExplainTarget, RunApprovalMode};
 pub use audit::{AuditTrace, TraceEntry, TraceStep};
 pub use error::{AgentError, AgentResult};
 pub use model::{ChatMessage, ChatRequest, ChatResponse, Role, TokenUsage};

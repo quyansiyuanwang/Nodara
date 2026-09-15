@@ -93,16 +93,28 @@ workflow variables marked secret are not persisted beyond the browser session.
 * **Click** a node in the palette to add it near the canvas centre, or drag it to
   an exact position. A workflow can contain exactly one `core.Start`; the
   palette disables Start after one is present.
-* Drag a node to move it. Drag from an output port to an input port to connect.
-  You can also click an output and then an input; press `Escape` to cancel a
-  pending click connection. Port tooltips show their type, and incompatible
-  value types are refused before an edge is created.
-* Use the mouse wheel to zoom, middle-drag (or hold Space and drag) to pan, and
-  the canvas toolbar to zoom in/out, reset to 100%, fit all nodes or apply an
+* The world is unbounded: nodes may have negative coordinates, the grid follows
+  the viewport, and Fit/Auto layout work in every direction.
+* Round data ports create `kind: "data"` edges with explicit source/target
+  ports. Diamond execution ports create `kind: "control"` edges with Always,
+  Success or Failure outputs. Data edges never activate their target.
+* Left-drag empty canvas to marquee-select (touching a node selects it),
+  `Ctrl+left-click` toggles one node, and `Shift+left-click` selects all nodes
+  on directed control paths between the anchor and the target.
+* Moving any selected node moves the whole selection; Delete, enable/disable and
+  breakpoint actions apply to every selected node. A floating quick-config card
+  edits enabled, breakpoint, condition, pre-delay, continue-on-error, retries
+  and timeout, including mixed-value batch edits.
+* Use the mouse wheel to zoom and middle-drag (or hold Space and drag) to pan;
+  dragging near an edge auto-scrolls. The canvas toolbar offers zoom, Fit and
   automatic left-to-right topology layout.
 * Select a node or connection and press `Delete`, or right-click it and choose
-  the delete command. Connections have a wide invisible hit target, and their
-  context menu can switch directly between Always, Success and Failure branches.
+  the delete command. Connections have a wide invisible hit target. Control
+  edges switch between Always, Success and Failure; data edges show explicit
+  ports instead.
+* Edge arrows are always visible. Runtime `edge_activated` and
+  `data_transferred` events add a moving marker plus persistent path highlight
+  until the next run or clear.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.
@@ -214,9 +226,12 @@ src/
 
 ## The Agent tab
 
-The Studio never calls the agent. It reads `GET /api/v1/agent/sessions` — the
-session API the architecture document designates as the channel between them —
-and writes back exactly one thing: an operator's decision on a pending approval.
+Desktop Studio starts `nodara-agent.exe studio` for each turn over a structured
+stdin/stdout pipe. The Agent panel owns provider settings, a persistent chat
+session, current-canvas/previous-plan baselines and four execution modes:
+plan-only, manual, partial approval and automatic. It polls
+`GET /api/v1/agent/sessions` for the shared runtime session and writes operator
+approval decisions back to the same session.
 
 That decision is not cosmetic. When policy requires approval, the runtime's
 approval handler is *blocking the run thread*; the Approve button in this panel
@@ -227,7 +242,11 @@ is what releases it. The session card shows:
   validation diagnostics, with a button to load it into the editor;
 * every approval request, with the node, the permissions it wants and the exact
   input it would receive, so the decision can be judged rather than rubber-stamped;
-* a link to the run the session started, which opens in the Events tab.
+* a link to the run the session started, plus a run-filtered Audit action.
+
+The API key is kept only in the current Studio process memory. Agent output is
+never loaded into the canvas automatically: review the final JSON and diagnostics,
+then Load, Validate or Run explicitly.
 
 The tab is marked when something is waiting, so an approval is not missed.
 

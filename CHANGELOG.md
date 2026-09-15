@@ -1,4 +1,12 @@
 # Changelog
+## Unreleased
+
+- Workflow `schema_version` 2.1 with explicit `control` and `data` edges.
+- Legacy 2.0 documents now fail with `WF118` until migrated; migration removes ambiguous data-port mappings and reports those that must be recreated.
+- New `edge_activated` and `data_transferred` runtime events drive accurate Studio edge animation and traversed-path highlighting.
+- Studio adds an unbounded canvas, marquee/Ctrl/Shift multi-selection, group execution settings, data/execution ports, and persistent floating quick configuration.
+- Desktop Studio adds a conversational Agent panel backed by `nodara-agent studio`, shared runtime sessions, provider settings, current/previous-plan baselines, and plan-only/manual/partial/automatic execution modes.
+- Runtime `POST /runs` accepts per-run `approval: auto|session`; manual Agent runs start paused and automatic runs retain capability audit records.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses

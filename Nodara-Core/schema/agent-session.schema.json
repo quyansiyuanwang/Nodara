@@ -179,6 +179,15 @@
           "description": "Unique identifier within the workflow.",
           "type": "string"
         },
+        "kind": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/EdgeKind"
+            }
+          ],
+          "default": "control",
+          "description": "Whether this edge controls execution or carries data."
+        },
         "label": {
           "description": "Optional display label.",
           "type": [
@@ -237,6 +246,25 @@
           "description": "Activate only after the source node fails. At least one failure edge handles the error, so an explicit recovery branch does not require `continue_on_error`.",
           "enum": [
             "failure"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "EdgeKind": {
+      "description": "Whether an edge controls execution or transfers data.",
+      "oneOf": [
+        {
+          "description": "Activates the target and optionally selects a success/failure branch.",
+          "enum": [
+            "control"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Transfers a named output into a named input without activating the target.",
+          "enum": [
+            "data"
           ],
           "type": "string"
         }
@@ -746,8 +774,8 @@
           "type": "array"
         },
         "schema_version": {
-          "default": "2.0",
-          "description": "Workflow format version; this build writes `2.0` and migrates `1.x`.",
+          "default": "2.1",
+          "description": "Workflow format version; this build writes `2.1` and migrates older documents.",
           "type": "string"
         },
         "variables": {

@@ -132,7 +132,10 @@ runtime 可执行文件，或先手工运行 runtime。
 |---|---|
 | 添加节点 | 在左侧列表中**单击**节点，或拖到画布指定位置；每个工作流只允许一个 `core.Start` |
 | 移动节点 | 按住节点拖动 |
-| 创建连线 | 从输出端口拖动到输入端口，或先点击输出端口再点击输入端口；按 `Esc` 取消待连接状态；悬停可查看端口类型，不兼容类型会被拒绝 |
+| 创建数据连线 | 从圆形数据输出拖到圆形数据输入；按 `Esc` 取消；悬停显示名称、方向、类型和用途 |
+| 创建执行连线 | 从右下角 Always / Success / Failure 菱形输出拖到左下角执行输入 |
+| 框选与多选 | 空白处左键拖动框选；`Ctrl+左键` 切换单个节点；`Shift+左键` 选取控制图中锚点到目标的所有有向路径节点 |
+| 多节点操作 | 拖动任一已选节点会移动全部；删除、启停、断点应用整组；浮动快配置可批量设置常用执行字段 |
 | 删除节点或连线 | 选中后按 `Delete`，或右键目标并选择删除 |
 | 编辑连线 | 选中连线后可编辑标签或执行条件，也可右键直接切换“始终 / 成功时 / 失败时”；加宽的透明命中区域让细线更容易选中 |
 | 自动校验 | 每次修改后自动执行；`Validate` 旁显示结果，有错误时会禁用 `Run` |
@@ -141,7 +144,7 @@ runtime 可执行文件，或先手工运行 runtime。
 | 过滤事件 | Events 工具栏可按类型、节点、消息和输出内容过滤；清空只清除当前视图，自动跟随控制是否滚动到最新事件 |
 | 撤销 / 重做 | 使用工具栏按钮、`Ctrl+Z`、`Ctrl+Y` 或 `Ctrl+Shift+Z` |
 | 复制节点 | `Ctrl+D` 或右键选择复制；`core.Start` 只能存在一个，不能复制或重复导入 |
-| 浏览画布 | 滚轮缩放，中键或空格拖动平移；使用画布工具中的“适应”和 100% 按钮 |
+| 浏览画布 | 世界坐标无边界；中键或 `Space+左键` 平移，滚轮缩放；负坐标也可正常适应和自动布局 |
 | 自动布局 | 点击“自动布局”，按拓扑层级从左到右整理节点 |
 
 #### 工作流设置与变量
@@ -213,12 +216,12 @@ npm run dev
 
 ## 4. 工作流基本用法
 
-工作流文件是 `schema_version: "2.0"` 的 JSON DAG。最小结构包含变量、节点和边：
+工作流文件是 `schema_version: "2.1"` 的 JSON DAG。最小结构包含变量、节点和边：
 
 ```json
 {
   "$schema": "../schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.hello",
   "metadata": { "name": "Hello" },
   "nodes": [
@@ -227,8 +230,8 @@ npm run dev
     { "id": "end", "type": "core.End" }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "log" },
-    { "id": "e2", "source": "log", "target": "end" }
+    { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+    { "id": "e2", "kind": "control", "source": "log", "target": "end" }
   ],
   "variables": {
     "name": { "value": "World" }
@@ -250,6 +253,17 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 后者只包含当前部署实际安装的节点类型。
 
+### 2.1 控制边与数据边
+
+每条边必须有 `kind`。`control` 边只决定执行路径，可设置 `branch=always|success|failure`、`condition` 和 `label`，但不得设置端口；`data` 边必须设置 `source_port`、`target_port`，不得设置控制字段。拓扑、入口、可达性、死路和循环检测只基于控制边。数据边只在目标已被控制边激活后把来源输出填入 `NodeInput.inputs`。
+
+旧 2.0 文档会以 `WF118` 阻止运行：
+
+```powershell
+.\nodara-cli.exe migrate .\legacy.json --out .\legacy-2.1.json
+```
+
+迁移将所有旧边写为 `control`，移除旧端口映射，并逐条提示需要手工重建的数据线。
 ## 5. Studio 操作
 
 ### 编辑与校验
@@ -359,13 +373,26 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 
 节点执行失败时，运行作用域会发布 `last_error`，包含 `code`、`message`、`node_id` 和 `retryable`。失败分支可在条件表达式中使用这些字段，后续节点也可用 `{{last_error.code}}` 等模板渲染。
 
-### Agent 与审批
+### Agent 对话与审批
 
-`Agent` 页只读取 runtime 中的会话，不直接调用 Agent 进程。运行时需要审批的节点会
-阻塞，只有 Studio 或 `nodara-agent approve` 作出决定后才继续。审批界面会展示节点、
-权限和将要传入的输入。
+桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio`，并把结构化请求
+通过 stdin/stdout 传给 Agent。Provider 可填写 OpenAI-compatible Endpoint、Model、
+API Key 和超时；API Key 仅保存在当前 Studio 进程内存。会话列表、完整消息历史、计划
+JSON、审批和运行记录都由 runtime session 保存。
 
-## 6. Agent 操作
+四档执行模式：
+
+| 模式 | 行为 |
+|---|---|
+| 仅规划 | 只生成、修改和校验，不提供运行 |
+| 手动执行 | 结果确认后以 paused 启动，由操作者 Resume |
+| 部分审批 | 安全节点自动执行，危险/特权节点等待逐项审批 |
+| 自动执行 | 自动运行并自动放行，但仍记录 capability decision 和 audit |
+
+修改基线可选“当前画布”或“上一轮 Agent 计划”。Agent 结果永远不会自动覆盖画布；
+先检查最终 JSON 和诊断，再使用“载入画布”“验证”“运行此计划”或“打开对应审计”。
+
+## 6. Agent CLI 与桌面 Agent 操作
 
 先启动 runtime，再运行：
 

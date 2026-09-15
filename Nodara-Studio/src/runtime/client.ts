@@ -17,6 +17,7 @@ import {
   EventEnvelope,
   ExtensionDescriptor,
   JsonSchema,
+  MessageRole,
   NodeDescriptor,
   PluginListResponse,
   RunSnapshot,
@@ -145,10 +146,17 @@ export class RuntimeClient {
     workflow: Workflow,
     variables: Record<string, unknown> = {},
     startPaused = false,
+    options: { sessionId?: string; approval?: "auto" | "session" } = {},
   ): Promise<RunSnapshot> {
     return this.request<RunSnapshot>("/runs", {
       method: "POST",
-      body: JSON.stringify({ workflow, variables, start_paused: startPaused }),
+      body: JSON.stringify({
+        workflow,
+        variables,
+        start_paused: startPaused,
+        session_id: options.sessionId,
+        approval: options.approval,
+      }),
     });
   }
 
@@ -192,6 +200,26 @@ export class RuntimeClient {
   /** Every agent session, plus the approvals waiting on an operator. */
   agentSessions(): Promise<AgentSessionList> {
     return this.request<AgentSessionList>("/agent/sessions");
+  }
+
+  /** Create a Studio-owned runtime session before starting an agent turn. */
+  createAgentSession(goal: string, provider: string): Promise<AgentSession> {
+    return this.request<AgentSession>("/agent/sessions", {
+      method: "POST",
+      body: JSON.stringify({ goal, provider }),
+    });
+  }
+
+  /** Append a message to an existing agent session. */
+  appendAgentMessage(
+    sessionId: string,
+    role: MessageRole,
+    text: string,
+  ): Promise<AgentSession> {
+    return this.request<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ role, text }),
+    });
   }
 
   /**

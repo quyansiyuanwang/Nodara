@@ -193,5 +193,17 @@ fn print_event(envelope: &EventEnvelope) {
         }
         ExecutionEvent::RunPaused => println!("run paused"),
         ExecutionEvent::RunResumed => println!("run resumed"),
+        ExecutionEvent::EdgeActivated {
+            edge_id,
+            source,
+            target,
+            branch,
+        } => println!("     edge {edge_id}: {source} -> {target} ({branch:?})"),
+        ExecutionEvent::DataTransferred {
+            edge_id,
+            source_port,
+            target_port,
+            ..
+        } => println!("     data {edge_id}: {source_port} -> {target_port}"),
     }
 }

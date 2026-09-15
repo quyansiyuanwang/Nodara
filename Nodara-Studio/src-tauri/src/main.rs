@@ -26,6 +26,7 @@ fn main() {
     let mut runtime = RuntimeProcess::start();
 
     let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![run_agent_turn])
         .build(tauri::generate_context!())
         .expect("error while building the Studio shell");
 
@@ -34,6 +35,73 @@ fn main() {
             runtime.stop();
         }
     });
+}
+
+/// Run one structured Agent turn through the sibling agent binary.
+#[tauri::command]
+fn run_agent_turn(request: serde_json::Value) -> Result<serde_json::Value, String> {
+    let runtime = request
+        .get("runtime_url")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("http://127.0.0.1:8710");
+    let executable = find_agent_binary().ok_or_else(|| {
+        "nodara-agent.exe was not found; set NODARA_AGENT_BIN or install the desktop bundle"
+            .to_string()
+    })?;
+    let mut child = Command::new(&executable)
+        .arg("--runtime")
+        .arg(runtime)
+        .arg("studio")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("could not start {}: {error}", executable.display()))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let payload = serde_json::to_vec(&request)
+            .map_err(|error| format!("could not encode the Agent request: {error}"))?;
+        stdin
+            .write_all(&payload)
+            .map_err(|error| format!("could not send the Agent request: {error}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("could not wait for the Agent: {error}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("Agent exited with {}", output.status)
+        } else {
+            stderr
+        });
+    }
+    serde_json::from_slice(&output.stdout)
+        .map_err(|error| format!("Agent returned invalid JSON: {error}"))
+}
+
+fn find_agent_binary() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("NODARA_AGENT_BIN") {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    let current = std::env::current_exe().ok()?;
+    for ancestor in current.ancestors() {
+        for profile in ["debug", "release"] {
+            let candidate = ancestor
+                .join("Nodara-Agent")
+                .join("target")
+                .join(profile)
+                .join("nodara-agent.exe");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    let sibling = current.parent()?.join("nodara-agent.exe");
+    sibling.is_file().then_some(sibling)
 }
 
 /// A runtime started by this Studio instance.

@@ -5,15 +5,15 @@ mod support;
 use std::time::Duration;
 
 use nodara_agent::{
-    Agent, AgentConfig, AgentError, ExplainTarget, GuardrailPolicy, MockProvider, ToolPolicy,
-    ToolSelector,
+    Agent, AgentConfig, AgentError, ExplainTarget, GuardrailPolicy, MockProvider, RunApprovalMode,
+    ToolPolicy, ToolSelector,
 };
 use serde_json::json;
 use support::{FakeRuntime, RunScript};
 
 fn draft(id: &str, message: &str) -> String {
     json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": id,
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -21,8 +21,8 @@ fn draft(id: &str, message: &str) -> String {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "log" },
-            { "id": "e2", "source": "log", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+            { "id": "e2", "kind": "control", "source": "log", "target": "end" }
         ]
     })
     .to_string()
@@ -153,7 +153,7 @@ fn an_allowlist_refusal_stops_before_anything_runs() {
         code: None,
     }]);
     let provider = MockProvider::new([json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.gated",
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -161,8 +161,8 @@ fn an_allowlist_refusal_stops_before_anything_runs() {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "keys" },
-            { "id": "e2", "source": "keys", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "keys" },
+            { "id": "e2", "kind": "control", "source": "keys", "target": "end" }
         ]
     })
     .to_string()]);
@@ -224,7 +224,7 @@ fn a_rejected_plan_produces_a_report_without_running() {
     // Missing `core.End`: the runtime would reject this, and our local
     // capability-aware validation agrees.
     let provider = MockProvider::new([json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.invalid",
         "nodes": [{ "id": "start", "type": "core.Start" }],
         "edges": []
@@ -354,4 +354,41 @@ fn the_audit_endpoint_is_reachable_for_the_studio() {
     // a panic, which is what the Studio's Audit tab relies on.
     let error = agent.client().audit(None, None).expect_err("no such route");
     assert!(matches!(error, AgentError::Runtime { status: 404, .. }));
+}
+
+#[test]
+fn manual_mode_starts_paused_with_session_approval() {
+    let runtime = FakeRuntime::start(vec![RunScript::Hanging]);
+    let provider = MockProvider::new([draft("wf.manual", "manual")]);
+    let mut config = config(runtime.base());
+    config.start_paused = true;
+    config.approval_mode = RunApprovalMode::Session;
+    let agent = Agent::new(&provider, config);
+
+    let outcome = agent.plan_and_run("run manually", &[]).expect("run starts");
+    assert_eq!(outcome.report.status, "paused");
+    let recorded = runtime.recorded();
+    assert_eq!(recorded.start_paused_on_runs, vec![true]);
+    assert_eq!(recorded.approval_on_runs, vec![Some("session".to_string())]);
+}
+
+#[test]
+fn all_mode_uses_automatic_approval_without_pausing() {
+    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+        status: "completed".to_string(),
+        code: None,
+    }]);
+    let provider = MockProvider::new([draft("wf.all", "automatic")]);
+    let mut config = config(runtime.base());
+    config.start_paused = false;
+    config.approval_mode = RunApprovalMode::Auto;
+    let agent = Agent::new(&provider, config);
+
+    let outcome = agent
+        .plan_and_run("run automatically", &[])
+        .expect("run starts");
+    assert_eq!(outcome.report.status, "completed");
+    let recorded = runtime.recorded();
+    assert_eq!(recorded.start_paused_on_runs, vec![false]);
+    assert_eq!(recorded.approval_on_runs, vec![Some("auto".to_string())]);
 }

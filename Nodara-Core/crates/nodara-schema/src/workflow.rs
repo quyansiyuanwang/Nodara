@@ -240,6 +240,17 @@ pub enum EdgeBranch {
     Failure,
 }
 
+/// Whether an edge controls execution or transfers data.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EdgeKind {
+    /// Activates the target and optionally selects a success/failure branch.
+    #[default]
+    Control,
+    /// Transfers a named output into a named input without activating the target.
+    Data,
+}
+
 /// A directed edge between two nodes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 pub struct Edge {
@@ -249,6 +260,9 @@ pub struct Edge {
     pub source: String,
     /// Target node id.
     pub target: String,
+    /// Whether this edge controls execution or carries data.
+    #[serde(default)]
+    pub kind: EdgeKind,
     /// Optional named output port on the source node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_port: Option<String>,
@@ -277,6 +291,7 @@ impl Edge {
             id: id.into(),
             source: source.into(),
             target: target.into(),
+            kind: EdgeKind::Control,
             source_port: None,
             target_port: None,
             branch: EdgeBranch::Always,
@@ -297,7 +312,7 @@ pub struct Workflow {
     /// workflow keeps its content hints wherever it is opened.
     #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
     pub schema_url: Option<String>,
-    /// Workflow format version; this build writes `2.0` and migrates `1.x`.
+    /// Workflow format version; this build writes `2.1` and migrates older documents.
     #[serde(default = "default_schema_version")]
     pub schema_version: String,
     /// Stable workflow identifier, e.g. `workflow.example`.
@@ -408,6 +423,7 @@ mod tests {
 
         let always = serde_json::to_value(Edge::new("e2", "start", "log")).unwrap();
         assert!(always.get("branch").is_none());
+        assert_eq!(always["kind"], "control");
     }
 
     #[test]
@@ -456,7 +472,7 @@ mod tests {
     fn schema_reference_round_trips() {
         let document = serde_json::json!({
             "$schema": "../Nodara-Core/schema/workflow.schema.json",
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.hinted"
         });
         let workflow: Workflow = serde_json::from_value(document).unwrap();

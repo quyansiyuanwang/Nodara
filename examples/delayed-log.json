@@ -1,35 +1,67 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.delayed-log",
   "metadata": {
     "name": "Delayed Log",
     "description": "Waits and then logs, demonstrating system.Delay and cancellation."
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "before",
       "type": "core.Log",
-      "config": { "message": "starting up..." }
+      "config": {
+        "message": "starting up..."
+      }
     },
     {
       "id": "wait",
       "type": "system.Delay",
-      "config": { "duration_ms": 1500 }
+      "config": {
+        "duration_ms": 1500
+      }
     },
     {
       "id": "after",
       "type": "core.Log",
-      "config": { "message": "workflow complete" }
+      "config": {
+        "message": "workflow complete"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "before" },
-    { "id": "e2", "source": "before", "target": "wait" },
-    { "id": "e3", "source": "wait", "target": "after" },
-    { "id": "e4", "source": "after", "target": "end" }
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "before",
+      "kind": "control"
+    },
+    {
+      "id": "e2",
+      "source": "before",
+      "target": "wait",
+      "kind": "control"
+    },
+    {
+      "id": "e3",
+      "source": "wait",
+      "target": "after",
+      "kind": "control"
+    },
+    {
+      "id": "e4",
+      "source": "after",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

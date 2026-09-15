@@ -87,7 +87,7 @@ Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 
 | Contract | Field | Current |
 |----------|-------|---------|
-| Workflow document | `schema_version` | `2.0` |
+| Workflow document | `schema_version` | `2.1` |
 | Plugin / runtime wire | `protocol_version` | `1` |
 | Public HTTP API | `api_version` | `v1` |
 
@@ -96,7 +96,7 @@ Workflow documents look like this ([full schema](Nodara-Core/schema/workflow.sch
 ```json
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World" },
   "nodes": [
@@ -105,8 +105,8 @@ Workflow documents look like this ([full schema](Nodara-Core/schema/workflow.sch
     { "id": "end", "type": "core.End" }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "log" },
-    { "id": "e2", "source": "log", "target": "end" }
+    { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+    { "id": "e2", "kind": "control", "source": "log", "target": "end" }
   ],
   "variables": { "name": { "value": "World" } }
 }

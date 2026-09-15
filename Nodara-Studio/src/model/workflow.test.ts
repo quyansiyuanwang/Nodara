@@ -6,6 +6,7 @@ import {
   edgeExists,
   emptyWorkflow,
   localProblems,
+  migrateLegacyWorkflow,
   starterWorkflow,
   nextEdgeId,
   nextNodeId,
@@ -14,7 +15,7 @@ import {
   workflowAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./workflow";
-import { NodeDescriptor, Workflow } from "../runtime/types";
+import { NodeDescriptor, Workflow, WorkflowEdge } from "../runtime/types";
 
 function descriptor(nodeType: string): NodeDescriptor {
   return {
@@ -36,7 +37,7 @@ function descriptor(nodeType: string): NodeDescriptor {
 describe("workflow model", () => {
   it("starts from a usable scaffold", () => {
     const workflow = emptyWorkflow();
-    expect(workflow.schema_version).toBe("2.0");
+    expect(workflow.schema_version).toBe("2.1");
     expect(workflow.$schema).toBe(WORKFLOW_SCHEMA_PATH);
     expect(workflow.nodes.map((node) => node.type)).toEqual(["core.Start", "core.End"]);
     expect(localProblems(workflow)).toEqual([]);
@@ -73,7 +74,7 @@ describe("workflow model", () => {
     const workflow = emptyWorkflow();
     applyWorkflow(workflow, { id: "wf.plain" });
     expect(workflow.$schema).toBe(WORKFLOW_SCHEMA_PATH);
-    expect(workflow.schema_version).toBe("2.0");
+    expect(workflow.schema_version).toBe("2.1");
   });
 
   it("admits only one core.Start node", () => {
@@ -100,7 +101,7 @@ describe("workflow model", () => {
     expect(second).not.toBe("keyboard");
 
     expect(nextEdgeId("a", "b", [])).toBe("a-b");
-    const existing = [{ id: "a-b", source: "a", target: "b" }];
+    const existing: WorkflowEdge[] = [{ id: "a-b", kind: "control", source: "a", target: "b" }];
     expect(nextEdgeId("a", "b", existing)).not.toBe("a-b");
   });
 
@@ -129,14 +130,14 @@ describe("workflow model", () => {
   });
 
   it("detects duplicate connections but distinguishes ports", () => {
-    const edges = [
-      { id: "e1", source: "a", target: "b" },
-      { id: "e2", source: "a", target: "c", source_port: "other" },
+    const edges: WorkflowEdge[] = [
+      { id: "e1", kind: "control", source: "a", target: "b" },
+      { id: "e2", kind: "data", source: "a", target: "c", source_port: "other", target_port: "in" },
     ];
     expect(edgeExists(edges, "a", "b")).toBe(true);
     expect(edgeExists(edges, "a", "b", "out", "in")).toBe(true);
     expect(edgeExists(edges, "a", "c")).toBe(false);
-    expect(edgeExists(edges, "a", "c", "other", "in")).toBe(true);
+    expect(edgeExists(edges, "a", "c", "other", "in", "data")).toBe(true);
   });
 
   it("reports multiple Start nodes as a local error", () => {
@@ -152,14 +153,14 @@ describe("workflow model", () => {
 
   it("reports the mistakes an editor can catch locally", () => {
     const workflow: Workflow = {
-      schema_version: "2.0",
+      schema_version: "2.1",
       id: "wf.bad",
       metadata: { name: "bad", tags: [] },
       nodes: [
         { id: "start", type: "core.Start", config: {} },
         { id: "start", type: "core.Log", config: {} },
       ],
-      edges: [{ id: "e1", source: "start", target: "ghost" }],
+      edges: [{ id: "e1", kind: "control", source: "start", target: "ghost" }],
       variables: {},
     };
     const problems = localProblems(workflow);
@@ -170,7 +171,7 @@ describe("workflow model", () => {
 
   it("flags a directed cycle instead of waiting for the runtime", () => {
     const workflow: Workflow = {
-      schema_version: "2.0",
+      schema_version: "2.1",
       id: "wf.cycle",
       metadata: { name: "cycle", tags: [] },
       nodes: [
@@ -180,9 +181,9 @@ describe("workflow model", () => {
         { id: "end", type: "core.End", config: {} },
       ],
       edges: [
-        { id: "e1", source: "start", target: "a" },
-        { id: "e2", source: "a", target: "b" },
-        { id: "e3", source: "b", target: "a" },
+        { id: "e1", kind: "control", source: "start", target: "a" },
+        { id: "e2", kind: "control", source: "a", target: "b" },
+        { id: "e3", kind: "control", source: "b", target: "a" },
       ],
       variables: {},
     };
@@ -192,7 +193,7 @@ describe("workflow model", () => {
 
   it("accepts a diamond-shaped acyclic graph", () => {
     const workflow: Workflow = {
-      schema_version: "2.0",
+      schema_version: "2.1",
       id: "wf.diamond",
       metadata: { name: "diamond", tags: [] },
       nodes: [
@@ -202,13 +203,45 @@ describe("workflow model", () => {
         { id: "end", type: "core.End", config: {} },
       ],
       edges: [
-        { id: "e1", source: "start", target: "a" },
-        { id: "e2", source: "start", target: "b" },
-        { id: "e3", source: "a", target: "end" },
-        { id: "e4", source: "b", target: "end" },
+        { id: "e1", kind: "control", source: "start", target: "a" },
+        { id: "e2", kind: "control", source: "start", target: "b" },
+        { id: "e3", kind: "control", source: "a", target: "end" },
+        { id: "e4", kind: "control", source: "b", target: "end" },
       ],
       variables: {},
     };
     expect(localProblems(workflow)).toEqual([]);
   });
-});
+
+  it("migrates legacy edges to explicit control and reports removed data mappings", () => {
+    const legacy: Partial<Workflow> = {
+      schema_version: "2.0",
+      id: "wf.legacy",
+      metadata: { name: "Legacy", tags: [] },
+      nodes: [
+        { id: "start", type: "core.Start", config: {} },
+        { id: "end", type: "core.End", config: {} },
+      ],
+      edges: [
+        {
+          id: "e1",
+          source: "start",
+          target: "end",
+          source_port: "out",
+          target_port: "in",
+        } as WorkflowEdge,
+      ],
+      variables: {},
+    };
+
+    const { workflow, notes } = migrateLegacyWorkflow(legacy);
+    expect(workflow.schema_version).toBe("2.1");
+    expect(workflow.edges?.[0]).toMatchObject({
+      id: "e1",
+      kind: "control",
+      source: "start",
+      target: "end",
+    });
+    expect(workflow.edges?.[0].source_port).toBeUndefined();
+    expect(notes).toHaveLength(1);
+  });});

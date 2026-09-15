@@ -118,7 +118,7 @@ fn get(uri: &str) -> Request<Body> {
 /// `Start -> Gated -> End`, attached to a session.
 fn gated_workflow() -> Value {
     json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.gated",
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -126,8 +126,8 @@ fn gated_workflow() -> Value {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "gated" },
-            { "id": "e2", "source": "gated", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "gated" },
+            { "id": "e2", "kind": "control", "source": "gated", "target": "end" }
         ]
     })
 }

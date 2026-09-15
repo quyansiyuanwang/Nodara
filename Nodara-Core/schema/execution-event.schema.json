@@ -1,6 +1,32 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "EdgeBranch": {
+      "description": "Selects which source-node outcome activates an edge.",
+      "oneOf": [
+        {
+          "description": "Activate on either success or failure.",
+          "enum": [
+            "always"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Activate only after the source node succeeds.",
+          "enum": [
+            "success"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Activate only after the source node fails. At least one failure edge handles the error, so an explicit recovery branch does not require `continue_on_error`.",
+          "enum": [
+            "failure"
+          ],
+          "type": "string"
+        }
+      ]
+    },
     "ExecutionEvent": {
       "description": "Payload of an execution event.",
       "oneOf": [
@@ -148,6 +174,85 @@
             "code",
             "message",
             "node_id",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A control edge activated a target node.",
+          "properties": {
+            "branch": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/EdgeBranch"
+                }
+              ],
+              "description": "Outcome branch that was followed."
+            },
+            "edge_id": {
+              "description": "Edge id.",
+              "type": "string"
+            },
+            "source": {
+              "description": "Source node id.",
+              "type": "string"
+            },
+            "target": {
+              "description": "Target node id.",
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "edge_activated"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "branch",
+            "edge_id",
+            "source",
+            "target",
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "A data edge transferred a value into the target node input map.",
+          "properties": {
+            "edge_id": {
+              "description": "Edge id.",
+              "type": "string"
+            },
+            "source": {
+              "description": "Source node id.",
+              "type": "string"
+            },
+            "source_port": {
+              "description": "Source output port.",
+              "type": "string"
+            },
+            "target": {
+              "description": "Target node id.",
+              "type": "string"
+            },
+            "target_port": {
+              "description": "Target input port.",
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "data_transferred"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "edge_id",
+            "source",
+            "source_port",
+            "target",
+            "target_port",
             "type"
           ],
           "type": "object"

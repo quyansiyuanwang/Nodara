@@ -231,7 +231,7 @@ Execution never depends on a client's good behaviour:
 
 | Contract | Field | Current |
 |---|---|---|
-| Workflow document | `schema_version` | `2.0` |
+| Workflow document | `schema_version` | `2.1` |
 | Plugin / runtime wire | `protocol_version` | `1` |
 | Public HTTP API | `api_version` | `v1` |
 

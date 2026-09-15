@@ -1,48 +1,82 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.branching",
   "metadata": {
     "name": "Branching",
     "description": "Uses edge guards to route on a computed score."
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "score",
       "type": "core.Calculate",
-      "config": { "expression": "retries * 3", "output_var": "score" }
+      "config": {
+        "expression": "retries * 3",
+        "output_var": "score"
+      }
     },
     {
       "id": "high",
       "type": "core.Log",
-      "config": { "message": "score {{score}} is high", "level": "warn" }
+      "config": {
+        "message": "score {{score}} is high",
+        "level": "warn"
+      }
     },
     {
       "id": "low",
       "type": "core.Log",
-      "config": { "message": "score {{score}} is low" }
+      "config": {
+        "message": "score {{score}} is low"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "score" },
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "score",
+      "kind": "control"
+    },
     {
       "id": "e2",
       "source": "score",
       "target": "high",
-      "condition": "score > 5"
+      "condition": "score > 5",
+      "kind": "control"
     },
     {
       "id": "e3",
       "source": "score",
       "target": "low",
-      "condition": "score <= 5"
+      "condition": "score <= 5",
+      "kind": "control"
     },
-    { "id": "e4", "source": "high", "target": "end" },
-    { "id": "e5", "source": "low", "target": "end" }
+    {
+      "id": "e4",
+      "source": "high",
+      "target": "end",
+      "kind": "control"
+    },
+    {
+      "id": "e5",
+      "source": "low",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {
-    "retries": { "value": 3, "description": "Number of attempts so far." }
+    "retries": {
+      "value": 3,
+      "description": "Number of attempts so far."
+    }
   }
 }

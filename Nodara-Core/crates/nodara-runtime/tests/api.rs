@@ -68,7 +68,7 @@ impl NodeExecutor for ArtifactExecutor {
 
 fn valid_workflow() -> Value {
     json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.api",
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -79,9 +79,9 @@ fn valid_workflow() -> Value {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "calc" },
-            { "id": "e2", "source": "calc", "target": "log" },
-            { "id": "e3", "source": "log", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "calc" },
+            { "id": "e2", "kind": "control", "source": "calc", "target": "log" },
+            { "id": "e3", "kind": "control", "source": "log", "target": "end" }
         ]
     })
 }
@@ -130,10 +130,7 @@ async fn node_types_include_builtins_with_schemas() {
         .iter()
         .find(|descriptor| descriptor["node_type"] == "core.Log")
         .unwrap();
-    assert!(log["config_schema"]["required"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("message")));
+    assert!(log["config_schema"]["properties"]["message"].is_object());
 }
 
 #[tokio::test]
@@ -377,7 +374,7 @@ async fn run_artifacts_are_listed_and_downloadable() {
     builder.register_executor(ArtifactExecutor);
     let state = builder.build().expect("runtime builds");
     let workflow = json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.artifact",
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -385,8 +382,8 @@ async fn run_artifacts_are_listed_and_downloadable() {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "artifact" },
-            { "id": "e2", "source": "artifact", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "artifact" },
+            { "id": "e2", "kind": "control", "source": "artifact", "target": "end" }
         ]
     });
     let (status, created) = call(
@@ -594,7 +591,7 @@ async fn unknown_runs_produce_a_structured_404() {
 async fn runs_can_be_cancelled() {
     let state = state().await;
     let workflow = json!({
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "id": "wf.cancel",
         "nodes": [
             { "id": "start", "type": "core.Start" },
@@ -605,9 +602,9 @@ async fn runs_can_be_cancelled() {
             { "id": "end", "type": "core.End" }
         ],
         "edges": [
-            { "id": "e1", "source": "start", "target": "wait" },
-            { "id": "e2", "source": "wait", "target": "log" },
-            { "id": "e3", "source": "log", "target": "end" }
+            { "id": "e1", "kind": "control", "source": "start", "target": "wait" },
+            { "id": "e2", "kind": "control", "source": "wait", "target": "log" },
+            { "id": "e3", "kind": "control", "source": "log", "target": "end" }
         ]
     });
 

@@ -18,8 +18,8 @@ import {
 } from "../model/workflow";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
 
-const NODE_WIDTH = 168;
-const NODE_HEIGHT = 56;
+const NODE_WIDTH = 220;
+const NODE_HEIGHT = 130;
 const EDGE_MIN_HANDLE = 52;
 const EDGE_MAX_HANDLE = 180;
 const EDGE_PALETTE_DRAG_THRESHOLD = 5;
@@ -37,6 +37,7 @@ export interface CanvasHandlers {
 interface PendingConnection {
   sourceId: string;
   sourcePort: string;
+  edgeKind: "control" | "data";
   x: number;
   y: number;
   originX: number;
@@ -45,11 +46,18 @@ interface PendingConnection {
 }
 
 interface NodeDrag {
-  nodeId: string;
-  offsetX: number;
-  offsetY: number;
-  element: SVGGElement;
+  primaryId: string;
+  startX: number;
+  startY: number;
+  origins: Map<string, { x: number; y: number }>;
   moved: boolean;
+}
+
+interface MarqueeDrag {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
 }
 
 type ContextTarget =
@@ -61,11 +69,16 @@ export class Canvas {
   private readonly nodesLayer: SVGGElement;
   private readonly edgesLayer: SVGGElement;
   private readonly pendingEdge: SVGPathElement;
-  private selected: string | null = null;
+  private readonly selectionBox: SVGRectElement;
+  private readonly quickConfig: HTMLDivElement;
+  private selected = new Set<string>();
+  private primarySelected: string | null = null;
   private selectedEdge: string | null = null;
+  private readonly edgeStates = new Map<string, "active" | "data">();
   private pending: PendingConnection | null = null;
   private pendingDragMoved = false;
   private drag: NodeDrag | null = null;
+  private marquee: MarqueeDrag | null = null;
   private paletteDragCleanup: (() => void) | null = null;
   private status: RunStatus | null = null;
   private readonly contextMenu: HTMLDivElement;
@@ -74,6 +87,7 @@ export class Canvas {
   private viewY = 0;
   private pan: { clientX: number; clientY: number; viewX: number; viewY: number } | null = null;
   private spaceDown = false;
+  private readonly cleanupCallbacks: Array<() => void> = [];
 
   constructor(
     private readonly svg: SVGSVGElement,
@@ -84,27 +98,31 @@ export class Canvas {
     this.nodesLayer = svg.querySelector("#nodes")!;
     this.edgesLayer = svg.querySelector("#edges")!;
     this.pendingEdge = svg.querySelector("#pending-edge")!;
+    this.selectionBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    this.selectionBox.classList.add("canvas-selection-box", "is-hidden");
+    this.viewport.appendChild(this.selectionBox);
+    this.quickConfig = document.createElement("div");
+    this.quickConfig.className = "node-quick-config is-hidden";
+    (svg.closest<HTMLElement>(".canvas-wrap") ?? svg.parentElement ?? document.body).appendChild(this.quickConfig);
 
     this.contextMenu = document.createElement("div");
     this.contextMenu.className = "context-menu";
     this.contextMenu.hidden = true;
     document.body.appendChild(this.contextMenu);
-    document.addEventListener("pointerdown", (event) => {
+
+    const closeContextMenu = (event: PointerEvent) => {
       if (!this.contextMenu.hidden && !this.contextMenu.contains(event.target as Node)) {
         this.contextMenu.hidden = true;
       }
-    });
-    window.addEventListener("blur", () => {
+    };
+    const blurContextMenu = () => {
       this.contextMenu.hidden = true;
-    });
-
-    // Listen on the window so node and port drags keep working even when the
-    // pointer briefly leaves the SVG (a common cause of stuck interactions).
-    window.addEventListener("pointermove", (event) => this.onPointerMove(event));
-    window.addEventListener("pointerup", () => this.endInteraction());
-    window.addEventListener("pointercancel", () => this.endInteraction());
-    svg.addEventListener("pointerdown", (event) => {
-      if (event.target !== svg) return;
+    };
+    const pointerMove = (event: PointerEvent) => this.onPointerMove(event);
+    const pointerUp = () => this.endInteraction();
+    const svgPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element;
+      if (target.closest(".node, .edge-hit, .port, .exec-port")) return;
       if (event.button === 1 || this.spaceDown) {
         event.preventDefault();
         this.pan = {
@@ -116,27 +134,56 @@ export class Canvas {
         svg.classList.add("canvas--panning");
         return;
       }
-      this.select(null);
-    });
-    svg.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-        const rect = svg.getBoundingClientRect();
-        this.zoomBy(Math.exp(-event.deltaY * 0.001), {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
-        });
-      },
-      { passive: false },
-    );
-    window.addEventListener("keydown", (event) => this.onKeyDown(event));
-    window.addEventListener("keyup", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const point = this.toCanvas(event.clientX, event.clientY);
+      this.setSelection([], null);
+      this.marquee = { startX: point.x, startY: point.y, currentX: point.x, currentY: point.y };
+      this.selectionBox.classList.remove("is-hidden");
+      this.drawSelectionBox();
+    };
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      this.zoomBy(Math.exp(-event.deltaY * 0.001), {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      });
+    };
+    const keyDown = (event: KeyboardEvent) => this.onKeyDown(event);
+    const keyUp = (event: KeyboardEvent) => {
       if (event.key === " ") this.spaceDown = false;
-    });
-    this.applyView();
-  }
+    };
 
+    document.addEventListener("pointerdown", closeContextMenu);
+    window.addEventListener("blur", blurContextMenu);
+    window.addEventListener("pointermove", pointerMove);
+    window.addEventListener("pointerup", pointerUp);
+    window.addEventListener("pointercancel", pointerUp);
+    svg.addEventListener("pointerdown", svgPointerDown);
+    svg.addEventListener("wheel", wheel, { passive: false });
+    window.addEventListener("keydown", keyDown);
+    window.addEventListener("keyup", keyUp);
+    this.cleanupCallbacks.push(
+      () => document.removeEventListener("pointerdown", closeContextMenu),
+      () => window.removeEventListener("blur", blurContextMenu),
+      () => window.removeEventListener("pointermove", pointerMove),
+      () => window.removeEventListener("pointerup", pointerUp),
+      () => window.removeEventListener("pointercancel", pointerUp),
+      () => svg.removeEventListener("pointerdown", svgPointerDown),
+      () => svg.removeEventListener("wheel", wheel),
+      () => window.removeEventListener("keydown", keyDown),
+      () => window.removeEventListener("keyup", keyUp),
+    );
+    this.applyView();  }
+
+  /** Remove global listeners and transient overlays. */
+  destroy(): void {
+    this.paletteDragCleanup?.();
+    for (const cleanup of this.cleanupCallbacks.splice(0)) cleanup();
+    this.contextMenu.remove();
+    this.quickConfig.remove();
+  }
   /** Update the run-status overlay used to highlight nodes. */
   setStatus(status: RunStatus | null): void {
     this.status = status;
@@ -159,23 +206,123 @@ export class Canvas {
     }
   }
 
+  /** Mark an execution or data edge as traversed during the current run. */
+  setEdgeState(edgeId: string, state: "active" | "data"): void {
+    this.edgeStates.set(edgeId, state);
+    const group = this.edgesLayer.querySelector<SVGGElement>(
+      `.edge-group[data-edge-id="${this.escapeId(edgeId)}"]`,
+    );
+    if (!group) return;
+    const path = group.querySelector<SVGPathElement>(".edge");
+    if (!path) return;
+    path.classList.toggle("edge--active", state === "active");
+    path.classList.toggle("edge--data-active", state === "data");
+    if (!group.querySelector(".edge-pulse")) {
+      const pulse = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      pulse.classList.add("edge-pulse");
+      pulse.setAttribute("r", "4");
+      const motion = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+      motion.setAttribute("dur", "1.05s");
+      motion.setAttribute("repeatCount", "indefinite");
+      motion.setAttribute("path", path.getAttribute("d") ?? "");
+      motion.setAttribute("rotate", "auto");
+      pulse.appendChild(motion);
+      group.appendChild(pulse);
+    }
+  }
+
   /** Clear all execution decoration. */
   clearStates(): void {
+    this.edgeStates.clear();
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
       element.classList.remove("node--running", "node--done", "node--failed", "node--active");
+    }
+    for (const group of this.edgesLayer.querySelectorAll<SVGGElement>(".edge-group")) {
+      group.querySelector(".edge-pulse")?.remove();
+      group.querySelector(".edge")?.classList.remove("edge--active", "edge--data-active");
     }
   }
 
   select(nodeId: string | null, edgeId: string | null = null): void {
-    this.selected = nodeId;
+    this.setSelection(nodeId ? [nodeId] : [], nodeId);
     this.selectedEdge = edgeId;
+    this.updateSelectionVisuals();
+  }
+
+  selectedNodeIds(): string[] {
+    return [...this.selected];
+  }
+
+  private setSelection(ids: Iterable<string>, primary: string | null): void {
+    this.selected = new Set(ids);
+    this.primarySelected = primary && this.selected.has(primary)
+      ? primary
+      : this.selected.values().next().value ?? null;
+    this.selectedEdge = null;
+    this.updateSelectionVisuals();
+  }
+
+  private updateSelectionVisuals(): void {
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
-      element.classList.toggle("node--selected", element.dataset.nodeId === nodeId);
+      element.classList.toggle(
+        "node--selected",
+        this.selected.has(element.dataset.nodeId ?? ""),
+      );
     }
     for (const element of this.edgesLayer.querySelectorAll<SVGPathElement>(".edge")) {
-      element.classList.toggle("edge--selected", element.dataset.edgeId === edgeId);
+      element.classList.toggle("edge--selected", element.dataset.edgeId === this.selectedEdge);
     }
-    this.handlers.onSelect(nodeId);
+    this.renderQuickConfig();
+    this.handlers.onSelect(this.primarySelected);
+  }
+
+  private toggleSelection(nodeId: string): boolean {
+    if (this.selected.has(nodeId)) {
+      this.selected.delete(nodeId);
+      if (this.primarySelected === nodeId) {
+        this.primarySelected = this.selected.values().next().value ?? null;
+      }
+      this.updateSelectionVisuals();
+      return false;
+    }
+    this.selected.add(nodeId);
+    this.primarySelected = nodeId;
+    this.updateSelectionVisuals();
+    return true;
+  }
+
+  private selectPathTo(targetId: string): void {
+    const anchor = this.primarySelected;
+    if (!anchor || anchor === targetId) {
+      this.setSelection([targetId], targetId);
+      return;
+    }
+    const forward = this.reachable(anchor, "forward");
+    const reverse = this.reachable(targetId, "reverse");
+    const ids = [...forward].filter((id) => reverse.has(id));
+    if (!ids.includes(anchor)) ids.push(anchor);
+    if (!ids.includes(targetId)) ids.push(targetId);
+    if (!forward.has(targetId)) {
+      this.handlers.onStatus(t("canvas.noPath", { source: anchor, target: targetId }));
+      return;
+    }
+    this.setSelection(ids, targetId);
+  }
+
+  private reachable(startId: string, direction: "forward" | "reverse"): Set<string> {
+    const result = new Set([startId]);
+    const queue = [startId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const edge of this.workflow.edges) {
+        if (edge.kind !== "control") continue;
+        const next = direction === "forward" ? edge.source === current && edge.target : edge.target === current && edge.source;
+        if (!next || typeof next !== "string" || result.has(next)) continue;
+        result.add(next);
+        queue.push(next);
+      }
+    }
+    return result;
   }
 
   /** Select a node or edge and centre it in the visible canvas. */
@@ -193,8 +340,8 @@ export class Canvas {
     } else if (edgeId) {
       const edge = this.workflow.edges.find((candidate) => candidate.id === edgeId);
       if (edge) {
-        const source = this.nodeCenter(edge.source, "output");
-        const target = this.nodeCenter(edge.target, "input");
+        const source = this.portCenter(edge.source, "data", "output", edge.source_port);
+        const target = this.portCenter(edge.target, "data", "input", edge.target_port);
         center = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
       }
     }
@@ -206,7 +353,7 @@ export class Canvas {
   }
 
   selectedNodeId(): string | null {
-    return this.selected;
+    return this.primarySelected;
   }
 
   selectedEdgeId(): string | null {
@@ -229,7 +376,7 @@ export class Canvas {
       indegree.set(node.id, 0);
     }
     for (const edge of this.workflow.edges) {
-      if (!known.has(edge.source) || !known.has(edge.target)) continue;
+      if (edge.kind !== "control" || !known.has(edge.source) || !known.has(edge.target)) continue;
       outgoing.get(edge.source)!.push(edge.target);
       indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
     }
@@ -416,8 +563,8 @@ export class Canvas {
     const index = this.workflow.nodes.length;
     const jitter = ((index % 5) - 2) * 18;
     const stagger = Math.min(index, 6) * 12;
-    const x = Math.max(24, center.x - NODE_WIDTH / 2 + jitter - stagger);
-    const y = Math.max(24, center.y - NODE_HEIGHT / 2 + jitter - stagger);
+    const x = center.x - NODE_WIDTH / 2 + jitter - stagger;
+    const y = center.y - NODE_HEIGHT / 2 + jitter - stagger;
     this.addNode(descriptor, x, y);
   }
 
@@ -439,8 +586,8 @@ export class Canvas {
       // document is completed in a text editor.
       config: defaultConfig(descriptor),
       position: {
-        x: Math.round(x + stackOffset) % 1400,
-        y: Math.round(y + stackOffset) % 800,
+        x: Math.round(x + stackOffset),
+        y: Math.round(y + stackOffset),
       },
     };
     this.workflow.nodes.push(node);
@@ -455,19 +602,37 @@ export class Canvas {
       this.applyView();
       return;
     }
+    const panned = this.autoPan(event.clientX, event.clientY);
     if (this.drag) {
       const point = this.toCanvas(event.clientX, event.clientY);
-      const node = this.workflow.nodes.find((candidate) => candidate.id === this.drag!.nodeId);
-      if (!node) return;
-      const x = Math.max(0, Math.round(point.x - this.drag.offsetX));
-      const y = Math.max(0, Math.round(point.y - this.drag.offsetY));
-      if (node.position?.x === x && node.position?.y === y) return;
-      node.position = { x, y };
-      this.drag.moved = true;
-      // Moving the existing group keeps pointer capture stable; re-rendering
-      // the whole node list on every frame also made text selection flicker.
-      this.drag.element.setAttribute("transform", `translate(${x}, ${y})`);
-      this.renderEdges();
+      const dx = point.x - this.drag.startX;
+      const dy = point.y - this.drag.startY;
+      let moved = panned;
+      for (const [id, origin] of this.drag.origins) {
+        const node = this.workflow.nodes.find((candidate) => candidate.id === id);
+        if (!node) continue;
+        const x = Math.round(origin.x + dx);
+        const y = Math.round(origin.y + dy);
+        if (node.position?.x === x && node.position?.y === y) continue;
+        node.position = { x, y };
+        const element = this.nodesLayer.querySelector<SVGGElement>(
+          `.node[data-node-id="${this.escapeId(id)}"]`,
+        );
+        element?.setAttribute("transform", `translate(${x}, ${y})`);
+        moved = true;
+      }
+      if (moved) {
+        this.drag.moved = true;
+        this.renderEdges();
+        this.renderQuickConfig();
+      }
+      return;
+    }
+    if (this.marquee) {
+      const point = this.toCanvas(event.clientX, event.clientY);
+      this.marquee.currentX = point.x;
+      this.marquee.currentY = point.y;
+      this.drawSelectionBox();
       return;
     }
     if (this.pending) {
@@ -499,8 +664,58 @@ export class Canvas {
       document.body.classList.remove("is-canvas-dragging");
       if (changed) this.handlers.onChange();
     }
+    if (this.marquee) {
+      const box = this.marquee;
+      this.marquee = null;
+      this.selectionBox.classList.add("is-hidden");
+      const left = Math.min(box.startX, box.currentX);
+      const right = Math.max(box.startX, box.currentX);
+      const top = Math.min(box.startY, box.currentY);
+      const bottom = Math.max(box.startY, box.currentY);
+      const ids = this.workflow.nodes
+        .filter((node) => {
+          const x = node.position?.x ?? 0;
+          const y = node.position?.y ?? 0;
+          return x <= right && x + NODE_WIDTH >= left && y <= bottom && y + NODE_HEIGHT >= top;
+        })
+        .map((node) => node.id);
+      this.setSelection(ids, ids[0] ?? null);
+    }
   }
 
+  private escapeId(value: string): string {
+    return typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(value)
+      : value.replace(/[^A-Za-z0-9_-]/g, "\\$&");
+  }
+
+  private drawSelectionBox(): void {
+    if (!this.marquee) return;
+    const left = Math.min(this.marquee.startX, this.marquee.currentX);
+    const top = Math.min(this.marquee.startY, this.marquee.currentY);
+    this.selectionBox.setAttribute("x", String(left));
+    this.selectionBox.setAttribute("y", String(top));
+    this.selectionBox.setAttribute("width", String(Math.abs(this.marquee.currentX - this.marquee.startX)));
+    this.selectionBox.setAttribute("height", String(Math.abs(this.marquee.currentY - this.marquee.startY)));
+  }
+
+  /** Edge scrolling while dragging nodes or making a marquee selection. */
+  private autoPan(clientX: number, clientY: number): boolean {
+    const margin = 38;
+    const speed = 14;
+    const rect = this.svg.getBoundingClientRect();
+    let dx = 0;
+    let dy = 0;
+    if (clientX < rect.left + margin) dx = speed;
+    else if (clientX > rect.right - margin) dx = -speed;
+    if (clientY < rect.top + margin) dy = speed;
+    else if (clientY > rect.bottom - margin) dy = -speed;
+    if (dx === 0 && dy === 0) return false;
+    this.viewX += dx;
+    this.viewY += dy;
+    this.applyView();
+    return true;
+  }
   private onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
@@ -532,14 +747,15 @@ export class Canvas {
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d") {
-      if (!this.selected) return;
+      const primary = this.primarySelected;
+      if (!primary) return;
       event.preventDefault();
-      this.duplicateNode(this.selected);
+      this.duplicateNode(primary);
       return;
     }
-    if (event.key === "F9" && this.selected) {
+    if (event.key === "F9" && this.primarySelected) {
       event.preventDefault();
-      this.toggleBreakpoint(this.selected);
+      this.toggleBreakpoint(this.primarySelected);
       return;
     }
     if (event.key !== "Delete" && event.key !== "Backspace") return;
@@ -547,10 +763,14 @@ export class Canvas {
   }
 
   private toggleBreakpoint(id: string): void {
-    const node = this.workflow.nodes.find((candidate) => candidate.id === id);
-    if (!node) return;
-    if (node.breakpoint) delete node.breakpoint;
-    else node.breakpoint = true;
+    const ids = this.selected.has(id) ? [...this.selected] : [id];
+    const nodes = this.workflow.nodes.filter((node) => ids.includes(node.id));
+    if (nodes.length === 0) return;
+    const set = !nodes.every((node) => node.breakpoint);
+    for (const node of nodes) {
+      if (set) node.breakpoint = true;
+      else delete node.breakpoint;
+    }
     this.handlers.onChange();
   }
 
@@ -592,11 +812,11 @@ export class Canvas {
       this.handlers.onChange();
       return;
     }
-    if (this.selected) {
-      const id = this.selected;
-      this.workflow.nodes = this.workflow.nodes.filter((node) => node.id !== id);
+    if (this.selected.size > 0) {
+      const ids = new Set(this.selected);
+      this.workflow.nodes = this.workflow.nodes.filter((node) => !ids.has(node.id));
       this.workflow.edges = this.workflow.edges.filter(
-        (edge) => edge.source !== id && edge.target !== id,
+        (edge) => !ids.has(edge.source) && !ids.has(edge.target),
       );
       this.select(null);
       this.handlers.onChange();
@@ -607,7 +827,7 @@ export class Canvas {
     event.preventDefault();
     event.stopPropagation();
     if (target.kind === "node") {
-      this.select(target.id);
+      if (!this.selected.has(target.id)) this.select(target.id);
     } else {
       this.select(null, target.id);
     }
@@ -672,8 +892,13 @@ export class Canvas {
           : t("canvas.disableNode");
         toggle.appendChild(toggleLabel);
         toggle.addEventListener("click", () => {
-          if (node.enabled === false) delete node.enabled;
-          else node.enabled = false;
+          const ids = this.selected.has(node.id) ? [...this.selected] : [node.id];
+          const nodes = this.workflow.nodes.filter((candidate) => ids.includes(candidate.id));
+          const enable = nodes.every((candidate) => candidate.enabled === false);
+          for (const candidate of nodes) {
+            if (enable) delete candidate.enabled;
+            else candidate.enabled = false;
+          }
           this.contextMenu.hidden = true;
           this.handlers.onChange();
         });
@@ -683,7 +908,7 @@ export class Canvas {
 
     if (target.kind === "edge") {
       const edge = this.workflow.edges.find((candidate) => candidate.id === target.id);
-      if (edge) {
+      if (edge?.kind === "control") {
         for (const [value, key] of [
           ["always", "inspector.edgeBranchAlways"],
           ["success", "inspector.edgeBranchSuccess"],
@@ -740,7 +965,7 @@ export class Canvas {
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
       group.classList.add("node");
       group.dataset.nodeId = node.id;
-      if (this.selected === node.id) group.classList.add("node--selected");
+      if (this.selected.has(node.id)) group.classList.add("node--selected");
       if (descriptor?.dangerous) group.classList.add("node--gated");
       if (node.enabled === false) group.classList.add("node--disabled");
       if (node.breakpoint) group.classList.add("node--breakpoint");
@@ -819,48 +1044,53 @@ export class Canvas {
       const outputs = descriptor?.outputs ?? [];
       inputs.forEach((port, index) => {
         group.appendChild(
-          this.makePort(
-            node.id,
-            port.name,
-            port.display_name,
-            port.value_type,
-            "input",
-            index,
-            inputs.length,
-            0,
-          ),
+          this.makePort(node.id, port.name, port.display_name, port.value_type, "input", index),
         );
       });
       outputs.forEach((port, index) => {
         group.appendChild(
-          this.makePort(
-            node.id,
-            port.name,
-            port.display_name,
-            port.value_type,
-            "output",
-            index,
-            outputs.length,
-            NODE_WIDTH,
-          ),
+          this.makePort(node.id, port.name, port.display_name, port.value_type, "output", index),
         );
       });
+      group.appendChild(this.makeExecutionPort(node.id, "exec", "Execution input", "input"));
+      for (const [branch, label] of [
+        ["always", t("inspector.edgeBranchAlways")],
+        ["success", t("inspector.edgeBranchSuccess")],
+        ["failure", t("inspector.edgeBranchFailure")],
+      ] as const) {
+        group.appendChild(
+          this.makeExecutionPort(node.id, branch, label, "output", branch),
+        );
+      }
 
       group.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || this.spaceDown) return;
-        if ((event.target as Element).classList.contains("port")) return;
+        if ((event.target as Element).closest(".port, .exec-port")) return;
         event.preventDefault();
         event.stopPropagation();
+        if (event.ctrlKey || event.metaKey) {
+          if (!this.toggleSelection(node.id)) return;
+        } else if (event.shiftKey) {
+          this.selectPathTo(node.id);
+          if (!this.selected.has(node.id)) return;
+        } else if (!this.selected.has(node.id)) {
+          this.setSelection([node.id], node.id);
+        } else {
+          this.primarySelected = node.id;
+          this.updateSelectionVisuals();
+        }
         const point = this.toCanvas(event.clientX, event.clientY);
-        this.drag = {
-          nodeId: node.id,
-          offsetX: point.x - x,
-          offsetY: point.y - y,
-          element: group,
-          moved: false,
-        };
+        const origins = new Map<string, { x: number; y: number }>();
+        for (const id of this.selected) {
+          const selectedNode = this.workflow.nodes.find((candidate) => candidate.id === id);
+          if (!selectedNode) continue;
+          origins.set(id, {
+            x: selectedNode.position?.x ?? 0,
+            y: selectedNode.position?.y ?? 0,
+          });
+        }
+        this.drag = { primaryId: node.id, startX: point.x, startY: point.y, origins, moved: false };
         document.body.classList.add("is-canvas-dragging");
-        this.select(node.id);
       });
       group.addEventListener("contextmenu", (event) => {
         this.showContextMenu(event, { kind: "node", id: node.id });
@@ -868,8 +1098,171 @@ export class Canvas {
 
       this.nodesLayer.appendChild(group);
     }
+    this.updateSelectionVisuals();
+  }
+  /** Floating execution settings for one or many selected nodes. */
+  private renderQuickConfig(): void {
+    const nodes = this.workflow.nodes.filter((node) => this.selected.has(node.id));
+    if (nodes.length === 0) {
+      this.quickConfig.classList.add("is-hidden");
+      this.quickConfig.replaceChildren();
+      return;
+    }
+    this.quickConfig.classList.remove("is-hidden");
+    this.quickConfig.replaceChildren();
+    const title = document.createElement("div");
+    title.className = "node-quick-config__title";
+    title.textContent = t("canvas.quickConfig", { count: nodes.length });
+    this.quickConfig.appendChild(title);
+
+    const checkbox = (
+      field: string,
+      labelKey: string,
+      values: boolean[],
+      apply: (node: WorkflowNode, value: boolean) => void,
+    ) => {
+      const label = document.createElement("label");
+      label.className = "node-quick-config__field node-quick-config__field--check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.field = field;
+      const mixed = values.some((value) => value !== values[0]);
+      input.checked = !mixed && values[0];
+      input.indeterminate = mixed;
+      input.addEventListener("change", () => {
+        for (const node of nodes) apply(node, input.checked);
+        this.handlers.onChange();
+      });
+      const text = document.createElement("span");
+      text.textContent = t(labelKey);
+      label.append(input, text);
+      this.quickConfig.appendChild(label);
+    };
+
+    const number = (
+      field: string,
+      labelKey: string,
+      values: number[],
+      apply: (node: WorkflowNode, value: number) => void,
+    ) => {
+      const label = document.createElement("label");
+      label.className = "node-quick-config__field";
+      const text = document.createElement("span");
+      text.textContent = t(labelKey);
+      const input = document.createElement("input");
+      input.className = "input input--small";
+      input.type = "number";
+      input.min = "0";
+      input.dataset.field = field;
+      const mixed = values.some((value) => value !== values[0]);
+      input.value = mixed ? "" : String(values[0]);
+      input.placeholder = mixed ? t("canvas.multipleValues") : "";
+      input.addEventListener("change", () => {
+        const value = Math.max(0, Number(input.value) || 0);
+        for (const node of nodes) apply(node, value);
+        this.handlers.onChange();
+      });
+      label.append(text, input);
+      this.quickConfig.appendChild(label);
+    };
+
+    checkbox(
+      "enabled",
+      "execution.enabled",
+      nodes.map((node) => node.enabled !== false),
+      (node, value) => {
+        if (value) delete node.enabled;
+        else node.enabled = false;
+      },
+    );
+    checkbox(
+      "breakpoint",
+      "execution.breakpoint",
+      nodes.map((node) => node.breakpoint === true),
+      (node, value) => {
+        if (value) node.breakpoint = true;
+        else delete node.breakpoint;
+      },
+    );
+
+    const conditionValues = nodes.map((node) => node.condition ?? "");
+    const conditionLabel = document.createElement("label");
+    conditionLabel.className = "node-quick-config__field";
+    const conditionText = document.createElement("span");
+    conditionText.textContent = t("execution.condition");
+    const condition = document.createElement("input");
+    condition.className = "input input--small";
+    condition.dataset.field = "condition";
+    const conditionMixed = conditionValues.some((value) => value !== conditionValues[0]);
+    condition.value = conditionMixed ? "" : conditionValues[0];
+    condition.placeholder = conditionMixed
+      ? t("canvas.multipleValues")
+      : t("execution.conditionPlaceholder");
+    condition.addEventListener("change", () => {
+      const value = condition.value.trim();
+      for (const node of nodes) {
+        if (value) node.condition = value;
+        else delete node.condition;
+      }
+      this.handlers.onChange();
+    });
+    conditionLabel.append(conditionText, condition);
+    this.quickConfig.appendChild(conditionLabel);
+
+    number(
+      "delay_before_ms",
+      "execution.delayBefore",
+      nodes.map((node) => node.delay_before_ms ?? 0),
+      (node, value) => {
+        if (value > 0) node.delay_before_ms = value;
+        else delete node.delay_before_ms;
+      },
+    );
+    checkbox(
+      "continue_on_error",
+      "execution.continueOnError",
+      nodes.map((node) => node.continue_on_error === true),
+      (node, value) => {
+        if (value) node.continue_on_error = true;
+        else delete node.continue_on_error;
+      },
+    );
+    number(
+      "retry",
+      "execution.retries",
+      nodes.map((node) => node.retry ?? 0),
+      (node, value) => {
+        if (value > 0) node.retry = value;
+        else delete node.retry;
+      },
+    );
+    number(
+      "timeout_ms",
+      "execution.timeout",
+      nodes.map((node) => node.timeout_ms ?? 0),
+      (node, value) => {
+        if (value > 0) node.timeout_ms = value;
+        else delete node.timeout_ms;
+      },
+    );
+    this.positionQuickConfig(nodes);
   }
 
+  private positionQuickConfig(nodes: WorkflowNode[]): void {
+    const wrap = this.svg.closest<HTMLElement>(".canvas-wrap") ?? this.svg.parentElement;
+    if (!wrap) return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const right = Math.max(...nodes.map((node) => (node.position?.x ?? 0) + NODE_WIDTH));
+    const top = Math.min(...nodes.map((node) => node.position?.y ?? 0));
+    const width = this.quickConfig.offsetWidth || 250;
+    const screenRight = right * this.viewScale + this.viewX;
+    const screenTop = top * this.viewScale + this.viewY;
+    const left = screenRight + 12 + width > wrapRect.width
+      ? Math.max(8, screenRight - width - NODE_WIDTH * this.viewScale - 24)
+      : screenRight + 12;
+    this.quickConfig.style.left = `${Math.max(8, left)}px`;
+    this.quickConfig.style.top = `${Math.max(8, Math.min(wrapRect.height - 220, screenTop))}px`;
+  }
   private makePort(
     nodeId: string,
     portName: string,
@@ -877,21 +1270,21 @@ export class Canvas {
     valueType: string,
     kind: "input" | "output",
     index: number,
-    total: number,
-    xOffset: number,
   ): SVGCircleElement {
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    const step = NODE_HEIGHT / (total + 1);
+    const step = Math.min(22, (NODE_HEIGHT - 70) / Math.max(1, Math.ceil((kind === "input" ? 1 : 1))));
+    const xOffset = kind === "output" ? NODE_WIDTH : 0;
     circle.setAttribute("cx", String(xOffset));
-    circle.setAttribute("cy", String(step * (index + 1)));
-    circle.setAttribute("r", "6");
-    circle.classList.add("port", `port--${kind}`);
+    circle.setAttribute("cy", String(32 + index * step));
+    circle.setAttribute("r", "5.5");
+    circle.classList.add("port", `port--${kind}`, "port--data");
     circle.dataset.nodeId = nodeId;
     circle.dataset.port = portName;
     circle.dataset.kind = kind;
+    circle.dataset.portKind = "data";
     circle.dataset.valueType = valueType;
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-    title.textContent = `${displayName} · ${valueType}`;
+    title.textContent = `${displayName} data ${kind === "input" ? "input" : "output"} · ${valueType}`;
     circle.appendChild(title);
 
     if (kind === "output") {
@@ -903,6 +1296,7 @@ export class Canvas {
         this.pending = {
           sourceId: nodeId,
           sourcePort: portName,
+          edgeKind: "data",
           x: point.x,
           y: point.y,
           originX: point.x,
@@ -923,6 +1317,7 @@ export class Canvas {
         this.pending = {
           sourceId: nodeId,
           sourcePort: portName,
+          edgeKind: "data",
           x: point.x,
           y: point.y,
           originX: point.x,
@@ -936,29 +1331,108 @@ export class Canvas {
       circle.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || !this.pending || this.pending.mode !== "click") return;
         event.stopPropagation();
-        this.connect(this.pending.sourceId, nodeId, this.pending.sourcePort, portName);
-        this.pending = null;
-        this.pendingEdge.classList.add("is-hidden");
-        this.pendingEdge.removeAttribute("d");
+        this.finishConnection(nodeId, portName);
       });
       circle.addEventListener("pointerup", (event) => {
         if (event.button !== 0 || !this.pending) return;
         event.stopPropagation();
-        this.connect(this.pending.sourceId, nodeId, this.pending.sourcePort, portName);
-        this.pending = null;
-        this.pendingEdge.classList.add("is-hidden");
-        this.pendingEdge.removeAttribute("d");
+        this.finishConnection(nodeId, portName);
       });
     }
     return circle;
   }
 
-  private connect(source: string, target: string, sourcePort: string, targetPort: string): void {
+  private makeExecutionPort(
+    nodeId: string,
+    branch: "exec" | "always" | "success" | "failure",
+    displayName: string,
+    kind: "input" | "output",
+    outputBranch?: "always" | "success" | "failure",
+  ): SVGPolygonElement {
+    const index = outputBranch === "success" ? 1 : outputBranch === "failure" ? 2 : 0;
+    const x = kind === "input" ? 0 : NODE_WIDTH;
+    const y = kind === "input" ? NODE_HEIGHT - 20 : NODE_HEIGHT - 52 + index * 16;
+    const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    polygon.setAttribute(
+      "points",
+      `${x},${y - 7} ${x + 7},${y} ${x},${y + 7} ${x - 7},${y}`,
+    );
+    polygon.classList.add("exec-port", `exec-port--${kind}`, `exec-port--${branch}`);
+    polygon.dataset.nodeId = nodeId;
+    polygon.dataset.branch = branch;
+    polygon.dataset.portKind = "execution";
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${displayName} execution ${kind === "input" ? "input" : "output"}`;
+    polygon.appendChild(title);
+
+    if (kind === "output") {
+      const start = (branchName: "always" | "success" | "failure", event: PointerEvent, mode: "drag" | "click") => {
+        if (event.button !== 0 || this.spaceDown) return;
+        event.stopPropagation();
+        const point = this.toCanvas(event.clientX, event.clientY);
+        if (mode === "drag") this.pendingDragMoved = false;
+        this.pending = {
+          sourceId: nodeId,
+          sourcePort: branchName,
+          edgeKind: "control",
+          x: point.x,
+          y: point.y,
+          originX: point.x,
+          originY: point.y,
+          mode,
+        };
+        this.pendingEdge.classList.remove("is-hidden");
+        this.drawPendingEdge();
+      };
+      polygon.addEventListener("pointerdown", (event) => start(outputBranch!, event, "drag"));
+      polygon.addEventListener("click", (event) => {
+        if (this.pendingDragMoved) {
+          this.pendingDragMoved = false;
+          return;
+        }
+        start(outputBranch!, event, "click");
+      });
+    } else {
+      polygon.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !this.pending || this.pending.mode !== "click") return;
+        event.stopPropagation();
+        this.finishConnection(nodeId, "exec");
+      });
+      polygon.addEventListener("pointerup", (event) => {
+        if (event.button !== 0 || !this.pending) return;
+        event.stopPropagation();
+        this.finishConnection(nodeId, "exec");
+      });
+    }
+    return polygon;
+  }
+
+  private finishConnection(targetNodeId: string, targetPort: string): void {
+    if (!this.pending) return;
+    this.connect(
+      this.pending.sourceId,
+      targetNodeId,
+      this.pending.sourcePort,
+      targetPort,
+      this.pending.edgeKind,
+    );
+    this.pending = null;
+    this.pendingEdge.classList.add("is-hidden");
+    this.pendingEdge.removeAttribute("d");
+  }
+
+  private connect(
+    source: string,
+    target: string,
+    sourcePort: string,
+    targetPort: string,
+    kind: "control" | "data",
+  ): void {
     if (source === target) {
       this.handlers.onStatus(t("canvas.selfConnection"));
       return;
     }
-    if (edgeExists(this.workflow.edges, source, target, sourcePort, targetPort)) {
+    if (edgeExists(this.workflow.edges, source, target, sourcePort, targetPort, kind)) {
       this.handlers.onStatus(t("canvas.duplicateConnection"));
       return;
     }
@@ -968,7 +1442,7 @@ export class Canvas {
     const targetDescriptor = targetNode ? this.handlers.descriptorFor(targetNode.type) : undefined;
     const output = sourceDescriptor?.outputs.find((port) => port.name === sourcePort);
     const input = targetDescriptor?.inputs.find((port) => port.name === targetPort);
-    if (output && input && !valueTypesCompatible(output.value_type, input.value_type)) {
+    if (kind === "data" && output && input && !valueTypesCompatible(output.value_type, input.value_type)) {
       this.handlers.onStatus(
         t("canvas.incompatiblePorts", {
           source: output.value_type,
@@ -977,64 +1451,78 @@ export class Canvas {
       );
       return;
     }
-    this.workflow.edges.push({
+    const base = {
       id: nextEdgeId(source, target, this.workflow.edges),
+      kind,
       source,
       target,
-      source_port: sourcePort === "out" ? undefined : sourcePort,
-      target_port: targetPort === "in" ? undefined : targetPort,
-    });
+    } as const;
+    if (kind === "data") {
+      this.workflow.edges.push({ ...base, source_port: sourcePort, target_port: targetPort });
+    } else {
+      const branch = sourcePort === "success" || sourcePort === "failure" ? sourcePort : undefined;
+      this.workflow.edges.push(branch ? { ...base, branch } : { ...base });
+    }
     this.handlers.onChange();
   }
-
   private renderEdges(): void {
     this.edgesLayer.replaceChildren();
     for (const edge of this.workflow.edges) {
       const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      group.classList.add("edge-group");
+      group.classList.add("edge-group", `edge-group--${edge.kind}`);
       group.dataset.edgeId = edge.id;
+      group.dataset.edgeKind = edge.kind;
 
-      const pathData = this.edgePath(edge.source, edge.target);
+      const pathData = this.edgePath(edge);
       const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
       hit.classList.add("edge-hit");
       hit.setAttribute("d", pathData);
       hit.addEventListener("pointerdown", (event) => {
         event.stopPropagation();
-        this.select(null, edge.id);
+        this.selectedEdge = edge.id;
+        this.selected.clear();
+        this.primarySelected = null;
+        this.updateSelectionVisuals();
       });
       hit.addEventListener("contextmenu", (event) => {
         this.showContextMenu(event, { kind: "edge", id: edge.id });
       });
 
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.classList.add("edge");
+      path.classList.add("edge", `edge--${edge.kind}`);
       path.dataset.edgeId = edge.id;
-      if (edge.condition) path.classList.add("edge--guarded");
-      if (edge.branch && edge.branch !== "always") {
+      if (edge.kind === "control" && edge.condition) path.classList.add("edge--guarded");
+      if (edge.kind === "control" && edge.branch && edge.branch !== "always") {
         path.classList.add(`edge--${edge.branch}`);
       }
       if (this.selectedEdge === edge.id) path.classList.add("edge--selected");
+      const state = this.edgeStates.get(edge.id);
+      if (state === "active") path.classList.add("edge--active");
+      if (state === "data") path.classList.add("edge--data-active");
       path.setAttribute("d", pathData);
-      path.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "title"));
-      const branchLabel = edge.branch === "success"
-        ? t("inspector.edgeBranchSuccess")
-        : edge.branch === "failure"
-          ? t("inspector.edgeBranchFailure")
-          : "";
-      const tooltip = edge.condition
-        ? t("canvas.edgeCondition", {
-            source: edge.source,
-            target: edge.target,
-            condition: edge.condition,
-          })
-        : t("canvas.edge", { source: edge.source, target: edge.target });
-      path.lastChild!.textContent = branchLabel ? `${branchLabel}: ${tooltip}` : tooltip;
+      const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      if (edge.kind === "data") {
+        title.textContent = `${edge.source}.${edge.source_port ?? "out"} → ${edge.target}.${edge.target_port ?? "in"} (data)`;
+      } else {
+        const branch = edge.branch ?? "always";
+        title.textContent = edge.condition
+          ? `${edge.source} → ${edge.target} on ${branch} when ${edge.condition}`
+          : `${edge.source} → ${edge.target} on ${branch}`;
+      }
+      path.appendChild(title);
 
       group.append(hit, path);
-      const visibleLabel = edge.label?.trim() || branchLabel;
+      const branchLabel = edge.kind === "control"
+        ? edge.branch === "success"
+          ? t("inspector.edgeBranchSuccess")
+          : edge.branch === "failure"
+            ? t("inspector.edgeBranchFailure")
+            : ""
+        : "";
+      const visibleLabel = edge.kind === "control" ? edge.label?.trim() || branchLabel : "";
       if (visibleLabel) {
-        const source = this.nodeCenter(edge.source, "output");
-        const target = this.nodeCenter(edge.target, "input");
+        const source = this.portCenter(edge.source, edge.kind, "output", edge.source_port ?? edge.branch);
+        const target = this.portCenter(edge.target, edge.kind, "input", edge.target_port);
         const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
         label.classList.add("edge__label");
         label.setAttribute("x", String((source.x + target.x) / 2));
@@ -1044,42 +1532,63 @@ export class Canvas {
       }
       this.edgesLayer.appendChild(group);
     }
+    for (const [edgeId, state] of this.edgeStates) this.setEdgeState(edgeId, state);
   }
 
-  private edgePath(sourceId: string, targetId: string): string {
-    const source = this.nodeCenter(sourceId, "output");
-    const target = this.nodeCenter(targetId, "input");
+  private edgePath(edge: Workflow["edges"][number]): string {
+    const source = this.portCenter(edge.source, edge.kind, "output", edge.source_port ?? edge.branch);
+    const target = this.portCenter(edge.target, edge.kind, "input", edge.target_port);
     const dx = target.x - source.x;
     const dy = target.y - source.y;
-    const handle = Math.max(
-      EDGE_MIN_HANDLE,
-      Math.min(EDGE_MAX_HANDLE, Math.abs(dx) * 0.45 + Math.abs(dy) * 0.16 + 20),
-    );
-    // Bend the final tangent towards the vertical gap. The arrowhead then
-    // follows the visual approach instead of staying horizontal on tall links.
-    const vertical = Math.sign(dy) * Math.min(Math.abs(dy) * 0.35, handle * 0.65);
-    return `M ${source.x} ${source.y} C ${source.x + handle} ${source.y + vertical * 0.38}, ${target.x - handle} ${target.y - vertical}, ${target.x} ${target.y}`;
+    const distance = Math.hypot(dx, dy);
+    const handle = Math.max(EDGE_MIN_HANDLE, Math.min(EDGE_MAX_HANDLE, distance * 0.45));
+    if (Math.abs(dy) > Math.abs(dx) * 0.72) {
+      const direction = Math.sign(dy) || 1;
+      return `M ${source.x} ${source.y} C ${source.x} ${source.y + handle * direction}, ${target.x} ${target.y - handle * direction}, ${target.x} ${target.y}`;
+    }
+    const direction = dx >= 0 ? 1 : -0.65;
+    return `M ${source.x} ${source.y} C ${source.x + handle * direction} ${source.y}, ${target.x - handle * direction} ${target.y}, ${target.x} ${target.y}`;
   }
 
-  private nodeCenter(nodeId: string, side: "input" | "output"): { x: number; y: number } {
+  private portCenter(
+    nodeId: string,
+    edgeKind: "control" | "data",
+    side: "input" | "output",
+    port?: string,
+  ): { x: number; y: number } {
     const node = this.workflow.nodes.find((candidate) => candidate.id === nodeId);
     const x = node?.position?.x ?? 0;
     const y = node?.position?.y ?? 0;
-    return {
-      x: side === "output" ? x + NODE_WIDTH : x,
-      y: y + NODE_HEIGHT / 2,
-    };
+    const descriptor = node ? this.handlers.descriptorFor(node.type) : undefined;
+    if (edgeKind === "data") {
+      const ports = side === "output" ? descriptor?.outputs ?? [] : descriptor?.inputs ?? [];
+      const index = Math.max(0, ports.findIndex((candidate) => candidate.name === port));
+      return {
+        x: side === "output" ? x + NODE_WIDTH : x,
+        y: y + 32 + index * 22,
+      };
+    }
+    if (side === "input") return { x, y: y + NODE_HEIGHT - 20 };
+    const index = port === "success" ? 1 : port === "failure" ? 2 : 0;
+    return { x: x + NODE_WIDTH, y: y + NODE_HEIGHT - 52 + index * 16 };
   }
 
   private drawPendingEdge(): void {
     if (!this.pending) return;
-    const source = this.nodeCenter(this.pending.sourceId, "output");
-    this.pendingEdge.setAttribute(
-      "d",
-      `M ${source.x} ${source.y} C ${source.x + 60} ${source.y}, ${this.pending.x - 60} ${this.pending.y}, ${this.pending.x} ${this.pending.y}`,
+    const source = this.portCenter(
+      this.pending.sourceId,
+      this.pending.edgeKind,
+      "output",
+      this.pending.sourcePort,
     );
+    const dx = this.pending.x - source.x;
+    const dy = this.pending.y - source.y;
+    const handle = Math.max(34, Math.min(120, Math.hypot(dx, dy) * 0.35));
+    const path = Math.abs(dy) > Math.abs(dx) * 0.72
+      ? `M ${source.x} ${source.y} C ${source.x} ${source.y + Math.sign(dy) * handle}, ${this.pending.x} ${this.pending.y - Math.sign(dy) * handle}, ${this.pending.x} ${this.pending.y}`
+      : `M ${source.x} ${source.y} C ${source.x + handle} ${source.y}, ${this.pending.x - handle} ${this.pending.y}, ${this.pending.x} ${this.pending.y}`;
+    this.pendingEdge.setAttribute("d", path);
   }
-
   private toCanvas(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.svg.getBoundingClientRect();
     return {
@@ -1104,6 +1613,14 @@ export class Canvas {
       "transform",
       `translate(${this.viewX} ${this.viewY}) scale(${this.viewScale})`,
     );
+    const wrap = this.svg.closest<HTMLElement>(".canvas-wrap");
+    if (wrap) {
+      const size = 24 * this.viewScale;
+      wrap.style.setProperty("--grid-size", `${size}px`);
+      wrap.style.setProperty("--grid-x", `${this.viewX % size}px`);
+      wrap.style.setProperty("--grid-y", `${this.viewY % size}px`);
+    }
+    this.renderQuickConfig();
     this.handlers.onViewChange?.(this.viewScale);
   }
 }

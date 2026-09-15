@@ -1,40 +1,83 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.breakpoint-debug",
   "metadata": {
     "name": "Breakpoint debugging",
     "description": "Pauses before Calculate so its inputs and the execution state can be inspected before the value is produced.",
-    "tags": ["debugging", "breakpoint"]
+    "tags": [
+      "debugging",
+      "breakpoint"
+    ]
   },
   "nodes": [
-    { "id": "start", "type": "core.Start", "label": "Start" },
+    {
+      "id": "start",
+      "type": "core.Start",
+      "label": "Start"
+    },
     {
       "id": "before",
       "type": "core.Log",
       "label": "Before breakpoint",
-      "config": { "message": "ready to calculate", "level": "info" }
+      "config": {
+        "message": "ready to calculate",
+        "level": "info"
+      }
     },
     {
       "id": "calculate",
       "type": "core.Calculate",
       "label": "Breakpoint here",
       "breakpoint": true,
-      "config": { "expression": "6 * 7", "output_var": "answer" }
+      "config": {
+        "expression": "6 * 7",
+        "output_var": "answer"
+      }
     },
     {
       "id": "after",
       "type": "core.Log",
       "label": "After breakpoint",
-      "config": { "message": "answer = {{answer}}", "level": "info" }
+      "config": {
+        "message": "answer = {{answer}}",
+        "level": "info"
+      }
     },
-    { "id": "end", "type": "core.End", "label": "End", "config": { "code": 0 } }
+    {
+      "id": "end",
+      "type": "core.End",
+      "label": "End",
+      "config": {
+        "code": 0
+      }
+    }
   ],
   "edges": [
-    { "id": "start-before", "source": "start", "target": "before" },
-    { "id": "before-calculate", "source": "before", "target": "calculate" },
-    { "id": "calculate-after", "source": "calculate", "target": "after" },
-    { "id": "after-end", "source": "after", "target": "end" }
+    {
+      "id": "start-before",
+      "source": "start",
+      "target": "before",
+      "kind": "control"
+    },
+    {
+      "id": "before-calculate",
+      "source": "before",
+      "target": "calculate",
+      "kind": "control"
+    },
+    {
+      "id": "calculate-after",
+      "source": "calculate",
+      "target": "after",
+      "kind": "control"
+    },
+    {
+      "id": "after-end",
+      "source": "after",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

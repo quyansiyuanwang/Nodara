@@ -1,7 +1,7 @@
 # Examples
 
 Every file here is a workflow document in the current format
-(`schema_version: "2.0"`). The shape is defined by the generated
+(`schema_version: "2.1"`). The shape is defined by the generated
 [workflow schema](../Nodara-Core/schema/workflow.schema.json).
 
 | File | What it shows |
@@ -14,7 +14,7 @@ Every file here is a workflow document in the current format
 | `calculate-many.json` | Ordered named calculations with earlier results available to later expressions |
 | `breakpoint-debug.json` | A persisted node breakpoint and the Studio Resume / Step debugging flow |
 | `failure-branch.json` | A `failure` edge recovering from a node error without `continue_on_error` |
-| `capture-preview.json` | Captures the desktop and previews the PNG artifact in Studio |
+| `capture-preview.json` | Shows one control edge and one explicit data edge carrying the captured PNG artifact into Log |
 | `window-find.json` | A plugin-provided node type (`windows.Window.Find`) |
 | `legacy/v1-hello-world.json` | A pre-v2 document, kept as a migration fixture |
 
@@ -56,10 +56,11 @@ cargo run -p nodara-cli -- migrate ../examples/legacy/v1-hello-world.json
 cargo run -p nodara-cli -- migrate ../examples/legacy/v1-hello-world.json --out upgraded.json
 ```
 
-Migration rewrites node kinds to the namespaced convention
-(`System.Delay` to `system.Delay`), converts `from`/`to` edges to
-`source`/`target`, and translates configuration keys that changed meaning
-(`seconds` to `duration_ms`).
+Migration rewrites node kinds to the namespaced convention, converts legacy
+edges to explicit `kind: "control"`, removes old `source_port` / `target_port`
+mappings, and records a note for every data mapping that must be recreated as a
+`kind: "data"` edge. Topology and reachability use control edges only; data
+edges transfer values after their target has been activated by control flow.
 
 ## Authoring your own
 

@@ -59,6 +59,9 @@ impl NodeExecutor for ClipboardExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "text");
         let action = input.require_str("action")?;
         match action.as_str() {
             "read" => {

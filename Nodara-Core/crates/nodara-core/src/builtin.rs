@@ -134,6 +134,9 @@ impl NodeExecutor for LogExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "message");
         let message = input.require_str("message")?;
         let level = match input.config_str("level").unwrap_or("info") {
             "debug" => nodara_schema::LogLevel::Debug,
@@ -365,6 +368,9 @@ impl NodeExecutor for DelayExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "duration_ms");
         let total_ms = input.require_i64("duration_ms")?.max(0) as u64;
         let mut remaining = total_ms;
         while remaining > 0 {
@@ -410,6 +416,9 @@ impl NodeExecutor for SetVariableExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "value");
         let name = input.require_str("name")?;
         let value = input
             .resolved_config

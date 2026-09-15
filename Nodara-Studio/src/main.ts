@@ -7,6 +7,8 @@
 
 import "./styles.css";
 
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 import {
   applyStaticTranslations,
   localizeDescriptor,
@@ -22,6 +24,7 @@ import {
   localProblems,
   starterWorkflow,
   nodeTypeAdmission,
+  migrateLegacyWorkflow,
   workflowAdmission,
   WORKFLOW_SCHEMA_PATH,
 } from "./model/workflow";
@@ -33,6 +36,7 @@ import {
   Workflow,
 } from "./runtime/types";
 import { AgentPanel } from "./ui/agent-panel";
+import type { AgentSubmitRequest } from "./ui/agent-panel";
 import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
@@ -45,6 +49,16 @@ import { installResizer } from "./ui/resizer";
 import { RunDialog } from "./ui/run-dialog";
 import { RunPanel } from "./ui/run-panel";
 import { deriveRunControls, ValidationState } from "./ui/run-controls";
+
+interface AgentStudioResponse {
+  session_id?: string;
+  accepted: boolean;
+  workflow?: Workflow;
+  run?: { id: string; status: RunStatus };
+  report?: unknown;
+  trace?: unknown[];
+  tokens_used?: number;
+}
 
 function element<T extends Element = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -141,11 +155,17 @@ class Studio {
       },
     );
     this.agents = new AgentPanel(element("agent"), {
+      onSubmit: (request) => this.submitAgent(request),
       onDecide: (sessionId, approvalId, approve) =>
         void this.decideApproval(sessionId, approvalId, approve),
       onLoadPlan: (sessionId) => this.loadPlan(sessionId),
       onOpenRun: (runId) => void this.openRun(runId),
-    });
+      onOpenAudit: (runId) => this.openAudit(runId),
+      onResumeRun: (runId) => void this.resumeRun(runId),
+      onValidatePlan: (workflow) => this.client.validate(workflow),
+      onRunPlan: (workflow, sessionId, mode) =>
+        this.runAgentPlan(workflow, sessionId, mode),
+    }, isTauri());
     this.audit = new AuditPanel(element("audit"));
     this.runsPanel = new RunPanel(element("runs"), {
       onOpenRun: (runId) => void this.openRun(runId),
@@ -351,6 +371,19 @@ class Studio {
       }
     });
 
+    element("btn-migrate-json").addEventListener("click", () => {
+      try {
+        const view = element<HTMLTextAreaElement>("json-view");
+        const parsed = JSON.parse(view.value) as Partial<Workflow>;
+        const migration = migrateLegacyWorkflow(parsed);
+        view.value = JSON.stringify(migration.workflow, null, 2);
+        if (!this.replaceWorkflow(migration.workflow)) return;
+        this.pushLocal(t("status.workflowMigrated", { notes: migration.notes.length }));
+        for (const note of migration.notes) this.pushLocal(note);
+      } catch (error) {
+        this.pushLocal(t("status.invalidWorkflowJson", { message: (error as Error).message }));
+      }
+    });
     element("btn-runtime-schema").addEventListener("click", () => {
       this.workflow.$schema = this.runtimeSchemaUrl();
       this.workflowChanged();
@@ -893,6 +926,79 @@ class Studio {
     }
   }
 
+  /** Run one turn in the sibling desktop Agent process. */
+  private async submitAgent(request: AgentSubmitRequest): Promise<void> {
+    if (!isTauri()) {
+      throw new Error(t("agent.desktopOnly"));
+    }
+    const selected = this.agents.selectedSession();
+    if (request.baseMode === "last_plan" && !selected?.plan) {
+      throw new Error(t("agent.lastPlanUnavailable"));
+    }
+    const baseWorkflow = request.baseMode === "last_plan"
+      ? selected?.plan?.workflow
+      : this.workflow;
+    const response = await invoke<AgentStudioResponse>("run_agent_turn", {
+      request: {
+        runtime_url: defaultRuntimeBaseUrl() || "http://127.0.0.1:8710",
+        goal: request.goal,
+        constraints: [],
+        base_workflow: baseWorkflow,
+        session_id: request.sessionId,
+        variables: Object.fromEntries(this.runOverrides),
+        mode: request.mode,
+        provider: {
+          endpoint: request.provider.endpoint,
+          model: request.provider.model,
+          api_key: request.provider.apiKey || null,
+          timeout_ms: request.provider.timeoutMs,
+        },
+      },
+    });
+    await this.pollAgentSessions();
+    if (response.session_id) this.agents.selectSession(response.session_id);
+    if (!response.accepted) {
+      throw new Error(t("agent.planRejected", { errors: 1 }));
+    }
+    this.pushLocal(t("status.agentCompleted", { id: response.session_id?.slice(0, 8) ?? "-" }));
+    if (response.run?.id) void this.openRun(response.run.id);
+  }
+
+  /** Run a validated Agent plan without replacing the editor document. */
+  private async runAgentPlan(
+    workflow: Workflow,
+    sessionId: string,
+    mode: "forbidden" | "manual" | "partial" | "all",
+  ): Promise<void> {
+    if (mode === "forbidden") throw new Error(t("agent.runForbidden"));
+    const report = await this.client.validate(workflow);
+    if (report.diagnostics.some((item) => item.severity === "error")) {
+      throw new Error(t("validation.runBlocked"));
+    }
+    const snapshot = await this.client.createRun(
+      workflow,
+      Object.fromEntries(this.runOverrides),
+      mode === "manual",
+      {
+        sessionId,
+        approval: mode === "all" ? "auto" : "session",
+      },
+    );
+    await this.openRun(snapshot.id);
+    this.pushLocal(t("status.runAccepted", { id: snapshot.id }) + " · " + mode);
+  }
+
+  /** Resume a run parked by an Agent approval or manual start. */
+  private async resumeRun(runId: string): Promise<void> {
+    try {
+      const snapshot = await this.client.resume(runId);
+      this.setStatus(snapshot.status);
+      await this.pollAgentSessions();
+    } catch (error) {
+      this.reportError(error);
+      throw error;
+    }
+  }
   /** Replace the document with the plan the agent proposed. */
   private loadPlan(sessionId: string): void {
     const session = this.agents.selectedSession();
@@ -905,6 +1011,13 @@ class Studio {
     this.pushLocal(t("status.planLoaded", { id: sessionId.slice(0, 8) }));
   }
 
+  /** Open the durable audit trail for an Agent-created run. */
+  private openAudit(runId: string): void {
+    this.runId = runId;
+    element<HTMLInputElement>("audit-current-run").checked = true;
+    this.showTab("audit");
+    void this.refreshAudit();
+  }
   /** Follow the run a session started. */
   private async openRun(runId: string): Promise<void> {
     this.runId = runId;

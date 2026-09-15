@@ -1,14 +1,20 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.window-find",
   "metadata": {
     "name": "Find a window",
     "description": "Locates a visible Notepad process by title and process name, then logs its geometry.",
-    "tags": ["windows", "plugin"]
+    "tags": [
+      "windows",
+      "plugin"
+    ]
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "find",
       "type": "windows.Window.Find",
@@ -23,14 +29,34 @@
     {
       "id": "report",
       "type": "core.Log",
-      "config": { "message": "found {{window.process}} ({{window.title}}) at {{window.rect.width}}x{{window.rect.height}}" }
+      "config": {
+        "message": "found {{window.process}} ({{window.title}}) at {{window.rect.width}}x{{window.rect.height}}"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "find" },
-    { "id": "e2", "source": "find", "target": "report" },
-    { "id": "e3", "source": "report", "target": "end" }
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "find",
+      "kind": "control"
+    },
+    {
+      "id": "e2",
+      "source": "find",
+      "target": "report",
+      "kind": "control"
+    },
+    {
+      "id": "e3",
+      "source": "report",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

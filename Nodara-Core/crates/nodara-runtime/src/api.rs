@@ -15,6 +15,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::StreamExt;
+use nodara_core::{ApprovalHandler, AutoApprove};
 use nodara_plugin::PluginSummary;
 use nodara_schema::{
     validate_with, AgentSession, ApprovalDecisionRequest, NodeDescriptor, PlanPreview,
@@ -320,6 +321,19 @@ pub struct CreateRunRequest {
     /// Start paused before the first node, useful for manual stepping.
     #[serde(default)]
     pub start_paused: bool,
+    /// Approval handling for this run. Omitted keeps the runtime default.
+    #[serde(default)]
+    pub approval: Option<ApprovalMode>,
+}
+
+/// Per-run approval strategy requested by a client.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalMode {
+    /// Approve gated capabilities automatically while still auditing them.
+    Auto,
+    /// Route gated capabilities through the owning agent session.
+    Session,
 }
 
 async fn create_run(
@@ -350,11 +364,22 @@ async fn create_run(
         }
         state.sessions.attach_run(session_id, &run_id);
     }
-    let handle = state.runs.start_with_run_id(
+    let approval: Option<Arc<dyn ApprovalHandler>> = match request.approval {
+        Some(ApprovalMode::Auto) => Some(Arc::new(AutoApprove)),
+        Some(ApprovalMode::Session) => {
+            Some(Arc::new(crate::approval::SessionApprovalHandler::new(
+                state.sessions.clone(),
+                state.config.approval_timeout,
+            )))
+        }
+        None => None,
+    };
+    let handle = state.runs.start_with_options(
         run_id,
         request.workflow,
         request.variables,
         request.start_paused,
+        approval,
     );
     Ok((axum::http::StatusCode::ACCEPTED, Json(handle.snapshot())))
 }

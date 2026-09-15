@@ -126,7 +126,12 @@ $env:NODARA_RUNTIME_PORT = "8720"
 |---|---|
 | 添加节点 | 在左侧节点列表**单击**即可放到画布中央；也可以拖到指定位置。每个工作流只允许一个 `core.Start` |
 | 移动节点 | 直接拖动节点 |
-| 连接节点 | 从输出端口拖到输入端口 |
+| 连接数据 | 从圆形数据输出端口拖到圆形数据输入端口，生成 `kind: "data"` 连线 |
+| 连接执行 | 从节点右下角 Always / Success / Failure 菱形输出拖到左下角执行输入，生成 `kind: "control"` 连线 |
+| 框选 | 在空白处按住左键拖动；碰到节点矩形即选中 |
+| 多选 | `Ctrl+左键` 逐个切换；`Shift+左键` 选择控制图中从锚点到目标之间所有可达路径节点 |
+| 平移/缩放 | 中键拖动或 `Space+左键` 平移；滚轮缩放 |
+| 批量配置 | 选中一个或多个节点后用浮动快配置卡统一设置启用、断点、条件、延迟、失败继续、重试和超时 |
 | 删除节点或连线 | 选中后按 `Delete`，或右键目标并选择删除 |
 | 自动校验 | 每次修改后自动执行；`Validate` 旁显示检查结果，错误会禁用 `Run` |
 | 初始模板 | 新建文档默认包含可运行的 `Start → Log → End` 示例 |
@@ -166,7 +171,7 @@ npm run dev
 使用内置 mock provider 生成并运行一个最小工作流：
 
 ```powershell
-$mock = '{"schema_version":"2.0","id":"wf.hello","metadata":{"name":"Hello"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"hello from agent"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","source":"start","target":"log"},{"id":"e2","source":"log","target":"end"}]}'
+$mock = '{"schema_version":"2.1","id":"wf.hello","metadata":{"name":"Hello"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"hello from agent"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","kind":"control","source":"start","target":"log"},{"id":"e2","kind":"control","source":"log","target":"end"}]}'
 
 .\nodara-agent.exe plan "输出 hello" --mock $mock --out .\agent-hello.json
 .\nodara-agent.exe run "输出 hello" --mock $mock --variables '{}' --timeout 30
@@ -183,7 +188,56 @@ $env:NODARA_LLM_MODEL = "gpt-4o-mini"
 
 Agent 的护栏不能替代 runtime 策略。所有实际执行仍由 runtime 审批并写入审计日志。
 
-## 6. 安全提醒
+## 6. Studio Agent 对话
+
+确认 Studio 连接正常后打开底部 **Agent** 页。首次使用展开 **Provider 设置**，填写 OpenAI-compatible `Endpoint`、`Model`、`API Key` 和超时；API Key 只保留在当前 Studio 进程内存中，不写 `localStorage`，也不会进入日志。
+
+1. 在聊天框输入目标，例如“创建一个截图并记录截图元数据的流程”；
+2. 选择运行模式：**仅规划**、**手动执行**、**部分审批**、**自动执行**；
+3. 选择修改基线：**当前画布** 或 **上一轮 Agent 计划**；
+4. 点击 **发送**。Agent 会保留当前 session 的完整消息历史，并返回最终 workflow JSON、校验诊断和节点/连线摘要；
+5. 结果卡可执行 **验证**、**载入画布**、**运行此计划** 和 **打开对应 Audit**。Agent 结果永远不会自动覆盖画布；
+6. `手动执行` 会以 paused 状态启动，使用结果卡或运行页的 **Resume** 继续；`部分审批` 只自动执行安全节点，危险节点会显示审批按钮；`自动执行` 自动放行，但仍保留 capability decision 和 audit。
+
+浏览器版没有桌面进程管道，因此 Agent 页会明确提示需要使用 `nodara-studio.exe`。官方测试包已经包含 `nodara-agent.exe`，无需单独启动。
+
+## 7. Workflow 2.1 与迁移
+
+2.1 把边明确分成两类：
+
+```json
+{
+  "id": "capture-log-data",
+  "kind": "data",
+  "source": "capture",
+  "target": "log",
+  "source_port": "artifact",
+  "target_port": "in"
+}
+```
+
+```json
+{
+  "id": "capture-log-control",
+  "kind": "control",
+  "source": "capture",
+  "target": "log",
+  "branch": "success"
+}
+```
+
+- `control` 只决定执行路径，支持 `branch=always|success|failure`、`condition` 和 `label`，不能设置数据端口；
+- `data` 必须显式设置 `source_port` 和 `target_port`，不能设置 `branch`、`condition` 或 `label`；
+- 拓扑、入口、循环、可达性和死路只分析控制边；数据边只在目标节点已经被控制边激活后传值；
+- 数据边不会隐式触发目标节点；
+- 旧 `2.0` 文档会报 `WF118`。执行：
+
+```powershell
+.\nodara-cli.exe migrate .\legacy.json --out .\legacy-2.1.json
+```
+
+迁移把所有旧边改成 `control`，移除旧数据端口映射，并在 MigrationReport 中逐条提示需要重新建立的数据线。
+## 8. 安全提醒
 
 发布包中的 runtime 默认使用 `DefaultPolicy`，并自动批准需要审批的能力。这适合
 受信任的本地测试，但意味着键鼠、窗口、截图、剪贴板和视觉节点可以立即执行。
@@ -195,7 +249,7 @@ Agent 的护栏不能替代 runtime 策略。所有实际执行仍由 runtime �
   `cargo run -p nodara-cli -- serve --plugin-dir plugins --require-approval`。
 - 测试完成后关闭 runtime、Studio 和 Agent 进程。
 
-## 7. 下一步
+## 9. 下一步
 
 | 目标 | 文档 |
 |---|---|

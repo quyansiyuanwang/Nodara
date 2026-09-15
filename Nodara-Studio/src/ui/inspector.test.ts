@@ -105,7 +105,7 @@ describe("node execution settings", () => {
 
   it("edits the connection outcome branch", () => {
     const workflow = emptyWorkflow();
-    workflow.edges.push({ id: "e1", source: "start", target: "end" });
+    workflow.edges.push({ id: "e1", kind: "control", source: "start", target: "end" });
     const root = document.createElement("div");
     document.body.appendChild(root);
     const inspector = new Inspector(
@@ -129,7 +129,7 @@ describe("node execution settings", () => {
 
   it("edits connection labels and conditions directly", () => {
     const workflow = emptyWorkflow();
-    workflow.edges.push({ id: "e1", source: "start", target: "end" });
+    workflow.edges.push({ id: "e1", kind: "control", source: "start", target: "end" });
     const root = document.createElement("div");
     document.body.appendChild(root);
     const inspector = new Inspector(
@@ -242,4 +242,25 @@ describe("node execution settings", () => {
       root.querySelector<HTMLDetailsElement>('[data-section="execution"]')?.open,
     ).toBe(false);
   });
-});
+
+  it("shows explicit ports and no control fields for data edges", () => {
+    const workflow = emptyWorkflow();
+    workflow.edges.push({
+      id: "e-data",
+      kind: "data",
+      source: "start",
+      target: "end",
+      source_port: "out",
+      target_port: "in",
+    });
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const inspector = new Inspector(root, workflow, () => undefined, {
+      onChange: () => undefined,
+    });
+
+    inspector.render(null, [], "e-data");
+    expect(root.textContent).toContain("start.out");
+    expect(root.querySelector("select.input")).toBeNull();
+    expect(root.querySelector("textarea.input")).toBeNull();
+  });});

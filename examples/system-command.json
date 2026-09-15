@@ -1,11 +1,15 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.system-command",
   "metadata": {
     "name": "Run a command",
     "description": "Launch a command, publish its stdout and log the captured result.",
-    "tags": ["system", "command", "example"]
+    "tags": [
+      "system",
+      "command",
+      "example"
+    ]
   },
   "nodes": [
     {
@@ -13,7 +17,10 @@
       "type": "core.Start",
       "label": "Start",
       "config": {},
-      "position": { "x": 80, "y": 80 }
+      "position": {
+        "x": 80,
+        "y": 80
+      }
     },
     {
       "id": "command",
@@ -28,7 +35,10 @@
       },
       "result_var": "command_output",
       "result_port": "out",
-      "position": { "x": 340, "y": 80 }
+      "position": {
+        "x": 340,
+        "y": 80
+      }
     },
     {
       "id": "log",
@@ -38,20 +48,43 @@
         "level": "info",
         "message": "{{command_output}}"
       },
-      "position": { "x": 620, "y": 80 }
+      "position": {
+        "x": 620,
+        "y": 80
+      }
     },
     {
       "id": "end",
       "type": "core.End",
       "label": "End",
-      "config": { "code": 0 },
-      "position": { "x": 880, "y": 80 }
+      "config": {
+        "code": 0
+      },
+      "position": {
+        "x": 880,
+        "y": 80
+      }
     }
   ],
   "edges": [
-    { "id": "start-command", "source": "start", "target": "command" },
-    { "id": "command-log", "source": "command", "target": "log" },
-    { "id": "log-end", "source": "log", "target": "end" }
+    {
+      "id": "start-command",
+      "source": "start",
+      "target": "command",
+      "kind": "control"
+    },
+    {
+      "id": "command-log",
+      "source": "command",
+      "target": "log",
+      "kind": "control"
+    },
+    {
+      "id": "log-end",
+      "source": "log",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

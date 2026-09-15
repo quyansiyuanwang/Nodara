@@ -8,6 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+use crate::workflow::EdgeBranch;
+
 /// Lifecycle state of a run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -95,6 +97,30 @@ pub enum ExecutionEvent {
         /// Whether the runtime will retry.
         #[serde(default)]
         retryable: bool,
+    },
+    /// A control edge activated a target node.
+    EdgeActivated {
+        /// Edge id.
+        edge_id: String,
+        /// Source node id.
+        source: String,
+        /// Target node id.
+        target: String,
+        /// Outcome branch that was followed.
+        branch: EdgeBranch,
+    },
+    /// A data edge transferred a value into the target node input map.
+    DataTransferred {
+        /// Edge id.
+        edge_id: String,
+        /// Source node id.
+        source: String,
+        /// Target node id.
+        target: String,
+        /// Source output port.
+        source_port: String,
+        /// Target input port.
+        target_port: String,
     },
     /// A structured log record.
     Log {

@@ -87,7 +87,7 @@ copy.
 | Resize the layout | Drag the dividers beside the left/right panels or above the bottom drawer; double-click to reset |
 | Collapse sections | Expand or collapse Execution, Configuration and Variables in Properties; Studio remembers the state |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
-| Navigate the canvas | Wheel to zoom, middle-drag or Space-drag to pan, and use Fit / 100% controls in the canvas toolbar |
+| Navigate the canvas | The world is unbounded and supports negative coordinates; wheel to zoom, middle-drag or Space+left-drag to pan |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 
@@ -306,7 +306,7 @@ cargo run -p nodara-cli -- serve --plugin-dir plugins --require-approval --audit
 
 ## Workflows
 
-Workflows use `schema_version: "2.0"`, namespaced node types, and a directed
+Workflows use `schema_version: "2.1"`, namespaced node types, and a directed
 acyclic graph. Variables are referenced with `{{name}}`. An exact template
 keeps the target field's JSON type, so `"{{match.x}}"` works directly in a
 numeric coordinate or duration field; mixed text such as `"x={{match.x}}"`
@@ -320,6 +320,20 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 ```
 
 ## Agent
+
+Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab, enter a goal, configure any OpenAI-compatible endpoint/model in Provider settings, choose a baseline and one of four execution modes, then Send. The API key remains in process memory only. Sessions preserve their visible message history across turns.
+
+| Mode | Behavior |
+|---|---|
+| Plan only | Validate and return a plan without a run action |
+| Manual | Confirm the plan, start paused, then Resume from Studio |
+| Partial approval | Run safe nodes automatically and wait for each dangerous/privileged approval |
+| Automatic | Run and auto-approve while preserving capability decisions and audit records |
+
+Agent output never replaces the canvas automatically. Review the final JSON and diagnostics, then Load, Validate, Run this plan or Open audit. Browser Studio shows a desktop-only message because the process/JSON pipe is owned by the Tauri shell.
+
+The same capability is available for automation through `nodara-agent studio`, which reads one structured request from stdin and writes one structured response to stdout.
+
 
 With the runtime running:
 

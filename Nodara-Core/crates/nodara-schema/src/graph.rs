@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::workflow::{Edge, Node, Workflow};
+use crate::workflow::{Edge, EdgeKind, Node, Workflow};
 
 /// Errors produced by graph algorithms.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -33,6 +33,8 @@ pub struct WorkflowGraph<'a> {
     index: HashMap<&'a str, &'a Node>,
     outgoing: HashMap<&'a str, Vec<&'a Edge>>,
     incoming: HashMap<&'a str, Vec<&'a Edge>>,
+    data_outgoing: HashMap<&'a str, Vec<&'a Edge>>,
+    data_incoming: HashMap<&'a str, Vec<&'a Edge>>,
 }
 
 impl<'a> WorkflowGraph<'a> {
@@ -46,9 +48,25 @@ impl<'a> WorkflowGraph<'a> {
 
         let mut outgoing: HashMap<&str, Vec<&Edge>> = HashMap::new();
         let mut incoming: HashMap<&str, Vec<&Edge>> = HashMap::new();
+        let mut data_outgoing: HashMap<&str, Vec<&Edge>> = HashMap::new();
+        let mut data_incoming: HashMap<&str, Vec<&Edge>> = HashMap::new();
         for edge in &workflow.edges {
-            outgoing.entry(edge.source.as_str()).or_default().push(edge);
-            incoming.entry(edge.target.as_str()).or_default().push(edge);
+            match edge.kind {
+                EdgeKind::Control => {
+                    outgoing.entry(edge.source.as_str()).or_default().push(edge);
+                    incoming.entry(edge.target.as_str()).or_default().push(edge);
+                }
+                EdgeKind::Data => {
+                    data_outgoing
+                        .entry(edge.source.as_str())
+                        .or_default()
+                        .push(edge);
+                    data_incoming
+                        .entry(edge.target.as_str())
+                        .or_default()
+                        .push(edge);
+                }
+            }
         }
 
         Self {
@@ -56,6 +74,8 @@ impl<'a> WorkflowGraph<'a> {
             index,
             outgoing,
             incoming,
+            data_outgoing,
+            data_incoming,
         }
     }
 
@@ -74,22 +94,32 @@ impl<'a> WorkflowGraph<'a> {
         self.workflow.nodes.iter().position(|n| n.id == id)
     }
 
-    /// Outgoing edges of a node.
+    /// Outgoing control edges of a node.
     pub fn edges_from(&self, id: &str) -> &[&'a Edge] {
         self.outgoing.get(id).map_or(&[], Vec::as_slice)
     }
 
-    /// Incoming edges of a node.
+    /// Incoming control edges of a node.
     pub fn edges_to(&self, id: &str) -> &[&'a Edge] {
         self.incoming.get(id).map_or(&[], Vec::as_slice)
     }
 
-    /// Number of outgoing edges.
+    /// Outgoing data edges of a node.
+    pub fn data_edges_from(&self, id: &str) -> &[&'a Edge] {
+        self.data_outgoing.get(id).map_or(&[], Vec::as_slice)
+    }
+
+    /// Incoming data edges of a node.
+    pub fn data_edges_to(&self, id: &str) -> &[&'a Edge] {
+        self.data_incoming.get(id).map_or(&[], Vec::as_slice)
+    }
+
+    /// Number of outgoing control edges.
     pub fn out_degree(&self, id: &str) -> usize {
         self.outgoing.get(id).map_or(0, Vec::len)
     }
 
-    /// Number of incoming edges.
+    /// Number of incoming control edges.
     pub fn in_degree(&self, id: &str) -> usize {
         self.incoming.get(id).map_or(0, Vec::len)
     }
@@ -150,6 +180,9 @@ impl<'a> WorkflowGraph<'a> {
             in_degree.entry(node.id.as_str()).or_insert(0);
         }
         for edge in &self.workflow.edges {
+            if edge.kind != EdgeKind::Control {
+                continue;
+            }
             if self.index.contains_key(edge.target.as_str())
                 && self.index.contains_key(edge.source.as_str())
             {
@@ -325,5 +358,21 @@ mod tests {
         let reachable = graph.reachable_from("start");
         assert_eq!(reachable.len(), 4);
         assert!(reachable.contains("end"));
+    }
+
+    #[test]
+    fn data_edges_do_not_participate_in_control_topology() {
+        let mut wf = sample();
+        let mut data = Edge::new("data-back", "end", "start");
+        data.kind = EdgeKind::Data;
+        data.source_port = Some("out".to_string());
+        data.target_port = Some("in".to_string());
+        wf.add_edge(data);
+
+        let graph = WorkflowGraph::new(&wf);
+        assert!(graph.topological_order().is_ok());
+        assert!(graph.find_cycle().is_none());
+        assert_eq!(graph.data_edges_from("end").len(), 1);
+        assert_eq!(graph.edges_from("end").len(), 0);
     }
 }

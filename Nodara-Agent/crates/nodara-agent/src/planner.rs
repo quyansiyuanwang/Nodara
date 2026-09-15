@@ -27,6 +27,8 @@ pub struct PlanRequest {
     /// When present, the model is asked to modify this document rather than
     /// author one from nothing.
     pub base: Option<Workflow>,
+    /// Previous conversation turns for a continued Studio session.
+    pub history: Vec<ChatMessage>,
 }
 
 impl PlanRequest {
@@ -37,6 +39,7 @@ impl PlanRequest {
             constraints: Vec::new(),
             max_repairs: 3,
             base: None,
+            history: Vec::new(),
         }
     }
 
@@ -124,7 +127,9 @@ impl<'a> Planner<'a> {
             }
             None => user_prompt(&request.goal, &request.constraints),
         };
-        let mut messages = vec![ChatMessage::system(system), ChatMessage::user(opening)];
+        let mut messages = vec![ChatMessage::system(system)];
+        messages.extend(request.history.clone());
+        messages.push(ChatMessage::user(opening));
 
         self.charge_step()?;
         let first = self
@@ -295,7 +300,7 @@ mod tests {
     #[test]
     fn accepts_a_good_first_draft() {
         let draft = serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.good",
             "nodes": [
                 { "id": "start", "type": "core.Start" },
@@ -303,8 +308,8 @@ mod tests {
                 { "id": "end", "type": "core.End" }
             ],
             "edges": [
-                { "id": "e1", "source": "start", "target": "log" },
-                { "id": "e2", "source": "log", "target": "end" }
+                { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+                { "id": "e2", "kind": "control", "source": "log", "target": "end" }
             ]
         })
         .to_string();
@@ -318,7 +323,7 @@ mod tests {
     #[test]
     fn repairs_a_broken_draft_using_runtime_diagnostics() {
         let broken = serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.broken",
             "nodes": [
                 { "id": "start", "type": "core.Start" },
@@ -326,13 +331,13 @@ mod tests {
                 { "id": "end", "type": "core.End" }
             ],
             "edges": [
-                { "id": "e1", "source": "start", "target": "log" },
-                { "id": "e2", "source": "log", "target": "end" }
+                { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+                { "id": "e2", "kind": "control", "source": "log", "target": "end" }
             ]
         })
         .to_string();
         let fixed = serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.fixed",
             "nodes": [
                 { "id": "start", "type": "core.Start" },
@@ -340,8 +345,8 @@ mod tests {
                 { "id": "end", "type": "core.End" }
             ],
             "edges": [
-                { "id": "e1", "source": "start", "target": "log" },
-                { "id": "e2", "source": "log", "target": "end" }
+                { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+                { "id": "e2", "kind": "control", "source": "log", "target": "end" }
             ]
         })
         .to_string();
@@ -362,7 +367,7 @@ mod tests {
     #[test]
     fn the_budget_is_charged_before_each_model_call() {
         let broken = serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.broken",
             "nodes": [{ "id": "start", "type": "core.Start" }],
             "edges": []
@@ -389,7 +394,7 @@ mod tests {
     #[test]
     fn gives_up_after_the_repair_budget() {
         let broken = serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.broken",
             "nodes": [{ "id": "start", "type": "core.Start" }],
             "edges": []
@@ -415,6 +420,7 @@ mod tests {
                 constraints: Vec::new(),
                 max_repairs: 0,
                 base: None,
+                history: Vec::new(),
             })
             .unwrap();
         assert!(!outcome.accepted);
@@ -433,7 +439,7 @@ mod tests {
         base.add_node(nodara_schema::Node::new("end", "core.End"));
 
         let provider = MockProvider::new([serde_json::json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "id": "wf.existing",
             "nodes": [
                 { "id": "start", "type": "core.Start" },
@@ -441,8 +447,8 @@ mod tests {
                 { "id": "end", "type": "core.End" }
             ],
             "edges": [
-                { "id": "e1", "source": "start", "target": "log" },
-                { "id": "e2", "source": "log", "target": "end" }
+                { "id": "e1", "kind": "control", "source": "start", "target": "log" },
+                { "id": "e2", "kind": "control", "source": "log", "target": "end" }
             ]
         })
         .to_string()]);

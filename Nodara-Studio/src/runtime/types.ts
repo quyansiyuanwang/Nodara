@@ -7,7 +7,7 @@
  */
 
 export const API_VERSION = "v1";
-export const SCHEMA_VERSION = "2.0";
+export const SCHEMA_VERSION = "2.1";
 
 export interface PortDescriptor {
   name: string;
@@ -90,9 +90,12 @@ export interface WorkflowNode {
 }
 
 export type EdgeBranch = "always" | "success" | "failure";
+export type EdgeKind = "control" | "data";
 
 export interface WorkflowEdge {
   id: string;
+  /** Whether this edge controls execution or transfers data. */
+  kind: EdgeKind;
   source: string;
   target: string;
   source_port?: string;
@@ -244,6 +247,21 @@ export type ExecutionEvent =
       retryable: boolean;
     }
   | { type: "log"; level: "debug" | "info" | "warn" | "error"; message: string; node_id?: string }
+  | {
+      type: "edge_activated";
+      edge_id: string;
+      source: string;
+      target: string;
+      branch: "always" | "success" | "failure";
+    }
+  | {
+      type: "data_transferred";
+      edge_id: string;
+      source: string;
+      target: string;
+      source_port: string;
+      target_port: string;
+    }
   | { type: "run_paused" }
   | { type: "run_resumed" }
   | { type: "run_cancelled"; reason?: string }

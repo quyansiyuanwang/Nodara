@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use crate::error::{SchemaError, SchemaResult};
 use crate::version::SCHEMA_VERSION;
-use crate::workflow::{Edge, Metadata, Node, Variable, Workflow};
+use crate::workflow::{Edge, EdgeBranch, Metadata, Node, Variable, Workflow};
 
 /// Summary of what a migration changed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -101,7 +101,7 @@ pub fn migrate(value: serde_json::Value) -> SchemaResult<(Workflow, MigrationRep
         })
         .unwrap_or_else(|| "1".to_string());
 
-    if crate::version::is_compatible_schema_version(&declared)
+    if declared == SCHEMA_VERSION
         && object.contains_key("schema_version")
         && object.contains_key("nodes")
     {
@@ -237,7 +237,7 @@ pub fn migrate(value: serde_json::Value) -> SchemaResult<(Workflow, MigrationRep
             .map(str::to_string)
             .unwrap_or_else(|| format!("e{}", index + 1));
 
-        let mut edge = Edge::new(edge_id, source, target);
+        let mut edge = Edge::new(edge_id.clone(), source, target);
         edge.condition = edge_object
             .get("condition")
             .and_then(|v| v.as_str())
@@ -246,10 +246,21 @@ pub fn migrate(value: serde_json::Value) -> SchemaResult<(Workflow, MigrationRep
             .get("label")
             .and_then(|v| v.as_str())
             .map(str::to_string);
+        if let Some(branch) = edge_object.get("branch") {
+            edge.branch = serde_json::from_value::<EdgeBranch>(branch.clone()).map_err(|_| {
+                SchemaError::Migration(format!("edge `{edge_id}` has an unsupported branch value"))
+            })?;
+        }
+        if edge_object.contains_key("source_port") || edge_object.contains_key("target_port") {
+            notes.push(format!(
+                "edge `{edge_id}` became a control edge; its data port mapping was removed and must be reconnected explicitly"
+            ));
+        }
         workflow.edges.push(edge);
     }
     if !raw_edges.is_empty() {
-        notes.push("migrated edges to `source`/`target` field names".to_string());
+        notes
+            .push("migrated edges to 2.1 control edges with source/target field names".to_string());
     }
 
     if let Some(raw_variables) = object.get("variables").and_then(|v| v.as_object()) {
@@ -389,4 +400,41 @@ mod tests {
             Some("../Nodara-Core/schema/workflow.schema.json")
         );
     }
+}
+
+#[test]
+fn migrates_2_0_edges_to_control_and_removes_data_port_mappings() {
+    let legacy = serde_json::json!({
+        "schema_version": "2.0",
+        "id": "wf.legacy-ports",
+        "metadata": { "name": "Legacy ports" },
+        "nodes": [
+            { "id": "start", "type": "core.Start" },
+            { "id": "log", "type": "core.Log" },
+            { "id": "end", "type": "core.End" }
+        ],
+        "edges": [
+            { "id": "start-log", "source": "start", "target": "log" },
+            {
+                "id": "log-end",
+                "source": "log",
+                "target": "end",
+                "source_port": "out",
+                "target_port": "in"
+            }
+        ],
+        "variables": {}
+    });
+    let (workflow, report) = migrate(legacy).expect("migrates 2.0");
+    assert_eq!(workflow.schema_version, SCHEMA_VERSION);
+    assert!(workflow
+        .edges
+        .iter()
+        .all(|edge| edge.kind == crate::workflow::EdgeKind::Control));
+    assert!(workflow.edges.iter().all(|edge| edge.source_port.is_none()));
+    assert!(workflow.edges.iter().all(|edge| edge.target_port.is_none()));
+    assert!(report
+        .notes
+        .iter()
+        .any(|note| note.contains("data port mapping was removed")));
 }

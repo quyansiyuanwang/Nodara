@@ -8,9 +8,14 @@ use crate::error::{CliError, CliResult};
 use crate::workflow_io;
 
 /// Validate a workflow document.
-pub fn execute(file: &Path, json: bool) -> CliResult<()> {
+pub fn execute(
+    file: &Path,
+    json: bool,
+    plugin_dirs: &[std::path::PathBuf],
+    in_process: bool,
+) -> CliResult<()> {
     let loaded = workflow_io::load(file)?;
-    let capabilities = super::build_capabilities(&[], false, false)?;
+    let capabilities = super::build_capabilities(plugin_dirs, in_process, !plugin_dirs.is_empty())?;
     let report = validate_with(
         &loaded.workflow,
         &capabilities.registry,

@@ -6,7 +6,7 @@
 //! transport protocol.
 
 /// Workflow document format version communicated through `schema_version`.
-pub const SCHEMA_VERSION: &str = "2.0";
+pub const SCHEMA_VERSION: &str = "2.1";
 
 /// Version of the runtime <-> plugin wire protocol (`protocol_version`).
 pub const PROTOCOL_VERSION: &str = "1";
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn compatibility_is_major_only() {
-        assert!(is_compatible_schema_version("2.0"));
+        assert!(is_compatible_schema_version("2.1"));
         assert!(is_compatible_schema_version("2.5"));
         assert!(!is_compatible_schema_version("1.0"));
         assert!(!is_compatible_schema_version("3.0"));

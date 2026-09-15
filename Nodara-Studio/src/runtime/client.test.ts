@@ -93,7 +93,7 @@ describe("runtime client", () => {
     const client = new RuntimeClient();
     try {
       await client.createRun({
-        schema_version: "2.0",
+        schema_version: "2.1",
         id: "wf",
         metadata: { name: "wf", tags: [] },
         nodes: [],

@@ -1,13 +1,20 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.capture-preview",
   "metadata": {
     "name": "Capture preview",
     "description": "Captures the primary desktop and displays the PNG preview in the Events tab."
   },
   "nodes": [
-    { "id": "start", "type": "core.Start", "position": { "x": 80, "y": 160 } },
+    {
+      "id": "start",
+      "type": "core.Start",
+      "position": {
+        "x": 80,
+        "y": 160
+      }
+    },
     {
       "id": "capture",
       "type": "windows.Desktop.Capture",
@@ -17,7 +24,10 @@
         "y": 0,
         "output_var": "screenshot"
       },
-      "position": { "x": 360, "y": 160 }
+      "position": {
+        "x": 360,
+        "y": 160
+      }
     },
     {
       "id": "log",
@@ -27,14 +37,50 @@
         "level": "info",
         "message": "Captured {{screenshot.id}} ({{screenshot.content_type}}, {{screenshot.size}} bytes)"
       },
-      "position": { "x": 680, "y": 160 }
+      "position": {
+        "x": 680,
+        "y": 160
+      }
     },
-    { "id": "end", "type": "core.End", "config": { "code": 0 }, "position": { "x": 1000, "y": 160 } }
+    {
+      "id": "end",
+      "type": "core.End",
+      "config": {
+        "code": 0
+      },
+      "position": {
+        "x": 1000,
+        "y": 160
+      }
+    }
   ],
   "edges": [
-    { "id": "start-capture", "source": "start", "target": "capture" },
-    { "id": "capture-log", "source": "capture", "target": "log", "source_port": "artifact" },
-    { "id": "log-end", "source": "log", "target": "end" }
+    {
+      "id": "start-capture",
+      "source": "start",
+      "target": "capture",
+      "kind": "control"
+    },
+    {
+      "id": "capture-log-control",
+      "source": "capture",
+      "target": "log",
+      "kind": "control"
+    },
+    {
+      "id": "capture-log-data",
+      "source": "capture",
+      "target": "log",
+      "kind": "data",
+      "source_port": "artifact",
+      "target_port": "in"
+    },
+    {
+      "id": "log-end",
+      "source": "log",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

@@ -302,7 +302,7 @@ impl NodeExecutor for TemplateMatchExecutor {
                         "description": "Variable receiving the match (`found`, `score`, `x`, `y`, `width`, `height`, `center_x`, `center_y`)."
                     }
                 },
-                "required": ["frame", "template", "output_var"],
+                "required": ["output_var"],
                 "additionalProperties": false
             }),
             permissions: vec!["vision.analyze".to_string()],
@@ -313,6 +313,10 @@ impl NodeExecutor for TemplateMatchExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "frame")
+            .with_input_fallback("in", "template");
         let output_var = input.require_str("output_var")?;
         let frame_source = input.require_str("frame")?;
         let template_source = input.require_str("template")?;

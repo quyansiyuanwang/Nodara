@@ -59,8 +59,8 @@ export function starterWorkflow(): Workflow {
     { id: "end", type: "core.End", label: "End", config: { code: 0 }, position: { x: 720, y: 160 } },
   ];
   workflow.edges = [
-    { id: "start-hello", source: "start", target: "hello" },
-    { id: "hello-end", source: "hello", target: "end" },
+    { id: "start-hello", kind: "control", source: "start", target: "hello" },
+    { id: "hello-end", kind: "control", source: "hello", target: "end" },
   ];
   return workflow;
 }
@@ -74,6 +74,45 @@ export function starterWorkflow(): Workflow {
  * means, and it deliberately keeps `$schema`: dropping it would silently turn
  * off the content hints every other editor derives from the reference.
  */
+export interface LegacyMigration {
+  workflow: Partial<Workflow>;
+  notes: string[];
+}
+
+/**
+ * Convert the common 2.0 document shape in the browser.
+ *
+ * This mirrors the destructive CLI migration policy: every legacy edge becomes
+ * a control edge and old port mappings are removed. The notes tell the user
+ * which data lines must be recreated explicitly.
+ */
+export function migrateLegacyWorkflow(input: Partial<Workflow>): LegacyMigration {
+  const workflow = structuredClone(input) as Partial<Workflow>;
+  const notes: string[] = [];
+  const legacyDocument = workflow.schema_version !== SCHEMA_VERSION;
+  workflow.schema_version = SCHEMA_VERSION;
+  workflow.edges = (workflow.edges ?? []).map((edge) => {
+    const candidate = edge as WorkflowEdge & { kind?: WorkflowEdge["kind"] };
+    if (candidate.kind === "data" && !legacyDocument) {
+      return candidate;
+    }
+    if (legacyDocument && (candidate.source_port || candidate.target_port)) {
+      notes.push(
+        `data mapping ${candidate.source}.${candidate.source_port ?? "out"} -> ${candidate.target}.${candidate.target_port ?? "in"} was removed; recreate it as an explicit data edge`,
+      );
+    }
+    return {
+      id: candidate.id,
+      kind: "control",
+      source: candidate.source,
+      target: candidate.target,
+      branch: candidate.branch,
+      condition: candidate.condition,
+      label: candidate.label,
+    };
+  });
+  return { workflow, notes };
+}
 export function applyWorkflow(target: Workflow, incoming: Partial<Workflow> | null): Workflow {
   const next = incoming ?? {};
   target.$schema = next.$schema || WORKFLOW_SCHEMA_PATH;
@@ -174,9 +213,11 @@ export function edgeExists(
   target: string,
   sourcePort?: string,
   targetPort?: string,
+  kind: WorkflowEdge["kind"] = "control",
 ): boolean {
   return edges.some(
     (edge) =>
+      edge.kind === kind &&
       edge.source === source &&
       edge.target === target &&
       (edge.source_port ?? "out") === (sourcePort ?? "out") &&

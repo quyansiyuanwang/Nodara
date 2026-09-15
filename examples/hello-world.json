@@ -1,39 +1,80 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.hello-world",
   "metadata": {
     "name": "Hello World",
     "description": "Logs a message, evaluates an expression and logs the result.",
-    "tags": ["getting-started"]
+    "tags": [
+      "getting-started"
+    ]
   },
   "nodes": [
-    { "id": "start", "type": "core.Start", "label": "Start" },
+    {
+      "id": "start",
+      "type": "core.Start",
+      "label": "Start"
+    },
     {
       "id": "greet",
       "type": "core.Log",
       "label": "Greet",
-      "config": { "message": "Hello, {{name}}!", "level": "info" }
+      "config": {
+        "message": "Hello, {{name}}!",
+        "level": "info"
+      }
     },
     {
       "id": "compute",
       "type": "core.Calculate",
       "label": "Compute",
-      "config": { "expression": "2 + 2 * 3", "output_var": "answer" }
+      "config": {
+        "expression": "2 + 2 * 3",
+        "output_var": "answer"
+      }
     },
     {
       "id": "report",
       "type": "core.Log",
       "label": "Report",
-      "config": { "message": "the answer is {{answer}}" }
+      "config": {
+        "message": "the answer is {{answer}}"
+      }
     },
-    { "id": "end", "type": "core.End", "label": "End", "config": { "code": 0 } }
+    {
+      "id": "end",
+      "type": "core.End",
+      "label": "End",
+      "config": {
+        "code": 0
+      }
+    }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "greet" },
-    { "id": "e2", "source": "greet", "target": "compute" },
-    { "id": "e3", "source": "compute", "target": "report" },
-    { "id": "e4", "source": "report", "target": "end" }
+    {
+      "id": "e1",
+      "source": "start",
+      "target": "greet",
+      "kind": "control"
+    },
+    {
+      "id": "e2",
+      "source": "greet",
+      "target": "compute",
+      "kind": "control"
+    },
+    {
+      "id": "e3",
+      "source": "compute",
+      "target": "report",
+      "kind": "control"
+    },
+    {
+      "id": "e4",
+      "source": "report",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {
     "name": {

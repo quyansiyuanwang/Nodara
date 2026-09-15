@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use crate::descriptor::NodeDescriptor;
 use crate::graph::WorkflowGraph;
 use crate::version::is_compatible_schema_version;
+use crate::workflow::EdgeKind;
 use crate::workflow::{Node, Workflow};
 
 /// Severity of a validation diagnostic.
@@ -213,6 +214,22 @@ pub fn validate_with_options(
             )
             .hint("run `nodara-cli migrate` to upgrade a legacy document"),
         );
+    } else if workflow.schema_version != crate::version::SCHEMA_VERSION {
+        report.push(
+            Diagnostic::new(
+                Severity::Error,
+                "WF118",
+                format!(
+                    "workflow schema `{}` must be migrated to `{}` before execution",
+                    workflow.schema_version,
+                    crate::version::SCHEMA_VERSION
+                ),
+                "/schema_version",
+            )
+            .hint(
+                "run `nodara-cli migrate`, which converts legacy edges to explicit control edges",
+            ),
+        );
     }
 
     if workflow.id.trim().is_empty() {
@@ -315,79 +332,135 @@ pub fn validate_with_options(
             );
         }
 
-        if let Some(index) = index {
-            if let (Some(source_node), Some(target_node)) =
-                (workflow.node(&edge.source), workflow.node(&edge.target))
-            {
-                let source_descriptor = index.descriptor(&source_node.node_type);
-                let target_descriptor = index.descriptor(&target_node.node_type);
-                let source_port = edge.source_port.as_deref().and_then(|name| {
-                    source_descriptor.as_ref().and_then(|descriptor| {
-                        descriptor.outputs.iter().find(|port| port.name == name)
-                    })
-                });
-                let target_port = edge.target_port.as_deref().and_then(|name| {
-                    target_descriptor.as_ref().and_then(|descriptor| {
-                        descriptor.inputs.iter().find(|port| port.name == name)
-                    })
-                });
+        match edge.kind {
+            EdgeKind::Control => {
+                if edge.source_port.is_some() || edge.target_port.is_some() {
+                    report.push(
+                        Diagnostic::new(
+                            Severity::Error,
+                            "WF147",
+                            format!(
+                                "control edge `{}` must not declare source_port or target_port",
+                                edge.id
+                            ),
+                            &path,
+                        )
+                        .edge(&edge.id)
+                        .hint("use a data edge for port mapping, or remove the ports from this control edge"),
+                    );
+                }
+            }
+            EdgeKind::Data => {
+                if edge.source_port.is_none() || edge.target_port.is_none() {
+                    report.push(
+                        Diagnostic::new(
+                            Severity::Error,
+                            "WF146",
+                            format!(
+                                "data edge `{}` must declare source_port and target_port",
+                                edge.id
+                            ),
+                            &path,
+                        )
+                        .edge(&edge.id)
+                        .hint("choose both a source output and a target input port"),
+                    );
+                    continue;
+                }
+                if edge.branch != Default::default()
+                    || edge.condition.is_some()
+                    || edge.label.is_some()
+                {
+                    report.push(
+                        Diagnostic::new(
+                            Severity::Error,
+                            "WF148",
+                            format!(
+                                "data edge `{}` must not declare branch, condition or label",
+                                edge.id
+                            ),
+                            &path,
+                        )
+                        .edge(&edge.id)
+                        .hint("move execution conditions to a separate control edge"),
+                    );
+                }
 
-                if let Some(name) = edge.source_port.as_deref() {
-                    if source_descriptor.is_some() && source_port.is_none() {
-                        report.push(
-                            Diagnostic::new(
-                                Severity::Error,
-                                "WF115",
-                                format!(
-                                    "edge `{}` source port `{name}` is not declared by `{}`",
-                                    edge.id, source_node.node_type
-                                ),
-                                &path,
-                            )
-                            .edge(&edge.id)
-                            .hint("choose an output port declared by the source node"),
-                        );
-                    }
-                }
-                if let Some(name) = edge.target_port.as_deref() {
-                    if target_descriptor.is_some() && target_port.is_none() {
-                        report.push(
-                            Diagnostic::new(
-                                Severity::Error,
-                                "WF116",
-                                format!(
-                                    "edge `{}` target port `{name}` is not declared by `{}`",
-                                    edge.id, target_node.node_type
-                                ),
-                                &path,
-                            )
-                            .edge(&edge.id)
-                            .hint("choose an input port declared by the target node"),
-                        );
-                    }
-                }
-                if let (Some(source_port), Some(target_port)) = (source_port, target_port) {
-                    if !source_port
-                        .value_type
-                        .is_compatible_with(target_port.value_type)
+                if let Some(index) = index {
+                    if let (Some(source_node), Some(target_node)) =
+                        (workflow.node(&edge.source), workflow.node(&edge.target))
                     {
-                        report.push(
-                            Diagnostic::new(
-                                Severity::Error,
-                                "WF117",
-                                format!(
-                                    "edge `{}` connects {:?} output `{}` to {:?} input `{}`",
-                                    edge.id,
-                                    source_port.value_type,
-                                    source_port.name,
-                                    target_port.value_type,
-                                    target_port.name
-                                ),
-                                &path,
-                            )
-                            .edge(&edge.id)
-                            .hint("connect ports with compatible value types"),
-                        );
+                        let source_descriptor = index.descriptor(&source_node.node_type);
+                        let target_descriptor = index.descriptor(&target_node.node_type);
+                        let source_port = edge.source_port.as_deref().and_then(|name| {
+                            source_descriptor.as_ref().and_then(|descriptor| {
+                                descriptor.outputs.iter().find(|port| port.name == name)
+                            })
+                        });
+                        let target_port = edge.target_port.as_deref().and_then(|name| {
+                            target_descriptor.as_ref().and_then(|descriptor| {
+                                descriptor.inputs.iter().find(|port| port.name == name)
+                            })
+                        });
+
+                        if let Some(name) = edge.source_port.as_deref() {
+                            if source_descriptor.is_some() && source_port.is_none() {
+                                report.push(
+                                    Diagnostic::new(
+                                        Severity::Error,
+                                        "WF115",
+                                        format!(
+                                            "edge `{}` source port `{name}` is not declared by `{}`",
+                                            edge.id, source_node.node_type
+                                        ),
+                                        &path,
+                                    )
+                                    .edge(&edge.id)
+                                    .hint("choose an output port declared by the source node"),
+                                );
+                            }
+                        }
+                        if let Some(name) = edge.target_port.as_deref() {
+                            if target_descriptor.is_some() && target_port.is_none() {
+                                report.push(
+                                    Diagnostic::new(
+                                        Severity::Error,
+                                        "WF116",
+                                        format!(
+                                            "edge `{}` target port `{name}` is not declared by `{}`",
+                                            edge.id, target_node.node_type
+                                        ),
+                                        &path,
+                                    )
+                                    .edge(&edge.id)
+                                    .hint("choose an input port declared by the target node"),
+                                );
+                            }
+                        }
+                        if let (Some(source_port), Some(target_port)) = (source_port, target_port) {
+                            if !source_port
+                                .value_type
+                                .is_compatible_with(target_port.value_type)
+                            {
+                                report.push(
+                                    Diagnostic::new(
+                                        Severity::Error,
+                                        "WF117",
+                                        format!(
+                                            "edge `{}` connects {:?} output `{}` to {:?} input `{}`",
+                                            edge.id,
+                                            source_port.value_type,
+                                            source_port.name,
+                                            target_port.value_type,
+                                            target_port.name
+                                        ),
+                                        &path,
+                                    )
+                                    .edge(&edge.id)
+                                    .hint("connect ports with compatible value types"),
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -498,7 +571,12 @@ pub fn validate_with_options(
                 continue;
             }
             if let Some(descriptor) = index.descriptor(&node.node_type) {
-                validate_config(node, &descriptor, &mut report);
+                validate_config(
+                    node,
+                    &descriptor,
+                    !graph.data_edges_to(&node.id).is_empty(),
+                    &mut report,
+                );
             }
         }
     }
@@ -596,6 +674,9 @@ pub fn validate_with_options(
             }
         }
         for edge in &workflow.edges {
+            if edge.kind != EdgeKind::Control {
+                continue;
+            }
             if let Some(condition) = &edge.condition {
                 for reference in collect_expression_identifiers(condition) {
                     if declared.contains(reference.as_str()) {
@@ -624,7 +705,12 @@ pub fn validate_with_options(
     report
 }
 
-fn validate_config(node: &Node, descriptor: &NodeDescriptor, report: &mut ValidationReport) {
+fn validate_config(
+    node: &Node,
+    descriptor: &NodeDescriptor,
+    has_data_input: bool,
+    report: &mut ValidationReport,
+) {
     let Some(config) = node.config.as_object() else {
         report.push(
             Diagnostic::new(
@@ -644,7 +730,7 @@ fn validate_config(node: &Node, descriptor: &NodeDescriptor, report: &mut Valida
         .and_then(|v| v.as_array());
     if let Some(required) = required {
         for key in required.iter().filter_map(|v| v.as_str()) {
-            if !config.contains_key(key) {
+            if !config.contains_key(key) && !has_data_input {
                 report.push(
                     Diagnostic::new(
                         Severity::Error,
@@ -861,6 +947,7 @@ mod tests {
             id: "missing".to_string(),
             source: "start".to_string(),
             target: "text".to_string(),
+            kind: EdgeKind::Data,
             source_port: Some("missing_out".to_string()),
             target_port: Some("missing_in".to_string()),
             branch: Default::default(),
@@ -871,6 +958,7 @@ mod tests {
             id: "mismatch".to_string(),
             source: "text".to_string(),
             target: "number".to_string(),
+            kind: EdgeKind::Data,
             source_port: Some("out".to_string()),
             target_port: Some("in".to_string()),
             branch: Default::default(),
@@ -1062,4 +1150,64 @@ mod tests {
         );
         assert!(parse_placeholders("no placeholders").is_empty());
     }
+}
+
+#[test]
+fn legacy_edges_without_kind_report_wf118() {
+    let workflow: Workflow = serde_json::from_value(serde_json::json!({
+        "schema_version": "2.0",
+        "id": "wf.legacy",
+        "nodes": [
+            { "id": "start", "type": "core.Start" },
+            { "id": "end", "type": "core.End" }
+        ],
+        "edges": [{ "id": "e1", "source": "start", "target": "end" }]
+    }))
+    .expect("legacy documents deserialize for diagnostics");
+    let report = validate(&workflow);
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "WF118"));
+}
+
+#[test]
+fn edge_kind_rules_report_actionable_diagnostics() {
+    let mut workflow = Workflow::new("wf.edge-rules");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("log", "core.Log"));
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(crate::workflow::Edge::new("e1", "start", "log"));
+    workflow.add_edge(crate::workflow::Edge::new("e2", "log", "end"));
+    workflow.schema_version = crate::SCHEMA_VERSION.to_string();
+    workflow.edges[0].kind = EdgeKind::Data;
+    workflow.edges[0].source_port = None;
+    workflow.edges[0].target_port = None;
+    workflow.edges[1].kind = EdgeKind::Control;
+    workflow.edges[1].source_port = Some("out".to_string());
+    workflow.edges.push(crate::workflow::Edge {
+        id: "bad-data".to_string(),
+        source: "start".to_string(),
+        target: "log".to_string(),
+        kind: EdgeKind::Data,
+        source_port: Some("out".to_string()),
+        target_port: Some("in".to_string()),
+        branch: crate::workflow::EdgeBranch::Failure,
+        condition: Some("true".to_string()),
+        label: Some("invalid".to_string()),
+    });
+
+    let report = validate(&workflow);
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "WF146"));
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "WF147"));
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "WF148"));
 }

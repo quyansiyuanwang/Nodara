@@ -20,6 +20,11 @@
 | A09 | 调试产物 | debug 包包含与 exe 对应的 PDB；程序可运行 |
 | A10 | 发布产物 | release 包包含 NSIS 和 MSI；优化后的 exe 可运行 |
 | A11 | Studio 调试交互 | 空闲时可单步启动，后续每次只执行一个节点；节点断点会在执行前暂停并在导出后保留；截图可框选并写回 X/Y/宽度/高度；截图和 Log 图片预览可见 |
+| A12 | Workflow 2.1 | 所有示例显式使用 `kind`；旧 2.0 文档报 `WF118`，迁移后旧数据端口被移除并在报告中提示重建 |
+| A13 | 无限画布与多选 | 负坐标可拖动/适应；左键框选、Ctrl 切换、Shift 控制路径选择、多节点拖动/删除/启停/断点均正常 |
+| A14 | 执行端口 | 节点显示数据圆形端口和执行菱形端口；Always/Success/Failure 控制边样式正确；data 边不能触发目标 |
+| A15 | 运行边动画 | 收到 `edge_activated` / `data_transferred` 后对应边沿线出现移动标记，结束后保留高亮，下次运行清除 |
+| A16 | Agent 对话 | 桌面 Studio 可发起多轮 session；四种模式、当前画布/上一计划基线、最终 JSON、验证、载入、运行和 Audit 链接均可见 |
 
 任一 A 级检查失败，应保留日志并停止发布验收；恢复后从失败步骤重新执行。
 
@@ -214,6 +219,19 @@ $plugins.plugins | Select-Object id,version
 5. 从 Windows“设置 → 应用”卸载；
 6. 重复安装，确认无重复入口和残留阻塞。
 
+### 6.6 Workflow 2.1、画布与 Agent 验收
+
+1. 打开 `examples/capture-preview.json`，确认 Capture → Log 同时存在一条 `control` 执行边和一条 `data` 数据边；运行后 Event 中能看到 `edge_activated`、`data_transferred`，画布只有实际走过的边显示沿线动画；
+2. 将任意边的 `kind` 临时删除并保持 `schema_version: "2.1"`，验证应明确报告边类型问题；将整个文档改为 `2.0` 后应报 `WF118`；
+3. 执行 `.\nodara-cli.exe migrate .\legacy.json --out .\legacy-2.1.json`，确认旧数据端口字段被移除且 MigrationReport 包含逐条重建提示；
+4. 在空白画布向左上拖出负坐标，执行 Fit 和 Auto layout，节点必须仍可见；
+5. 使用左键框选、`Ctrl+左键` 切换、`Shift+左键` 选择控制路径；拖动任一已选节点，确认整组移动；
+6. 多选后修改浮动快配置的重试、超时、条件；混合值应显示 “多个值”，显式修改后应用到全部；
+7. 从 Always / Success / Failure 菱形输出建立三条控制边，确认颜色、静态箭头和分支标签正确；
+8. 打开 Agent 页，以“仅规划”发起一轮；确认结果不覆盖画布，验证和载入按钮可用但运行按钮禁用；
+9. 切换“上一轮 Agent 计划”再发一轮，确认上下文和基线提示一致；
+10. 分别测试手动、部分审批、自动执行：手动 run 返回 paused 并可 Resume；部分审批等待批准/拒绝；自动执行完成且 Audit 中有 capability decision；
+11. 在 Agent 结果卡点击“打开对应 Audit”，确认只显示该 run 的审批与决策记录。
 ## 7. Agent 测试
 
 ### 7.1 能力发现和 mock 流程
@@ -222,7 +240,7 @@ $plugins.plugins | Select-Object id,version
 
 ```powershell
 .\nodara-agent.exe capabilities
-$mock = '{"schema_version":"2.0","id":"wf.test","metadata":{"name":"Test"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"agent ok"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","source":"start","target":"log"},{"id":"e2","source":"log","target":"end"}]}'
+$mock = '{"schema_version":"2.1","id":"wf.test","metadata":{"name":"Test"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"agent ok"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","kind":"control","source":"start","target":"log"},{"id":"e2","kind":"control","source":"log","target":"end"}]}'
 .\nodara-agent.exe plan "log agent ok" --mock $mock --out .\agent-test.json
 .\nodara-agent.exe run "log agent ok" --mock $mock --report
 ```

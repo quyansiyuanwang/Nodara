@@ -61,6 +61,8 @@ pub struct RunRequest {
     /// Optional shared artefact store. Runtimes supply one so API clients can
     /// inspect images and other intermediate payloads after execution.
     pub artifacts: Option<Arc<ArtifactStore>>,
+    /// Optional per-run approval strategy. Falls back to the engine default.
+    pub approval: Option<Arc<dyn ApprovalHandler>>,
 }
 
 impl std::fmt::Debug for RunRequest {
@@ -83,6 +85,7 @@ impl RunRequest {
             start_paused: false,
             event_sink: Arc::new(NullEventSink),
             artifacts: None,
+            approval: None,
         }
     }
 
@@ -118,6 +121,13 @@ impl RunRequest {
     #[must_use]
     pub fn with_artifacts(mut self, artifacts: Arc<ArtifactStore>) -> Self {
         self.artifacts = Some(artifacts);
+        self
+    }
+
+    /// Override the approval strategy for this run only.
+    #[must_use]
+    pub fn with_approval(mut self, approval: Arc<dyn ApprovalHandler>) -> Self {
+        self.approval = Some(approval);
         self
     }
 }
@@ -328,6 +338,7 @@ impl WorkflowEngine {
         let artifacts = request
             .artifacts
             .unwrap_or_else(|| Arc::new(ArtifactStore::new()));
+        let approval = request.approval.unwrap_or_else(|| self.approval.clone());
         let start_paused = request.start_paused;
         let workflow = request.workflow;
         let seeded = seeded_variables(&workflow, &request.variables);
@@ -402,7 +413,7 @@ impl WorkflowEngine {
             control.clone(),
             bus.clone(),
             self.policy.clone(),
-            self.approval.clone(),
+            approval,
             self.audit.clone(),
             artifacts,
         );
@@ -462,6 +473,12 @@ impl WorkflowEngine {
                 for edge in graph.edges_from(&node.id) {
                     if edge_is_taken(edge, &context, &bus, NodeOutcome::Success) {
                         activated.insert(edge.target.clone());
+                        bus.emit(ExecutionEvent::EdgeActivated {
+                            edge_id: edge.id.clone(),
+                            source: edge.source.clone(),
+                            target: edge.target.clone(),
+                            branch: edge.branch,
+                        });
                     }
                 }
                 continue;
@@ -567,15 +584,25 @@ impl WorkflowEngine {
             }
 
             let mut inputs = BTreeMap::new();
-            for edge in graph.edges_to(&node.id) {
-                let port = edge.source_port.as_deref().unwrap_or("out");
+            for edge in graph.data_edges_to(&node.id) {
+                let (Some(source_port), Some(target_port)) =
+                    (edge.source_port.as_deref(), edge.target_port.as_deref())
+                else {
+                    continue;
+                };
                 let value = node_outputs
                     .get(&edge.source)
-                    .and_then(|outputs| outputs.get(port))
+                    .and_then(|outputs| outputs.get(source_port))
                     .cloned()
                     .unwrap_or(serde_json::Value::Null);
-                let target_port = edge.target_port.clone().unwrap_or_else(|| "in".to_string());
-                inputs.insert(target_port, value);
+                inputs.insert(target_port.to_string(), value);
+                bus.emit(ExecutionEvent::DataTransferred {
+                    edge_id: edge.id.clone(),
+                    source: edge.source.clone(),
+                    target: edge.target.clone(),
+                    source_port: source_port.to_string(),
+                    target_port: target_port.to_string(),
+                });
             }
 
             let input = NodeInput {
@@ -679,6 +706,12 @@ impl WorkflowEngine {
                     for edge in graph.edges_from(&node.id) {
                         if edge_is_taken(edge, &context, &bus, NodeOutcome::Success) {
                             activated.insert(edge.target.clone());
+                            bus.emit(ExecutionEvent::EdgeActivated {
+                                edge_id: edge.id.clone(),
+                                source: edge.source.clone(),
+                                target: edge.target.clone(),
+                                branch: edge.branch,
+                            });
                         }
                     }
                     if node.node_type == "core.End" {
@@ -723,6 +756,12 @@ impl WorkflowEngine {
                             if edge_is_taken(edge, &context, &bus, NodeOutcome::Failure) {
                                 routed_failure = true;
                                 activated.insert(edge.target.clone());
+                                bus.emit(ExecutionEvent::EdgeActivated {
+                                    edge_id: edge.id.clone(),
+                                    source: edge.source.clone(),
+                                    target: edge.target.clone(),
+                                    branch: edge.branch,
+                                });
                             }
                         }
                         if routed_failure || node.continue_on_error {

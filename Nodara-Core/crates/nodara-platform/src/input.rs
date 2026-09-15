@@ -514,6 +514,7 @@ impl NodeExecutor for KeyboardExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input.with_input_object_fallback("in");
         let chord = input.require_str("keys")?;
         let action = input.config_str("action").unwrap_or("type");
         let hold_ms = input.config_i64("hold_ms").unwrap_or(0).max(0) as u64;
@@ -627,6 +628,9 @@ impl NodeExecutor for TextExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "text");
         let text = input.require_str("text")?;
         let interval = input.config_i64("interval_ms").unwrap_or(10).max(0) as u64;
         let target = input_target(&input)?;
@@ -790,6 +794,7 @@ impl NodeExecutor for MouseExecutor {
     }
 
     fn execute(&self, input: NodeInput, context: &mut ExecutionContext) -> NodeResult<NodeOutput> {
+        let input = input.with_input_object_fallback("in");
         let action = input.require_str("action")?;
         let duration_ms = input.config_i64("duration_ms").unwrap_or(0).max(0) as u64;
         let relative = input.config_bool("relative").unwrap_or(false);

@@ -1,13 +1,16 @@
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.failure-branch",
   "metadata": {
     "name": "Failure recovery",
     "description": "Routes a failing Calculate node through an explicit failure branch."
   },
   "nodes": [
-    { "id": "start", "type": "core.Start" },
+    {
+      "id": "start",
+      "type": "core.Start"
+    },
     {
       "id": "calculate",
       "type": "core.Calculate",
@@ -19,32 +22,57 @@
     {
       "id": "success",
       "type": "core.Log",
-      "config": { "message": "calculation succeeded" }
+      "config": {
+        "message": "calculation succeeded"
+      }
     },
     {
       "id": "recover",
       "type": "core.Log",
-      "config": { "message": "calculation failed: {{last_error.code}} at {{last_error.node_id}}; recovery branch executed", "level": "warn" }
+      "config": {
+        "message": "calculation failed: {{last_error.code}} at {{last_error.node_id}}; recovery branch executed",
+        "level": "warn"
+      }
     },
-    { "id": "end", "type": "core.End" }
+    {
+      "id": "end",
+      "type": "core.End"
+    }
   ],
   "edges": [
-    { "id": "start-calculate", "source": "start", "target": "calculate" },
+    {
+      "id": "start-calculate",
+      "source": "start",
+      "target": "calculate",
+      "kind": "control"
+    },
     {
       "id": "calculate-success",
       "source": "calculate",
       "target": "success",
-      "branch": "success"
+      "branch": "success",
+      "kind": "control"
     },
     {
       "id": "calculate-failure",
       "source": "calculate",
       "target": "recover",
       "branch": "failure",
-      "label": "recover"
+      "label": "recover",
+      "kind": "control"
     },
-    { "id": "success-end", "source": "success", "target": "end" },
-    { "id": "recover-end", "source": "recover", "target": "end" }
+    {
+      "id": "success-end",
+      "source": "success",
+      "target": "end",
+      "kind": "control"
+    },
+    {
+      "id": "recover-end",
+      "source": "recover",
+      "target": "end",
+      "kind": "control"
+    }
   ],
   "variables": {}
 }

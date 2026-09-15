@@ -33,7 +33,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 ```json
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World", "tags": ["getting-started"] },
   "nodes": [
@@ -43,8 +43,8 @@ document is also served under its file name (`/schema/workflow.schema.json`).
     { "id": "end", "type": "core.End", "config": { "code": 0 } }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "greet" },
-    { "id": "e2", "source": "greet", "target": "end" }
+    { "id": "e1", "kind": "control", "source": "start", "target": "greet" },
+    { "id": "e2", "kind": "control", "source": "greet", "target": "end" }
   ],
   "variables": { "name": { "value": "World", "description": "Who to greet." } }
 }
@@ -55,7 +55,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `$schema` | string | no | — | JSON Schema this document follows. Editors use it for completion and documentation; every Nodara tool preserves it on round-trip. |
-| `schema_version` | string | no | `"2.0"` | Workflow format version. A different major is reported as `WF100` and can be upgraded with `nodara-cli migrate`. |
+| `schema_version` | string | no | `"2.1"` | Workflow format version. Older documents are blocked by `WF118` until migrated with `nodara-cli migrate`. |
 | `id` | string | **yes** | — | Stable workflow identifier, conventionally `workflow.<name>`. Must not be empty (`WF101`). |
 | `metadata` | object | no | `{}` | Human-facing metadata, see below. |
 | `nodes` | array | no | `[]` | The graph's nodes. |
@@ -113,14 +113,15 @@ re-parsing them.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | string | **yes** | Unique within the workflow (`WF110` when empty, `WF111` when duplicated). |
+| `kind` | `control` / `data` | **yes** | `control` activates execution; `data` only transfers a value. Legacy edges without this field are rejected with `WF118` until migrated. |
 | `source` | string | **yes** | Source node id (`WF112` when it does not exist). |
 | `target` | string | **yes** | Target node id (`WF113` when it does not exist). |
-| `source_port`, `target_port` | string / null | no | Named ports. When omitted, `out` → `in` is assumed. |
-| `branch` | `always` / `success` / `failure` | no | Selects the source-node outcome that can activate the edge. Omitted or `always` follows both outcomes. A `failure` edge handles execution errors and activates the recovery path without requiring Continue on error. |
-| `condition` | string / null | no | Guard expression. The edge is taken only when it evaluates truthy; an edge without a condition is always taken. Expressions may read run variables and `{{templates}}`. |
-| `label` | string / null | no | Display label. |
+| `source_port`, `target_port` | string | required for `data` | Explicit output and input port names. Control edges must not set them (`WF147`). |
+| `branch` | `always` / `success` / `failure` | control only | Selects the source outcome that activates the edge. Omitted means `always`. Data edges must not set it (`WF148`). |
+| `condition` | string / null | control only | Guard expression. The edge activates only when it evaluates truthy. Data edges must not set it. |
+| `label` | string / null | control only | Optional display label. Data edges must not set it. |
 
-A self-loop is a warning (`WF114`).
+Topology, entries, reachability, dead ends and cycle detection use **control edges only**. Data edges are collected only when their target node is already activated by a control edge. A self-loop is a warning (`WF114`).
 
 ### `variables.<name>`
 
@@ -148,6 +149,10 @@ optional `hint`:
 | `WF112` | error | Edge source does not exist |
 | `WF113` | error | Edge target does not exist |
 | `WF114` | warning | Edge is a self-loop |
+| `WF118` | error | Edge kind is missing; run `nodara-cli migrate` or use the Studio migration entry |
+| `WF146` | error | Data edge is missing `source_port` or `target_port` |
+| `WF147` | error | Control edge declares a data port |
+| `WF148` | error | Data edge declares a control-only field (`branch`, `condition`, or `label`) |
 | `WF115` | error | An explicit edge source port is not declared by the source node |
 | `WF116` | error | An explicit edge target port is not declared by the target node |
 | `WF117` | error | Edge ports have incompatible value types |
@@ -393,7 +398,7 @@ the runtime answers with a `ToolCallOutcome` of `completed`, `denied`,
 
 | Contract | Field | Current | Owner |
 |---|---|---|---|
-| Workflow document | `schema_version` | `2.0` | `nodara-schema` |
+| Workflow document | `schema_version` | `2.1` | `nodara-schema` |
 | Plugin / runtime wire | `protocol_version` | `1` | `nodara-schema`, `nodara-plugin` |
 | Public HTTP API | `api_version` | `v1` | `nodara-runtime` |
 

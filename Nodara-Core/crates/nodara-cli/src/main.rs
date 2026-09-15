@@ -31,6 +31,12 @@ enum Command {
         /// Emit the report as JSON.
         #[arg(long)]
         json: bool,
+        /// Directory scanned for plugins. Repeatable.
+        #[arg(long = "plugin-dir", value_name = "DIR")]
+        plugin_dirs: Vec<PathBuf>,
+        /// Register the official capabilities in-process.
+        #[arg(long)]
+        in_process: bool,
     },
 
     /// Execute a workflow.
@@ -185,7 +191,12 @@ fn main() {
 fn run() -> CliResult<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Validate { file, json } => commands::validate::execute(&file, json),
+        Command::Validate {
+            file,
+            json,
+            plugin_dirs,
+            in_process,
+        } => commands::validate::execute(&file, json, &plugin_dirs, in_process),
         Command::Run {
             file,
             variables,

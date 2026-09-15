@@ -105,7 +105,7 @@ export class RegionPicker {
 
   private async captureDesktop(): Promise<string> {
     const workflow: Workflow = {
-      schema_version: "2.0",
+      schema_version: "2.1",
       id: "workflow.studio.region-picker",
       metadata: { name: "Studio region picker", tags: ["studio"] },
       nodes: [
@@ -118,8 +118,8 @@ export class RegionPicker {
         { id: "end", type: "core.End", config: {} },
       ],
       edges: [
-        { id: "start-capture", source: "start", target: "capture" },
-        { id: "capture-end", source: "capture", target: "end" },
+        { id: "start-capture", kind: "control", source: "start", target: "capture" },
+        { id: "capture-end", kind: "control", source: "capture", target: "end" },
       ],
       variables: {},
     };

@@ -67,6 +67,23 @@ pub struct AgentConfig {
     /// When present, `plan` and `plan_and_run` modify this document instead of
     /// authoring one from nothing.
     pub base_workflow: Option<Workflow>,
+    /// Reuse an existing runtime session instead of creating a new one.
+    pub session_id: Option<String>,
+    /// Per-run capability approval strategy.
+    pub approval_mode: RunApprovalMode,
+    /// Start an automatic run paused so an operator can review it first.
+    pub start_paused: bool,
+}
+
+/// How gated capabilities are approved for a run started by the agent.
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RunApprovalMode {
+    /// Approve automatically while recording each decision.
+    #[default]
+    Auto,
+    /// Ask the owning runtime session and wait for an operator.
+    Session,
 }
 
 impl Default for AgentConfig {
@@ -84,6 +101,9 @@ impl Default for AgentConfig {
             offline: false,
             tool_selector: ToolSelector::default(),
             base_workflow: None,
+            session_id: None,
+            approval_mode: RunApprovalMode::Auto,
+            start_paused: false,
         }
     }
 }
@@ -281,15 +301,15 @@ impl<'a> Agent<'a> {
 
         // Publish the session first: the Studio can then watch from the start,
         // and a gated node later has somewhere to ask for approval.
-        let session_id = if self.config.offline {
+        let (session_id, conversation) = if self.config.offline {
             trace.record(
                 TraceStep::Note,
                 "offline planning: the runtime is not contacted".to_string(),
                 serde_json::json!({ "offline": true }),
             );
-            None
+            (None, Vec::new())
         } else {
-            self.publish_session(goal, &mut trace)
+            self.begin_session(goal, &mut trace)
         };
 
         // Capability discovery is the agent's only source of truth about what it
@@ -333,6 +353,7 @@ impl<'a> Agent<'a> {
                 constraints: constraints.to_vec(),
                 max_repairs: self.config.max_repairs,
                 base: self.config.base_workflow.clone(),
+                history: conversation.clone(),
             };
             if !feedback.is_empty() {
                 request
@@ -512,10 +533,10 @@ impl<'a> Agent<'a> {
                         tokens_used,
                         trace.entries().to_vec(),
                     );
-                    let status = if report.status == "cancelled" {
-                        SessionStatus::Cancelled
-                    } else {
-                        SessionStatus::Failed
+                    let status = match report.status.as_str() {
+                        "cancelled" => SessionStatus::Cancelled,
+                        "paused" | "running" => SessionStatus::Running,
+                        _ => SessionStatus::Failed,
                     };
                     self.finish_session(&session_id, status);
                     return Ok(AgentOutcome {
@@ -564,10 +585,41 @@ impl<'a> Agent<'a> {
         }
     }
 
-    fn publish_session(&self, goal: &str, trace: &mut AuditTrace) -> Option<String> {
+    fn begin_session(
+        &self,
+        goal: &str,
+        trace: &mut AuditTrace,
+    ) -> (Option<String>, Vec<crate::model::ChatMessage>) {
         if !self.config.publish_session {
-            return None;
+            return (None, Vec::new());
         }
+        if let Some(session_id) = &self.config.session_id {
+            let session = match self.client.get_session(session_id) {
+                Ok(session) => session,
+                Err(error) => {
+                    trace.record(
+                        TraceStep::Note,
+                        format!("session `{session_id}` could not be loaded: {error}"),
+                        Value::Null,
+                    );
+                    return (None, Vec::new());
+                }
+            };
+            let history = session_messages_to_chat(&session.messages);
+            let _ =
+                self.client
+                    .append_message(session_id, nodara_schema::MessageRole::Operator, goal);
+            let _ = self
+                .client
+                .set_session_status(session_id, SessionStatus::Planning);
+            trace.record(
+                TraceStep::Note,
+                format!("continued session {session_id}"),
+                serde_json::json!({ "session_id": session_id }),
+            );
+            return (Some(session_id.clone()), history);
+        }
+
         match self.client.create_session(goal, self.provider.name()) {
             Ok(session) => {
                 trace.record(
@@ -575,7 +627,7 @@ impl<'a> Agent<'a> {
                     format!("session {} created", session.id),
                     serde_json::json!({ "session_id": session.id }),
                 );
-                Some(session.id)
+                (Some(session.id), Vec::new())
             }
             Err(error) => {
                 trace.record(
@@ -583,7 +635,7 @@ impl<'a> Agent<'a> {
                     format!("session could not be published: {error}"),
                     Value::Null,
                 );
-                None
+                (None, Vec::new())
             }
         }
     }
@@ -641,16 +693,13 @@ impl<'a> Agent<'a> {
         workflow: &Workflow,
         trace: &mut AuditTrace,
     ) -> RunAttempt {
-        let started = match session_id {
-            Some(session_id) => self.client.start_run_for_session(
-                session_id,
-                workflow,
-                self.config.variables.clone(),
-            ),
-            None => self
-                .client
-                .start_run(workflow, self.config.variables.clone()),
-        };
+        let started = self.client.start_run_with_options(
+            workflow,
+            self.config.variables.clone(),
+            session_id.as_deref(),
+            self.config.start_paused,
+            self.config.approval_mode,
+        );
         let started = match started {
             Ok(started) => started,
             Err(error) => {
@@ -674,7 +723,7 @@ impl<'a> Agent<'a> {
         trace.record(
             TraceStep::RunStarted,
             format!("run {run_id} accepted"),
-            started,
+            started.clone(),
         );
         if let Some(session_id) = session_id {
             let _ = self.client.append_message(
@@ -682,6 +731,23 @@ impl<'a> Agent<'a> {
                 nodara_schema::MessageRole::Agent,
                 &format!("Running `{run_id}`."),
             );
+        }
+
+        if self.config.start_paused
+            && started.get("status").and_then(Value::as_str) == Some("paused")
+        {
+            if let Some(session_id) = session_id {
+                let _ = self.client.append_message(
+                    session_id,
+                    nodara_schema::MessageRole::Runtime,
+                    &format!("Run `{run_id}` is paused and ready for operator resume."),
+                );
+            }
+            return RunAttempt::Terminal {
+                snapshot: started,
+                events: Vec::new(),
+                highlights: vec![format!("Run {run_id} is paused")],
+            };
         }
 
         let snapshot = match self.client.wait_for_run(&run_id, self.config.run_timeout) {
@@ -863,6 +929,32 @@ fn summarise(events: &[nodara_schema::EventEnvelope]) -> Vec<String> {
                 ..
             } if decision != "allow" => Some(format!("policy {capability}: {decision}")),
             _ => None,
+        })
+        .collect()
+}
+
+fn session_messages_to_chat(
+    messages: &[nodara_schema::SessionMessage],
+) -> Vec<crate::model::ChatMessage> {
+    messages
+        .iter()
+        .rev()
+        .take(20)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|message| {
+            let content = match message.role {
+                nodara_schema::MessageRole::Operator => message.text.clone(),
+                nodara_schema::MessageRole::Agent => message.text.clone(),
+                nodara_schema::MessageRole::Runtime => format!("[runtime] {}", message.text),
+            };
+            match message.role {
+                nodara_schema::MessageRole::Operator => crate::model::ChatMessage::user(content),
+                nodara_schema::MessageRole::Agent | nodara_schema::MessageRole::Runtime => {
+                    crate::model::ChatMessage::assistant(content)
+                }
+            }
         })
         .collect()
 }

@@ -11,7 +11,8 @@ use nodara_core::{
     RunRequest, WorkflowEngine,
 };
 use nodara_schema::{
-    Edge, EdgeBranch, ExecutionEvent, Node, NodeDescriptor, RunStatus, Variable, Workflow,
+    Edge, EdgeBranch, ExecutionEvent, Node, NodeDescriptor, PortDescriptor, PortKind, RunStatus,
+    ValueType, Variable, Workflow,
 };
 
 fn registry() -> Arc<CapabilityRegistry> {
@@ -957,4 +958,170 @@ fn secret_variables_are_redacted_in_the_outcome() {
         Some(&serde_json::json!(8)),
         "non-secret variables are unaffected"
     );
+}
+
+#[derive(Debug)]
+struct DataProducer;
+
+impl NodeExecutor for DataProducer {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor {
+            outputs: vec![PortDescriptor::new(
+                "out",
+                "Out",
+                PortKind::Output,
+                ValueType::Any,
+            )],
+            ..NodeDescriptor::new("test.DataProducer", "Data Producer", "Test")
+        }
+    }
+
+    fn execute(
+        &self,
+        _input: NodeInput,
+        _context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        Ok(NodeOutput::new().with_output("out", serde_json::json!(7)))
+    }
+}
+
+#[derive(Debug)]
+struct DataConsumer {
+    seen: Arc<Mutex<Option<serde_json::Value>>>,
+}
+
+impl NodeExecutor for DataConsumer {
+    fn descriptor(&self) -> NodeDescriptor {
+        NodeDescriptor {
+            inputs: vec![PortDescriptor::new(
+                "in",
+                "In",
+                PortKind::Input,
+                ValueType::Any,
+            )],
+            ..NodeDescriptor::new("test.DataConsumer", "Data Consumer", "Test")
+        }
+    }
+
+    fn execute(
+        &self,
+        input: NodeInput,
+        _context: &mut ExecutionContext,
+    ) -> nodara_core::NodeResult<NodeOutput> {
+        *self.seen.lock().expect("consumer input") = input.input("in").cloned();
+        Ok(NodeOutput::new())
+    }
+}
+
+fn data_registry(consumer: Arc<Mutex<Option<serde_json::Value>>>) -> Arc<CapabilityRegistry> {
+    let mut registry = CapabilityRegistry::new();
+    register_builtins(&mut registry);
+    registry.register(DataProducer);
+    registry.register(DataConsumer { seen: consumer });
+    Arc::new(registry)
+}
+
+#[test]
+fn data_edges_transfer_values_without_becoming_control_edges() {
+    let seen = Arc::new(Mutex::new(None));
+    let engine = WorkflowEngine::new(data_registry(seen.clone()));
+    let sink = Arc::new(CollectingEventSink::new());
+    let mut workflow = Workflow::new("wf.data");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("producer", "test.DataProducer"));
+    workflow.add_node(Node::new("consumer", "test.DataConsumer"));
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("start-producer", "start", "producer"));
+    workflow.add_edge(Edge::new("producer-consumer", "producer", "consumer"));
+    workflow.add_edge(Edge {
+        id: "producer-value".to_string(),
+        source: "producer".to_string(),
+        target: "consumer".to_string(),
+        kind: nodara_schema::workflow::EdgeKind::Data,
+        source_port: Some("out".to_string()),
+        target_port: Some("in".to_string()),
+        ..Edge::new("ignored", "producer", "consumer")
+    });
+    workflow.add_edge(Edge::new("consumer-end", "consumer", "end"));
+
+    let outcome = engine.run(
+        RunRequest::new(workflow).with_event_sink(sink.clone()),
+        &RunControl::new(),
+    );
+
+    assert_eq!(
+        outcome.status,
+        RunStatus::Completed,
+        "{:?}",
+        outcome.failure
+    );
+    assert_eq!(
+        *seen.lock().expect("consumer input"),
+        Some(serde_json::json!(7))
+    );
+    let events = sink.snapshot();
+    assert!(events.iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::DataTransferred { edge_id, .. } if edge_id == "producer-value"
+    )));
+    assert!(events.iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::EdgeActivated { edge_id, .. } if edge_id == "producer-consumer"
+    )));
+}
+
+#[test]
+fn a_data_edge_does_not_activate_its_target() {
+    let seen = Arc::new(Mutex::new(None));
+    let engine = WorkflowEngine::new(data_registry(seen.clone()));
+    let mut workflow = Workflow::new("wf.data-only");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("producer", "test.DataProducer"));
+    workflow.add_node(Node::new("consumer", "test.DataConsumer"));
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("start-producer", "start", "producer"));
+    workflow.add_edge(Edge::new("producer-end", "producer", "end"));
+    workflow.add_edge(Edge {
+        id: "producer-value".to_string(),
+        source: "producer".to_string(),
+        target: "consumer".to_string(),
+        kind: nodara_schema::workflow::EdgeKind::Data,
+        source_port: Some("out".to_string()),
+        target_port: Some("in".to_string()),
+        ..Edge::new("ignored", "producer", "consumer")
+    });
+
+    let outcome = engine.run(RunRequest::new(workflow), &RunControl::new());
+
+    assert_eq!(
+        outcome.status,
+        RunStatus::Completed,
+        "{:?}",
+        outcome.failure
+    );
+    assert!(seen.lock().expect("consumer input").is_none());
+}
+
+#[test]
+fn a_control_edge_does_not_transfer_data() {
+    let seen = Arc::new(Mutex::new(None));
+    let engine = WorkflowEngine::new(data_registry(seen.clone()));
+    let mut workflow = Workflow::new("wf.control-only");
+    workflow.add_node(Node::new("start", "core.Start"));
+    workflow.add_node(Node::new("producer", "test.DataProducer"));
+    workflow.add_node(Node::new("consumer", "test.DataConsumer"));
+    workflow.add_node(Node::new("end", "core.End"));
+    workflow.add_edge(Edge::new("start-producer", "start", "producer"));
+    workflow.add_edge(Edge::new("producer-consumer", "producer", "consumer"));
+    workflow.add_edge(Edge::new("consumer-end", "consumer", "end"));
+
+    let outcome = engine.run(RunRequest::new(workflow), &RunControl::new());
+
+    assert_eq!(
+        outcome.status,
+        RunStatus::Completed,
+        "{:?}",
+        outcome.failure
+    );
+    assert!(seen.lock().expect("consumer input").is_none());
 }

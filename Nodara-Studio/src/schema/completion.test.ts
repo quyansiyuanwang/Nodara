@@ -25,7 +25,7 @@ const SCHEMA_URI = "file:///repo/Nodara-Core/schema/workflow.schema.json";
 
 const HEADER = `{
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.probe",
   "nodes": [
 `;

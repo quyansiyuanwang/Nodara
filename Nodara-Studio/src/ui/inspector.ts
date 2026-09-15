@@ -175,15 +175,18 @@ export class Inspector {
     path.textContent = t("inspector.edgePath", { source: edge.source, target: edge.target });
     this.root.appendChild(path);
 
-    const ports = document.createElement("p");
-    ports.className = "muted";
-    ports.textContent = `${t("inspector.edgePorts")}: ${t("inspector.edgePortsValue", {
-      source: edge.source,
-      sourcePort: edge.source_port ?? "out",
-      target: edge.target,
-      targetPort: edge.target_port ?? "in",
-    })}`;
-    this.root.appendChild(ports);
+    if (edge.kind === "data") {
+      const ports = document.createElement("p");
+      ports.className = "muted";
+      ports.textContent = `${t("inspector.edgePorts")}: ${t("inspector.edgePortsValue", {
+        source: edge.source,
+        sourcePort: edge.source_port ?? "out",
+        target: edge.target,
+        targetPort: edge.target_port ?? "in",
+      })}`;
+      this.root.appendChild(ports);
+      return;
+    }
 
     const branchField = document.createElement("div");
     branchField.className = "field";

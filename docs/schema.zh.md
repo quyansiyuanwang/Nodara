@@ -29,7 +29,7 @@
 ```json
 {
   "$schema": "../Nodara-Core/schema/workflow.schema.json",
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "id": "workflow.hello-world",
   "metadata": { "name": "Hello World", "tags": ["getting-started"] },
   "nodes": [
@@ -39,8 +39,8 @@
     { "id": "end", "type": "core.End", "config": { "code": 0 } }
   ],
   "edges": [
-    { "id": "e1", "source": "start", "target": "greet" },
-    { "id": "e2", "source": "greet", "target": "end" }
+    { "id": "e1", "kind": "control", "source": "start", "target": "greet" },
+    { "id": "e2", "kind": "control", "source": "greet", "target": "end" }
   ],
   "variables": { "name": { "value": "World", "description": "Who to greet." } }
 }
@@ -51,7 +51,7 @@
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|---|---|---|
 | `$schema` | string | 否 | — | 本文档遵循的 JSON Schema。编辑器据此提供补全与文档提示；Nodara 的所有工具都会在往返中保留它。 |
-| `schema_version` | string | 否 | `"2.0"` | 工作流格式版本。主版本不匹配会报 `WF100`，可用 `nodara-cli migrate` 升级。 |
+| `schema_version` | string | 否 | `"2.1"` | 工作流格式版本。旧文档会以 `WF118` 阻止执行，必须先运行 `nodara-cli migrate`。 |
 | `id` | string | **是** | — | 稳定的工作流标识，约定形如 `workflow.<name>`。不能为空（`WF101`）。 |
 | `metadata` | object | 否 | `{}` | 面向人的元数据，见下。 |
 | `nodes` | array | 否 | `[]` | 图上的节点。 |
@@ -106,14 +106,15 @@
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `id` | string | **是** | 工作流内唯一（为空报 `WF110`，重复报 `WF111`）。 |
+| `kind` | `control` / `data` | **是** | `control` 控制执行，`data` 只传值。缺少该字段的旧边在迁移前以 `WF118` 阻止执行。 |
 | `source` | string | **是** | 源节点 id（不存在报 `WF112`）。 |
 | `target` | string | **是** | 目标节点 id（不存在报 `WF113`）。 |
-| `source_port`、`target_port` | string / null | 否 | 命名端口。省略时视为 `out` → `in`。 |
-| `branch` | `always` / `success` / `failure` | 否 | 选择源节点达到哪种结果时激活边。省略或 `always` 表示成功和失败都可走；`failure` 会处理节点错误并激活恢复路径，无需开启“失败后继续”。 |
-| `condition` | string / null | 否 | 守卫表达式；仅当表达式为真时走这条边。没有 `condition` 的边永远走。表达式可读取运行变量与 `{{模板}}`。 |
-| `label` | string / null | 否 | 显示标签。 |
+| `source_port`、`target_port` | string | `data` 必填 | 显式命名输出和输入端口。控制边不得设置它们（`WF147`）。 |
+| `branch` | `always` / `success` / `failure` | 仅控制边 | 选择源节点的成功、失败或无条件执行分支。数据边不得设置（`WF148`）。 |
+| `condition` | string / null | 仅控制边 | 守卫表达式；数据边不得设置。 |
+| `label` | string / null | 仅控制边 | 可选显示标签；数据边不得设置。 |
 
-自环会产生告警 `WF114`。
+拓扑、入口、可达性、死路和循环检测只使用**控制边**。数据边只在目标节点已被控制边激活后收集。自环会产生告警 `WF114`。
 
 ### `variables.<名称>`
 
@@ -140,6 +141,10 @@
 | `WF112` | error | 边的源头节点不存在 |
 | `WF113` | error | 边的目标节点不存在 |
 | `WF114` | warning | 边是自环 |
+| `WF118` | error | 缺少边类型；运行 `nodara-cli migrate` 或使用 Studio 迁移入口 |
+| `WF146` | error | 数据边缺少 `source_port` 或 `target_port` |
+| `WF147` | error | 控制边声明了数据端口 |
+| `WF148` | error | 数据边声明了控制字段（`branch`、`condition` 或 `label`） |
 | `WF115` | error | 连线显式指定的源端口不存在 |
 | `WF116` | error | 连线显式指定的目标端口不存在 |
 | `WF117` | error | 连线两端端口的值类型不兼容 |
@@ -362,7 +367,7 @@ WebSocket 接口会先回放已缓冲事件再推送实时事件；运行时在�
 
 | 契约 | 字段 | 当前值 | 归属 |
 |---|---|---|---|
-| 工作流文档 | `schema_version` | `2.0` | `nodara-schema` |
+| 工作流文档 | `schema_version` | `2.1` | `nodara-schema` |
 | 插件/运行时线协议 | `protocol_version` | `1` | `nodara-schema`、`nodara-plugin` |
 | 公开 HTTP API | `api_version` | `v1` | `nodara-runtime` |
 

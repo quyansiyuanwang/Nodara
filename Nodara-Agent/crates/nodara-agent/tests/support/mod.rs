@@ -20,6 +20,8 @@ pub struct Recorded {
     pub messages_appended: usize,
     pub runs_started: usize,
     pub session_ids_on_runs: Vec<Option<String>>,
+    pub start_paused_on_runs: Vec<bool>,
+    pub approval_on_runs: Vec<Option<String>>,
     pub statuses_set: Vec<String>,
     pub approvals_decided: usize,
 }
@@ -114,6 +116,8 @@ impl FakeRuntime {
             messages_appended: recorded.messages_appended,
             runs_started: recorded.runs_started,
             session_ids_on_runs: recorded.session_ids_on_runs.clone(),
+            start_paused_on_runs: recorded.start_paused_on_runs.clone(),
+            approval_on_runs: recorded.approval_on_runs.clone(),
             statuses_set: recorded.statuses_set.clone(),
             approvals_decided: recorded.approvals_decided,
         }
@@ -239,6 +243,16 @@ fn route(
         ),
         ("POST", "/api/v1/runs") => {
             recorded.runs_started += 1;
+            recorded.start_paused_on_runs.push(
+                body.get("start_paused")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            );
+            recorded.approval_on_runs.push(
+                body.get("approval")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+            );
             recorded.session_ids_on_runs.push(
                 body.get("session_id")
                     .and_then(Value::as_str)
@@ -254,9 +268,14 @@ fn route(
                     status: "completed".to_string(),
                     code: None,
                 });
-            let (status, code) = match script {
-                RunScript::Immediate { status, code } => (status, code),
-                RunScript::Hanging => ("running".to_string(), None),
+            let (status, code) = if body.get("start_paused").and_then(Value::as_bool) == Some(true)
+            {
+                ("paused".to_string(), None)
+            } else {
+                match script {
+                    RunScript::Immediate { status, code } => (status, code),
+                    RunScript::Hanging => ("running".to_string(), None),
+                }
             };
             let id = format!("run-{}", state.attempts);
             let snapshot = snapshot(&id, &status, code.as_deref(), state.attempts);

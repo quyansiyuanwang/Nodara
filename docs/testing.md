@@ -106,7 +106,7 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 
 ```powershell
 .\nodara-agent.exe capabilities
-$mock = '{"schema_version":"2.0","id":"wf.test","metadata":{"name":"Test"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"agent ok"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","source":"start","target":"log"},{"id":"e2","source":"log","target":"end"}]}'
+$mock = '{"schema_version":"2.1","id":"wf.test","metadata":{"name":"Test"},"nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"agent ok"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","kind":"control","source":"start","target":"log"},{"id":"e2","kind":"control","source":"log","target":"end"}]}'
 .\nodara-agent.exe plan "log agent ok" --mock $mock --trace .\trace.jsonl
 .\nodara-agent.exe replay .\trace.jsonl
 .\nodara-agent.exe run "log agent ok" --mock $mock --report

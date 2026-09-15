@@ -194,7 +194,7 @@ Agent 把目标变成工作流，然后操作它 —— 且始终通过运行时
 
 | 契约 | 字段 | 当前值 |
 |---|---|---|
-| 工作流文档 | `schema_version` | `2.0` |
+| 工作流文档 | `schema_version` | `2.1` |
 | 插件/运行时线协议 | `protocol_version` | `1` |
 | 公开 HTTP API | `api_version` | `v1` |
 

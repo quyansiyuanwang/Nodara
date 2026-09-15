@@ -54,7 +54,7 @@ Three independent versions, never inferred from one another:
 
 | Contract | Field | Current | Owner |
 |----------|-------|---------|-------|
-| Workflow document | `schema_version` | `2.0` | `nodara-schema` |
+| Workflow document | `schema_version` | `2.1` | `nodara-schema` |
 | Plugin / runtime wire | `protocol_version` | `1` | `nodara-schema`, `nodara-plugin` |
 | Public HTTP API | `api_version` | `v1` | `nodara-runtime` |
 

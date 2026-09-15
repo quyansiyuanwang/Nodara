@@ -1,5 +1,6 @@
 //! `nodara-agent` — plan, run and replay workflows from natural language.
 
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -7,7 +8,7 @@ use clap::{Parser, Subcommand};
 use nodara_agent::{
     audit::{self, AuditTrace},
     Agent, AgentConfig, AgentError, AgentResult, ExplainTarget, GuardrailPolicy, LlmProvider,
-    MockProvider, OpenAiProvider, RuntimeClient, ToolPolicy,
+    MockProvider, OpenAiProvider, RunApprovalMode, RuntimeClient, ToolPolicy,
 };
 
 #[derive(Parser)]
@@ -97,6 +98,11 @@ enum Command {
         from: Option<PathBuf>,
     },
 
+    /// Machine-readable Studio transport. Reads one JSON request from stdin and
+    /// writes one JSON response to stdout.
+    #[command(hide = true)]
+    Studio,
+
     /// Replay a recorded decision trace.
     Replay {
         /// Trace file written by `--trace`.
@@ -152,6 +158,56 @@ enum Command {
         #[arg(value_enum)]
         action: ControlAction,
     },
+}
+
+/// One turn requested by the Studio desktop shell.
+#[derive(Debug, serde::Deserialize)]
+struct StudioRequest {
+    goal: String,
+    #[serde(default)]
+    constraints: Vec<String>,
+    #[serde(default)]
+    base_workflow: Option<nodara_schema::Workflow>,
+    #[serde(default)]
+    session_id: Option<String>,
+    #[serde(default)]
+    variables: serde_json::Value,
+    mode: StudioMode,
+    provider: StudioProvider,
+}
+
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum StudioMode {
+    Forbidden,
+    Manual,
+    Partial,
+    All,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct StudioProvider {
+    endpoint: String,
+    model: String,
+    #[serde(default)]
+    api_key: Option<String>,
+    #[serde(default = "default_agent_timeout_ms")]
+    timeout_ms: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct StudioResponse {
+    session_id: Option<String>,
+    accepted: bool,
+    workflow: Option<nodara_schema::Workflow>,
+    run: Option<serde_json::Value>,
+    report: nodara_agent::ExecutionReport,
+    trace: Vec<nodara_agent::TraceEntry>,
+    tokens_used: u64,
+}
+
+fn default_agent_timeout_ms() -> u64 {
+    300_000
 }
 
 /// Run-control actions available from the command line.
@@ -283,6 +339,11 @@ fn run() -> AgentResult<()> {
             Ok(())
         }
 
+        Command::Studio => {
+            run_studio_transport(&cli.runtime)?;
+            Ok(())
+        }
+
         Command::Replay { file } => {
             let entries = AuditTrace::load(&file)?;
             println!("{}", audit::render(&entries));
@@ -389,6 +450,55 @@ fn run() -> AgentResult<()> {
             Ok(())
         }
     }
+}
+
+fn run_studio_transport(default_runtime: &str) -> AgentResult<()> {
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input)?;
+    let request: StudioRequest = serde_json::from_str(&input)?;
+
+    let provider = OpenAiProvider::new(
+        request.provider.endpoint.clone(),
+        request.provider.model.clone(),
+        request.provider.api_key.clone(),
+    );
+    let auto_run = !matches!(request.mode, StudioMode::Forbidden);
+    let approval_mode = match request.mode {
+        StudioMode::Forbidden | StudioMode::All => RunApprovalMode::Auto,
+        StudioMode::Manual | StudioMode::Partial => RunApprovalMode::Session,
+    };
+    let config = AgentConfig {
+        runtime_url: default_runtime.to_string(),
+        auto_run,
+        base_workflow: request.base_workflow,
+        session_id: request.session_id,
+        approval_mode,
+        start_paused: matches!(request.mode, StudioMode::Manual),
+        run_timeout: Duration::from_millis(request.provider.timeout_ms.max(1)),
+        variables: if request.variables.is_null() {
+            serde_json::json!({})
+        } else {
+            request.variables
+        },
+        ..AgentConfig::default()
+    };
+    let agent = Agent::new(&provider, config);
+    let outcome = if auto_run {
+        agent.plan_and_run(&request.goal, &request.constraints)?
+    } else {
+        agent.plan(&request.goal, &request.constraints)?
+    };
+    let response = StudioResponse {
+        session_id: outcome.session_id,
+        accepted: outcome.accepted,
+        workflow: outcome.workflow,
+        run: outcome.run,
+        report: outcome.report,
+        trace: outcome.trace,
+        tokens_used: outcome.tokens_used,
+    };
+    println!("{}", serde_json::to_string(&response)?);
+    Ok(())
 }
 
 fn print_sessions(payload: &serde_json::Value) {

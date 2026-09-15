@@ -164,7 +164,40 @@ restricts the agent to an explicit node allowlist. The trace records every
 decision: the goal, each model call, the runtime's validation verdict, the
 guardrail result and the run outcome.
 
-## 5. Write your own capability
+## 5. Studio canvas and Agent chat
+
+The desktop `nodara-studio.exe` is the recommended path: it reuses or starts the runtime from the package, so there is no second process to launch manually.
+
+Canvas interaction:
+
+- drag from the left palette into the canvas;
+- blank left-drag is marquee selection; touching a node rectangle selects it;
+- middle-drag or `Space+left-drag` pans the unbounded world, including negative coordinates;
+- `Ctrl+left-click` toggles individual nodes, and `Shift+left-click` selects all nodes on directed control paths between the current anchor and the target;
+- dragging any selected node moves the whole selection; `Delete`, enable/disable and breakpoint actions apply to the selection;
+- single/multi-selection shows a floating execution card for enabled, breakpoint, condition, delay, continue-on-error, retry and timeout;
+- round data ports create `kind: "data"` edges; diamond execution ports create `kind: "control"` edges with Always, Success or Failure output;
+- data edges are blue and control edges are neutral/green/red. The static arrow always remains, and received `edge_activated` / `data_transferred` events add an animated pulse plus persistent traversed-path highlighting until the next run or clear.
+
+Open the bottom **Agent** tab for a conversational workflow operator. Configure any OpenAI-compatible endpoint/model in Provider settings (the API key stays in process memory), choose a baseline (**current canvas** or **previous Agent plan**) and choose one of four modes:
+
+| Mode | Behavior |
+|---|---|
+| Plan only | Generates and validates a plan; no run action. |
+| Manual | Starts the approved plan paused and waits for operator Resume. |
+| Partial approval | Safe nodes run automatically; dangerous/privileged nodes require per-item approval. |
+| Automatic | Runs the final plan automatically and auto-approves capabilities while preserving capability decisions and audit records. |
+
+Agent output is never loaded into the canvas automatically. Review the final JSON and diagnostics, then use **Load into editor**, **Validate**, **Run this plan** or **Open audit**. The full session history remains visible for follow-up turns.
+
+Workflow 2.1 separates the two edge meanings. A control edge uses `kind: "control"` and may use `branch`, `condition` and `label`, but no data ports. A data edge uses `kind: "data"`, requires explicit `source_port` and `target_port`, and cannot use control fields. Data edges never activate a target node. Legacy 2.0 documents fail with `WF118`; migrate them explicitly:
+
+```powershell
+.\nodara-cli.exe migrate .\legacy.json --out .\legacy-2.1.json
+```
+
+Migration converts old edges to control edges, removes old data-port mappings and reports each data mapping that must be recreated manually.
+## 6. Write your own capability
 
 Implement one trait and serve it:
 

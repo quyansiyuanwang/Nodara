@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use nodara_schema::{migrate, MigrationReport, Workflow};
+use nodara_schema::{MigrationReport, Workflow};
 
 use crate::error::{CliError, CliResult};
 
@@ -18,23 +18,23 @@ pub struct LoadedWorkflow {
 pub fn load(file: &Path) -> CliResult<LoadedWorkflow> {
     let text = std::fs::read_to_string(file)?;
     let value: serde_json::Value = serde_json::from_str(&text)?;
-
-    if let Ok(workflow) = serde_json::from_value::<Workflow>(value.clone()) {
-        if nodara_schema::version::is_compatible_schema_version(&workflow.schema_version) {
-            return Ok(LoadedWorkflow {
-                workflow,
-                migrated: None,
-            });
-        }
+    let declared = value
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or(nodara_schema::SCHEMA_VERSION);
+    if declared != nodara_schema::SCHEMA_VERSION {
+        return Err(CliError::Failed(format!(
+            "WF118: workflow schema `{declared}` must be migrated to `{}` first; run `nodara-cli migrate`",
+            nodara_schema::SCHEMA_VERSION
+        )));
     }
 
-    let (workflow, report) = migrate(value)?;
+    let workflow: Workflow = serde_json::from_value(value)?;
     Ok(LoadedWorkflow {
         workflow,
-        migrated: Some(report),
+        migrated: None,
     })
 }
-
 /// Serialize a workflow with stable formatting.
 pub fn to_pretty(workflow: &Workflow) -> CliResult<String> {
     Ok(format!("{}\n", serde_json::to_string_pretty(workflow)?))

@@ -75,7 +75,7 @@ cargo run -p nodara-agent -- plan "open Notepad and type a greeting" --trace tra
 
 # Offline, with a scripted model reply:
 cargo run -p nodara-agent -- plan "log hello" \
-  --mock '{"schema_version":"2.0","id":"wf.hi","nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"hello"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","source":"start","target":"log"},{"id":"e2","source":"log","target":"end"}]}'
+  --mock '{"schema_version":"2.1","id":"wf.hi","nodes":[{"id":"start","type":"core.Start"},{"id":"log","type":"core.Log","config":{"message":"hello"}},{"id":"end","type":"core.End"}],"edges":[{"id":"e1","kind":"control","source":"start","target":"log"},{"id":"e2","kind":"control","source":"log","target":"end"}]}'
 ```
 
 Plan and run:
@@ -91,6 +91,28 @@ Print the Markdown execution report:
 cargo run -p nodara-agent -- --report run "log a greeting"
 ```
 
+### Studio transport
+
+Desktop Studio starts the hidden `studio` subcommand with one JSON request on
+stdin and consumes one JSON response from stdout. The request includes the goal,
+optional base workflow, existing session id, provider settings and execution
+mode. The response includes the final workflow, run snapshot, report, trace,
+token count and session id. The process itself is short-lived; the conversation
+and runtime session persist across turns.
+
+```bash
+echo '{"goal":"log hello","mode":"forbidden","provider":{"endpoint":"...","model":"..."}}' \
+  | nodara-agent --runtime http://127.0.0.1:8710 studio
+```
+
+The desktop modes map to runtime approval as follows:
+
+| Studio mode | Runtime request |
+|---|---|
+| Plan only | No run request |
+| Manual | `start_paused: true`, `approval: "session"` and an immediate paused result |
+| Partial approval | `start_paused: false`, `approval: "session"` |
+| Automatic | `start_paused: false`, `approval: "auto"` with audit retained |
 ### Watching and steering from a terminal
 
 When the runtime is started with `--require-approval`, a gated node blocks until

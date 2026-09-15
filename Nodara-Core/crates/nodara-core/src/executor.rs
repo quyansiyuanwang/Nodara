@@ -61,6 +61,35 @@ impl NodeInput {
             .and_then(serde_json::Value::as_bool)
     }
 
+    /// Clone this input with a scalar input-port value filling a missing config key.
+    ///
+    /// Explicit configuration always wins. This keeps legacy workflows working
+    /// while making data edges useful to common nodes.
+    #[must_use]
+    pub fn with_input_fallback(mut self, port: &str, key: &str) -> Self {
+        if self.resolved_config.get(key).is_none() {
+            if let Some(value) = self.inputs.get(port) {
+                if let Some(config) = self.resolved_config.as_object_mut() {
+                    config.insert(key.to_string(), value.clone());
+                }
+            }
+        }
+        self
+    }
+
+    /// Clone this input and merge an input-port object into missing config keys.
+    #[must_use]
+    pub fn with_input_object_fallback(mut self, port: &str) -> Self {
+        if let Some(serde_json::Value::Object(values)) = self.inputs.get(port) {
+            if let Some(config) = self.resolved_config.as_object_mut() {
+                for (key, value) in values {
+                    config.entry(key.clone()).or_insert_with(|| value.clone());
+                }
+            }
+        }
+        self
+    }
+
     /// Read a string field, failing with [`crate::NodeError::InvalidConfig`].
     pub fn require_str(&self, key: &str) -> NodeResult<String> {
         self.config_str(key)
@@ -128,5 +157,44 @@ impl std::fmt::Debug for dyn NodeExecutor {
         f.debug_struct("NodeExecutor")
             .field("node_type", &self.descriptor().node_type)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(config: serde_json::Value, inputs: &[(&str, serde_json::Value)]) -> NodeInput {
+        NodeInput {
+            node_id: "n".to_string(),
+            node_type: "test.Node".to_string(),
+            config: config.clone(),
+            resolved_config: config,
+            inputs: inputs
+                .iter()
+                .map(|(name, value)| ((*name).to_string(), value.clone()))
+                .collect(),
+            timeout_ms: None,
+        }
+    }
+
+    #[test]
+    fn explicit_config_wins_over_scalar_and_object_inputs() {
+        let input = input(
+            serde_json::json!({ "message": "configured", "other": 1 }),
+            &[("in", serde_json::json!({ "message": "input", "other": 2 }))],
+        );
+        let merged = input
+            .with_input_object_fallback("in")
+            .with_input_fallback("in", "message");
+        assert_eq!(merged.config_str("message"), Some("configured"));
+        assert_eq!(merged.config_i64("other"), Some(1));
+    }
+
+    #[test]
+    fn missing_config_can_be_filled_from_an_input_port() {
+        let input = input(serde_json::json!({}), &[("in", serde_json::json!(25))]);
+        let merged = input.with_input_fallback("in", "duration_ms");
+        assert_eq!(merged.config_i64("duration_ms"), Some(25));
     }
 }
