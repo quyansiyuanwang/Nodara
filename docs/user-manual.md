@@ -180,7 +180,10 @@ store. In Studio, open the **Events** tab: the Capture node's `node_finished`
 event shows an inline image preview and an **Open** link.
 
 Artifact metadata logged by `core.Log` is also detected: a message such as
-`{{screenshot}}` produces a `log` event with an inline image preview.
+`{{screenshot}}` produces a `log` event with an inline image preview. Artifact
+metadata is found recursively inside nested objects and arrays. Every
+`node_finished` event also exposes its complete outputs in a collapsed JSON
+section, which is useful for OCR, template matches and plugin-defined results.
 
 To choose a `windows.Desktop.Capture` rectangle directly with the mouse:
 

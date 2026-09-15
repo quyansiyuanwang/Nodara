@@ -1069,6 +1069,37 @@ body.is-resizing-y * {
   width: fit-content;
 }
 
+.event-outputs {
+  margin: 7px 0 11px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 9px;
+  background: #10141d;
+  font-family: var(--font);
+}
+
+.event-outputs > summary {
+  padding: 8px 10px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.event-outputs > pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 9px 10px 10px;
+  overflow: auto;
+  border-top: 1px solid #242a3a;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .event-command {
   margin: 7px 0 11px;
   border: 1px solid var(--line);

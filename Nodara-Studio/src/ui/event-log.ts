@@ -82,6 +82,7 @@ export class EventLog {
     entry.appendChild(row);
     this.appendArtifactPreviews(entry, envelope);
     this.appendCommandOutput(entry, envelope);
+    this.appendNodeOutputs(entry, envelope);
     this.root.appendChild(entry);
     while (this.root.querySelectorAll(".event-entry").length > MAX_ROWS) {
       this.root.firstElementChild?.remove();
@@ -144,6 +145,22 @@ export class EventLog {
       preview.append(media, caption);
       entry.appendChild(preview);
     }
+  }
+
+  /** Keep every node output inspectable even when no dedicated renderer exists. */
+  private appendNodeOutputs(entry: HTMLElement, envelope: EventEnvelope): void {
+    if (envelope.event.type !== "node_finished") return;
+    const outputs = envelope.event.outputs;
+    if (Object.keys(outputs).length === 0) return;
+
+    const details = document.createElement("details");
+    details.className = "event-outputs";
+    const summary = document.createElement("summary");
+    summary.textContent = t("event.outputs");
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(outputs, null, 2);
+    details.append(summary, pre);
+    entry.appendChild(details);
   }
 
   /** Show external-command output directly in the event stream. */
@@ -237,11 +254,30 @@ function artifactsIn(event: ExecutionEvent): Array<[string, ArtifactPreviewMeta]
     const message = parseJson(event.message);
     if (message !== null) values.push(["log", message]);
   }
+
   const artifacts: Array<[string, ArtifactPreviewMeta]> = [];
-  for (const [port, value] of values) {
+  const seen = new Set<string>();
+  const visit = (value: unknown, path: string): void => {
     const artifact = artifactMeta(value);
-    if (artifact?.content_type.startsWith("image/")) artifacts.push([port, artifact]);
-  }
+    if (artifact) {
+      if (artifact.content_type.startsWith("image/") && !seen.has(artifact.id)) {
+        seen.add(artifact.id);
+        artifacts.push([path, artifact]);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${index}]`));
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const [key, child] of Object.entries(value)) {
+        visit(child, path ? `${path}.${key}` : key);
+      }
+    }
+  };
+
+  for (const [port, value] of values) visit(value, port);
   return artifacts;
 }
 

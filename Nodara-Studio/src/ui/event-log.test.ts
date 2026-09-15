@@ -99,6 +99,52 @@ describe("run status visualisation", () => {
     expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
   });
 
+  it("finds nested artifacts and exposes the complete node output", () => {
+    log = new EventLog(
+      document.getElementById("events")!,
+      canvas,
+      (runId, artifactId) => `/artifacts/${runId}/${artifactId}`,
+    );
+    log.append(
+      envelope(0, {
+        type: "node_finished",
+        node_id: "vision",
+        outputs: {
+          capture: {
+            artifact: {
+              id: "nested-image",
+              name: "frame",
+              content_type: "image/png",
+              size: 512,
+            },
+          },
+          matches: [
+            {
+              confidence: 0.93,
+              preview: {
+                id: "match-image",
+                name: "match",
+                content_type: "image/png",
+                size: 128,
+              },
+            },
+          ],
+        },
+        duration_ms: 18,
+      }),
+    );
+
+    const images = [...document.querySelectorAll<HTMLImageElement>(".event-artifact__image")];
+    expect(images).toHaveLength(2);
+    expect(images.map((image) => image.src)).toEqual([
+      expect.stringContaining("/artifacts/r1/nested-image"),
+      expect.stringContaining("/artifacts/r1/match-image"),
+    ]);
+    const output = document.querySelector<HTMLPreElement>(".event-outputs pre")!;
+    expect(output.textContent).toContain('"confidence": 0.93');
+    expect(output.textContent).toContain('"nested-image"');
+  });
+
   it("renders an image when an artifact is logged as JSON", () => {
     log = new EventLog(
       document.getElementById("events")!,

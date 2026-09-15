@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Studio Events can now inspect every `node_finished` output as collapsed JSON,
+  even for nodes without a dedicated renderer. Image artifacts are discovered
+  recursively through nested objects and arrays, so vision results and wrapped
+  screenshots preview inline instead of leaving broken image links.
 - Workflow nodes now support a persisted `breakpoint` flag. The engine pauses
   immediately before the selected node and emits a normal `run_paused` event;
   Studio exposes it in Execution settings and the node context menu, and draws

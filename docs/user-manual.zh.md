@@ -306,7 +306,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 截图节点会发布 artifact 元数据（`id`、`name`、`content_type`、`size`）。图片字节会从插件进程传回 runtime，并保留在该次运行中。在 Studio 的 **Events** 页找到 Capture 节点的 `node_finished` 事件，可直接看到图片预览和“打开”链接。
 
-如果使用 `core.Log` 输出 artifact JSON（例如消息为 `{{screenshot}}`），对应的 `log` 事件也会识别其中的图片元数据并显示同样的内联预览。
+如果使用 `core.Log` 输出 artifact JSON（例如消息为 `{{screenshot}}`），对应的 `log` 事件也会识别其中的图片元数据并显示同样的内联预览。嵌套对象和数组中的 artifact 也会被递归识别。每个 `node_finished` 事件还提供可展开的完整 JSON 输出，便于检查 OCR、模板匹配和插件自定义结果。
 
 要直接用鼠标定位 `windows.Desktop.Capture` 的截图矩形：
 
