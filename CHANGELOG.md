@@ -11,6 +11,7 @@
 - Studio adds persistent workflow node groups in the metadata extension bag, group-frame selection/movement, unified multi-selection execution configuration, a workflow-wide group manager, grouped/persistent drawer tabs, tab badges and local Agent session search.
 - Canvas nodes no longer render decorative vertical accent bars, and the floating quick configuration opens only after a click without node movement; dragging or marquee selection no longer opens it.
 - Studio now keeps Inspector and Agent input focus/caret across document re-renders and session polling, adds a restrained idle edge-flow cue, and replaces flashy run-time pulses/glows with static highlights plus one slower moving arrow per active edge.
+- Ctrl/Cmd and Shift node-selection clicks no longer open the floating quick configuration, and Agent polling preserves focus, expander state and scroll position instead of resetting the panel.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses

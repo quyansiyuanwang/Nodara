@@ -102,7 +102,7 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 21. Open `examples/breakpoint-debug.json`; the Calculate node shows a breakpoint marker, Run pauses before it with `nodes_executed=2`, and Resume or Step completes the workflow.
 22. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 23. Marquee selection and node dragging do not open the floating quick card; a click without movement opens it. After a multi-selection, click any selected node to edit shared execution settings.
-24. Type continuously in Inspector and Agent inputs while validation and session polling run; focus and caret position must remain stable. Idle edges show only a restrained moving dash, and active runs use one slower moving arrow without heavy glow.
+24. Type continuously in Inspector and Agent inputs while validation and session polling run; focus and caret position must remain stable. Plain clicks open the floating quick card, but Ctrl/Shift selection must not. Agent polling must also preserve button focus, expanded details and scroll position.
 
 ## Agent
 

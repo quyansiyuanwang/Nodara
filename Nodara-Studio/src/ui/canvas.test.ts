@@ -596,6 +596,7 @@ describe("graph editing on the canvas", () => {
     window.dispatchEvent(new MouseEvent("pointerup"));
     const selectedIds = canvas.selectedNodeIds();
     expect(selectedIds).toHaveLength(2);
+    expect(document.querySelector(".node-quick-config")?.classList.contains("is-hidden")).toBe(true);
     expect(selectedIds).toContain("start");
     expect(selectedIds).toContain(logs[0].dataset.nodeId);
 
@@ -621,6 +622,7 @@ describe("graph editing on the canvas", () => {
     end.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, shiftKey: true, clientX: 750, clientY: 180 }));
     window.dispatchEvent(new MouseEvent("pointerup"));
     expect(canvas.selectedNodeIds()).toEqual(["start", "end"]);
+    expect(document.querySelector(".node-quick-config")?.classList.contains("is-hidden")).toBe(true);
 
     const isolatedNode = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
     isolatedNode.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, shiftKey: true, clientX: 40, clientY: 520 }));

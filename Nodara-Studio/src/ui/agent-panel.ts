@@ -33,10 +33,15 @@ export interface AgentSubmitRequest {
   sessionId?: string;
 }
 
-interface AgentInputFocus {
+interface AgentFocusSnapshot {
   field: string;
   start: number | null;
   end: number | null;
+}
+
+interface AgentScrollSnapshot {
+  main: number;
+  sessions: number;
 }
 
 export interface AgentPanelHandlers {
@@ -112,31 +117,34 @@ export class AgentPanel {
     return list.pending_approvals.length > 0;
   }
 
-  private captureInputFocus(): AgentInputFocus | null {
+  private captureFocus(): AgentFocusSnapshot | null {
     const active = document.activeElement;
-    if (
-      !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) ||
-      !this.root.contains(active)
-    ) {
-      return null;
-    }
+    if (!(active instanceof HTMLElement) || !this.root.contains(active)) return null;
     const field = active.dataset.agentFocus;
     if (!field) return null;
+    const editable =
+      active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
     return {
       field,
-      start: active.selectionStart,
-      end: active.selectionEnd,
+      start: editable ? active.selectionStart : null,
+      end: editable ? active.selectionEnd : null,
     };
   }
 
-  private restoreInputFocus(focus: AgentInputFocus | null): void {
+  private restoreFocus(focus: AgentFocusSnapshot | null): void {
     if (!focus) return;
-    const target = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    const target = this.root.querySelector<HTMLElement>(
       `[data-agent-focus="${focus.field}"]`,
     );
     if (!target) return;
     target.focus();
-    if (focus.start === null || focus.end === null) return;
+    if (
+      focus.start === null ||
+      focus.end === null ||
+      !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    ) {
+      return;
+    }
     try {
       target.setSelectionRange(focus.start, focus.end);
     } catch {
@@ -144,8 +152,23 @@ export class AgentPanel {
     }
   }
 
+  private captureScroll(): AgentScrollSnapshot {
+    return {
+      main: this.root.querySelector<HTMLElement>(".agent-main")?.scrollTop ?? 0,
+      sessions: this.root.querySelector<HTMLElement>(".sessions")?.scrollTop ?? 0,
+    };
+  }
+
+  private restoreScroll(scroll: AgentScrollSnapshot): void {
+    const main = this.root.querySelector<HTMLElement>(".agent-main");
+    const sessions = this.root.querySelector<HTMLElement>(".sessions");
+    if (main) main.scrollTop = scroll.main;
+    if (sessions) sessions.scrollTop = scroll.sessions;
+  }
+
   private render(): void {
-    const focus = this.captureInputFocus();
+    const focus = this.captureFocus();
+    const scroll = this.captureScroll();
     const provider = this.root.querySelector<HTMLDetailsElement>(".agent-provider");
     if (provider) this.providerOpen = provider.open;
     for (const details of this.root.querySelectorAll<HTMLDetailsElement>(".agent-plan-json")) {
@@ -170,6 +193,7 @@ export class AgentPanel {
     const newChat = document.createElement("button");
     newChat.type = "button";
     newChat.className = "btn btn--small";
+    newChat.dataset.agentFocus = "new-chat";
     newChat.textContent = t("agent.newChat");
     newChat.addEventListener("click", () => {
       this.selected = null;
@@ -219,7 +243,8 @@ export class AgentPanel {
     main.appendChild(this.renderComposer(draft));
     shell.appendChild(main);
     this.root.appendChild(shell);
-    this.restoreInputFocus(focus);
+    this.restoreScroll(scroll);
+    this.restoreFocus(focus);
   }
 
   private renderSessionItems(list: HTMLElement): void {
@@ -232,6 +257,7 @@ export class AgentPanel {
       const item = document.createElement("button");
       item.type = "button";
       item.className = "session";
+      item.dataset.agentFocus = `session.${session.id}`;
       if (session.id === this.selected) item.classList.add("session--selected");
       if (session.approvals.some((approval) => !approval.decision)) {
         item.classList.add("session--attention");
@@ -265,6 +291,7 @@ export class AgentPanel {
       this.providerOpen = details.open;
     });
     const summary = document.createElement("summary");
+    summary.dataset.agentFocus = "provider-summary";
     const summaryTitle = document.createElement("span");
     summaryTitle.textContent = t("agent.providerSettings");
     const summaryModel = document.createElement("code");
@@ -311,6 +338,7 @@ export class AgentPanel {
     controls.className = "agent-controls";
     const mode = document.createElement("select");
     mode.className = "input input--small";
+    mode.dataset.agentFocus = "execution-mode";
     for (const [value, key] of [
       ["forbidden", "agent.modeForbidden"],
       ["manual", "agent.modeManual"],
@@ -334,6 +362,7 @@ export class AgentPanel {
     modeLabel.append(modeText, mode);
     const base = document.createElement("select");
     base.className = "input input--small";
+    base.dataset.agentFocus = "baseline-mode";
     for (const [value, key] of [
       ["current", "agent.baseCurrent"],
       ["last_plan", "agent.baseLastPlan"],
@@ -386,6 +415,7 @@ export class AgentPanel {
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "btn btn--primary";
+    submit.dataset.agentFocus = "send";
     submit.disabled = !this.desktopAvailable || this.busy || draft.trim() === "";
     submit.textContent = this.busy ? t("agent.running") : t("agent.send");
     row.append(status, shortcut, submit);
@@ -439,12 +469,14 @@ export class AgentPanel {
       const runButton = document.createElement("button");
       runButton.type = "button";
       runButton.className = "btn btn--small";
+      runButton.dataset.agentFocus = `open-run.${session.id}`;
       runButton.textContent = t("actions.openRun", { id: session.run_id.slice(0, 8) });
       runButton.addEventListener("click", () => this.handlers.onOpenRun(session.run_id!));
       runActions.appendChild(runButton);
       const auditButton = document.createElement("button");
       auditButton.type = "button";
       auditButton.className = "btn btn--small";
+      auditButton.dataset.agentFocus = `open-audit.${session.id}`;
       auditButton.textContent = t("actions.openAudit", { id: session.run_id.slice(0, 8) });
       auditButton.addEventListener("click", () => this.handlers.onOpenAudit(session.run_id!));
       runActions.appendChild(auditButton);
@@ -452,6 +484,7 @@ export class AgentPanel {
         const resume = document.createElement("button");
         resume.type = "button";
         resume.className = "btn btn--small";
+        resume.dataset.agentFocus = `resume.${session.id}`;
         resume.textContent = t("actions.resume");
         resume.addEventListener("click", () => this.handlers.onResumeRun(session.run_id!));
         runActions.appendChild(resume);
@@ -515,11 +548,13 @@ export class AgentPanel {
       const approve = document.createElement("button");
       approve.type = "button";
       approve.className = "btn btn--primary btn--small";
+      approve.dataset.agentFocus = `approve.${approval.id}`;
       approve.textContent = t("actions.approve");
       approve.addEventListener("click", () => this.handlers.onDecide(session.id, approval.id, true));
       const deny = document.createElement("button");
       deny.type = "button";
       deny.className = "btn btn--small";
+      deny.dataset.agentFocus = `deny.${approval.id}`;
       deny.textContent = t("actions.deny");
       deny.addEventListener("click", () => this.handlers.onDecide(session.id, approval.id, false));
       actions.append(approve, deny);
@@ -562,6 +597,7 @@ export class AgentPanel {
       else this.planJsonOpen.delete(session.id);
     });
     const jsonSummary = document.createElement("summary");
+    jsonSummary.dataset.agentFocus = `plan-json.${session.id}`;
     jsonSummary.textContent = t("agent.finalWorkflowJson");
     const pre = document.createElement("pre");
     pre.textContent = JSON.stringify(plan.workflow, null, 2);
@@ -573,17 +609,20 @@ export class AgentPanel {
     const validate = document.createElement("button");
     validate.type = "button";
     validate.className = "btn btn--small";
+    validate.dataset.agentFocus = `validate-plan.${session.id}`;
     validate.textContent = t("actions.validate");
     validate.addEventListener("click", () => void this.validatePlan(plan.workflow, card));
     const load = document.createElement("button");
     load.type = "button";
     load.className = "btn btn--small";
+    load.dataset.agentFocus = `load-plan.${session.id}`;
     load.textContent = t("actions.loadPlan");
     load.disabled = !plan.valid;
     load.addEventListener("click", () => this.handlers.onLoadPlan(session.id));
     const run = document.createElement("button");
     run.type = "button";
     run.className = "btn btn--primary btn--small";
+    run.dataset.agentFocus = `run-plan.${session.id}`;
     run.textContent = t("actions.runPlan");
     run.disabled = !plan.valid || this.mode === "forbidden";
     run.addEventListener("click", () => void this.handlers.onRunPlan(plan.workflow, session.id, this.mode));

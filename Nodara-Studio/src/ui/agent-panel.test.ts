@@ -72,6 +72,24 @@ describe("AgentPanel settings", () => {
     expect(sessions[0].textContent).toContain("write a report");
   });
 
+  it("keeps button focus and scroll position after a session refresh", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const panel = new AgentPanel(root, handlers);
+    panel.setSessions(sessionList("first"));
+
+    const main = root.querySelector<HTMLElement>(".agent-main")!;
+    main.scrollTop = 120;
+    const newChat = root.querySelector<HTMLButtonElement>('[data-agent-focus="new-chat"]')!;
+    newChat.focus();
+
+    panel.setSessions(sessionList("second"));
+
+    const restored = root.querySelector<HTMLButtonElement>('[data-agent-focus="new-chat"]')!;
+    expect(document.activeElement).toBe(restored);
+    expect(root.querySelector<HTMLElement>(".agent-main")!.scrollTop).toBe(120);
+  });
+
   it("keeps provider input focus and caret after a session refresh", () => {
     const root = document.createElement("div");
     document.body.appendChild(root);

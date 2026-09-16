@@ -61,6 +61,7 @@ interface NodeDrag {
   startY: number;
   origins: Map<string, { x: number; y: number }>;
   moved: boolean;
+  revealQuickConfig: boolean;
 }
 
 interface MarqueeDrag {
@@ -814,14 +815,14 @@ export class Canvas {
       this.pendingEdge.removeAttribute("d");
     }
     if (this.drag) {
-      const changed = this.drag.moved;
+      const drag = this.drag;
       this.drag = null;
       document.body.classList.remove("is-canvas-dragging");
-      if (changed) {
+      if (drag.moved) {
         this.handlers.onChange();
-      } else {
-        // A click reveals the floating execution settings. Dragging a node or
-        // marquee-selecting never opens it as a side effect.
+      } else if (drag.revealQuickConfig) {
+        // A plain click reveals the floating execution settings. Dragging,
+        // marquee selection and Ctrl/Shift multi-selection never open it.
         this.quickConfigVisible = true;
         this.renderQuickConfig();
       }
@@ -1246,7 +1247,14 @@ export class Canvas {
           if (!node) continue;
           origins.set(id, { x: node.position?.x ?? 0, y: node.position?.y ?? 0 });
         }
-        this.drag = { primaryId: ids[0], startX: point.x, startY: point.y, origins, moved: false };
+        this.drag = {
+          primaryId: ids[0],
+          startX: point.x,
+          startY: point.y,
+          origins,
+          moved: false,
+          revealQuickConfig: false,
+        };
         document.body.classList.add("is-canvas-dragging");
       });
       element.addEventListener("contextmenu", (event) => {
@@ -1402,7 +1410,14 @@ export class Canvas {
             y: selectedNode.position?.y ?? 0,
           });
         }
-        this.drag = { primaryId: node.id, startX: point.x, startY: point.y, origins, moved: false };
+        this.drag = {
+          primaryId: node.id,
+          startX: point.x,
+          startY: point.y,
+          origins,
+          moved: false,
+          revealQuickConfig: !(event.ctrlKey || event.metaKey || event.shiftKey),
+        };
         document.body.classList.add("is-canvas-dragging");
       });
       group.addEventListener("contextmenu", (event) => {
