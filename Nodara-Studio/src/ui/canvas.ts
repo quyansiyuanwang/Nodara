@@ -212,6 +212,13 @@ export class Canvas {
   setStatus(status: RunStatus | null): void {
     this.status = status;
     this.svg.dataset.status = status ?? "";
+    if (status === "running") {
+      // Resume the direction markers when a paused run continues.
+      for (const [edgeId, state] of this.edgeStates) this.setEdgeState(edgeId, state);
+    } else {
+      // Keep traversed-path highlighting, but stop all post-run animation.
+      this.cancelAllEdgeAnimations();
+    }
   }
 
   /** Highlight a node as the one currently executing. */
@@ -286,7 +293,7 @@ export class Canvas {
     if (!runner) {
       runner = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
       runner.classList.add("edge-runner");
-      runner.setAttribute("points", "-7,-5 10,0 -7,5");
+      runner.setAttribute("points", "-5,-3.5 7,0 -5,3.5");
       group.appendChild(runner);
     }
     runner.classList.toggle("edge-runner--data", state === "data");
@@ -308,7 +315,7 @@ export class Canvas {
 
       const length = path.getTotalLength();
       if (length > 0) {
-        const duration = Math.max(900, Math.min(2400, length * 5));
+        const duration = Math.max(1_700, Math.min(4_200, length * 8));
         const elapsed = (timestamp - animation.startedAt) % duration;
         const distance = (elapsed / duration) * length;
         const point = path.getPointAtLength(distance);
@@ -336,9 +343,10 @@ export class Canvas {
   }
 
   select(nodeId: string | null, edgeId: string | null = null): void {
-    this.setSelection(nodeId ? [nodeId] : [], nodeId);
+    this.setSelection(nodeId ? [nodeId] : [], nodeId, false);
     this.selectedEdge = edgeId;
     this.updateSelectionVisuals();
+    this.handlers.onSelect(this.primarySelected);
   }
 
   selectedNodeIds(): string[] {
@@ -382,7 +390,11 @@ export class Canvas {
     return nodeId ? groupForNode(this.workflow, nodeId)?.id ?? null : null;
   }
 
-  private setSelection(ids: Iterable<string>, primary: string | null): void {
+  private setSelection(
+    ids: Iterable<string>,
+    primary: string | null,
+    notify = true,
+  ): void {
     this.quickConfigVisible = false;
     this.selected = new Set(ids);
     this.primarySelected = primary && this.selected.has(primary)
@@ -390,6 +402,7 @@ export class Canvas {
       : this.selected.values().next().value ?? null;
     this.selectedEdge = null;
     this.updateSelectionVisuals();
+    if (notify) this.handlers.onSelect(this.primarySelected);
   }
 
   private updateSelectionVisuals(): void {
@@ -411,8 +424,9 @@ export class Canvas {
         group.node_ids.length > 0 && group.node_ids.every((id) => this.selected.has(id)),
       );
     }
-    this.renderQuickConfig();
-    this.handlers.onSelect(this.primarySelected);
+    // Re-rendering the document must not notify the shell again: doing so
+    // discarded focused Inspector inputs on every keystroke.
+    if (!this.quickConfig.contains(document.activeElement)) this.renderQuickConfig();
   }
 
   private toggleSelection(nodeId: string): boolean {
@@ -422,11 +436,13 @@ export class Canvas {
         this.primarySelected = this.selected.values().next().value ?? null;
       }
       this.updateSelectionVisuals();
+      this.handlers.onSelect(this.primarySelected);
       return false;
     }
     this.selected.add(nodeId);
     this.primarySelected = nodeId;
     this.updateSelectionVisuals();
+    this.handlers.onSelect(this.primarySelected);
     return true;
   }
 
@@ -1374,6 +1390,7 @@ export class Canvas {
         } else {
           this.primarySelected = node.id;
           this.updateSelectionVisuals();
+          this.handlers.onSelect(this.primarySelected);
         }
         const point = this.toCanvas(event.clientX, event.clientY);
         const origins = new Map<string, { x: number; y: number }>();
@@ -1780,6 +1797,7 @@ export class Canvas {
         this.selected.clear();
         this.primarySelected = null;
         this.updateSelectionVisuals();
+        this.handlers.onSelect(null);
       });
       hit.addEventListener("contextmenu", (event) => {
         this.showContextMenu(event, { kind: "edge", id: edge.id });
@@ -1808,7 +1826,10 @@ export class Canvas {
       }
       path.appendChild(title);
 
-      group.append(hit, path);
+      const idle = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      idle.classList.add("edge-idle", `edge-idle--${edge.kind}`);
+      idle.setAttribute("d", pathData);
+      group.append(hit, path, idle);
       const branchLabel = edge.kind === "control"
         ? edge.branch === "success"
           ? t("inspector.edgeBranchSuccess")
@@ -1966,7 +1987,7 @@ export class Canvas {
       wrap.style.setProperty("--grid-x", `${this.viewX % size}px`);
       wrap.style.setProperty("--grid-y", `${this.viewY % size}px`);
     }
-    this.renderQuickConfig();
+    if (!this.quickConfig.contains(document.activeElement)) this.renderQuickConfig();
     this.handlers.onViewChange?.(this.viewScale);
   }
 }

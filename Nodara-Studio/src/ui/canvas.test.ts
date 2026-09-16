@@ -33,6 +33,7 @@ interface Harness {
   canvas: Canvas;
   workflow: Workflow;
   changes: () => number;
+  selections: () => Array<string | null>;
   descriptors: Map<string, NodeDescriptor>;
 }
 
@@ -47,6 +48,7 @@ function harness(): Harness {
     </svg>`;
   const workflow = emptyWorkflow();
   let changes = 0;
+  const selections: Array<string | null> = [];
   let canvas: Canvas;
   const descriptors = new Map(
     ["core.Start", "core.Log", "core.End"].map((type) => [type, descriptor(type)]),
@@ -57,13 +59,19 @@ function harness(): Harness {
       // Mirror the application: a document change re-renders the canvas.
       canvas.render();
     },
-    onSelect: () => undefined,
+    onSelect: (nodeId) => selections.push(nodeId),
     onStatus: () => undefined,
     descriptorFor: (nodeType) => descriptors.get(nodeType),
   });
   canvas.render();
   activeCanvases.push(canvas);
-  return { canvas, workflow, changes: () => changes, descriptors };
+  return {
+    canvas,
+    workflow,
+    changes: () => changes,
+    selections: () => selections,
+    descriptors,
+  };
 }
 
 function pointerDown(target: Element, x = 0, y = 0) {
@@ -507,6 +515,23 @@ describe("graph editing on the canvas", () => {
     remove.click();
 
     expect(workflow.nodes.some((candidate) => candidate.id === "log")).toBe(false);
+  });
+
+  it("does not re-notify selection when re-rendering after a document edit", () => {
+    const { canvas, workflow, selections } = harness();
+    workflow.edges.push({
+      id: "start-end",
+      kind: "control",
+      source: "start",
+      target: "end",
+    });
+    canvas.select("start");
+    const afterSelect = selections().length;
+
+    canvas.render();
+
+    expect(selections()).toHaveLength(afterSelect);
+    expect(document.querySelectorAll(".edge-idle")).toHaveLength(1);
   });
 
   it("focus selects and centres a node on the canvas", () => {

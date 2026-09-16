@@ -123,11 +123,11 @@ workflow variables marked secret are not persisted beyond the browser session.
   group frames can be moved as a unit, and the no-selection Properties view is a
   workflow-wide group manager. Drawer tabs are grouped into Run, Agent, Workflow
   and Tools, remember the last selection, and expose Runs/Problems/Agent badges.
-* Motion is built into the interaction surface: nodes pulse while running and pop
-  when complete or glow when failed; ports lift on hover; panels, menus and event
-  rows animate in. Edge arrows are always visible, and runtime
-  `edge_activated` / `data_transferred` events add a requestAnimationFrame-driven
-  moving arrow plus animated dash flow and persistent path highlighting.
+* Motion is restrained and state-driven: idle edges use a slow marching dash,
+  while active nodes are highlighted without pulses or heavy glow. Runtime
+  `edge_activated` / `data_transferred` events add one slower moving arrow and a
+  persistent path highlight. Inspector and Agent inputs preserve focus and caret
+  position during redraws and session polling.
 * Duplicate a selected node with `Ctrl+D` or the node context menu. Configuration
   and execution settings are preserved and the copy receives a fresh id. Start
   is single-instance, so it cannot be duplicated or imported more than once.

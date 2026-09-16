@@ -33,6 +33,12 @@ export interface AgentSubmitRequest {
   sessionId?: string;
 }
 
+interface AgentInputFocus {
+  field: string;
+  start: number | null;
+  end: number | null;
+}
+
 export interface AgentPanelHandlers {
   onSubmit: (request: AgentSubmitRequest) => Promise<void>;
   onDecide: (sessionId: string, approvalId: string, approve: boolean) => void;
@@ -106,7 +112,40 @@ export class AgentPanel {
     return list.pending_approvals.length > 0;
   }
 
+  private captureInputFocus(): AgentInputFocus | null {
+    const active = document.activeElement;
+    if (
+      !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) ||
+      !this.root.contains(active)
+    ) {
+      return null;
+    }
+    const field = active.dataset.agentFocus;
+    if (!field) return null;
+    return {
+      field,
+      start: active.selectionStart,
+      end: active.selectionEnd,
+    };
+  }
+
+  private restoreInputFocus(focus: AgentInputFocus | null): void {
+    if (!focus) return;
+    const target = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      `[data-agent-focus="${focus.field}"]`,
+    );
+    if (!target) return;
+    target.focus();
+    if (focus.start === null || focus.end === null) return;
+    try {
+      target.setSelectionRange(focus.start, focus.end);
+    } catch {
+      // Number inputs do not expose a text selection range.
+    }
+  }
+
   private render(): void {
+    const focus = this.captureInputFocus();
     const provider = this.root.querySelector<HTMLDetailsElement>(".agent-provider");
     if (provider) this.providerOpen = provider.open;
     for (const details of this.root.querySelectorAll<HTMLDetailsElement>(".agent-plan-json")) {
@@ -144,6 +183,7 @@ export class AgentPanel {
     const search = document.createElement("input");
     search.className = "input input--small agent-search";
     search.type = "search";
+    search.dataset.agentFocus = "session-search";
     search.placeholder = t("agent.searchSessions");
     search.value = this.sessionFilter;
     sidebar.appendChild(search);
@@ -179,6 +219,7 @@ export class AgentPanel {
     main.appendChild(this.renderComposer(draft));
     shell.appendChild(main);
     this.root.appendChild(shell);
+    this.restoreInputFocus(focus);
   }
 
   private renderSessionItems(list: HTMLElement): void {
@@ -248,6 +289,7 @@ export class AgentPanel {
       input.className = "input";
       input.type = type;
       input.value = value;
+      input.dataset.agentFocus = `provider.${key}`;
       input.autocomplete = key === "apiKey" ? "off" : "on";
       input.addEventListener("input", () => {
         if (key === "timeoutMs") this.provider.timeoutMs = Number(input.value) || 300_000;
@@ -321,6 +363,7 @@ export class AgentPanel {
     const input = document.createElement("textarea");
     input.className = "input input--code";
     input.rows = 3;
+    input.dataset.agentFocus = "composer";
     input.placeholder = t("agent.promptPlaceholder");
     input.value = draft;
     input.addEventListener("input", () => {

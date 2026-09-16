@@ -72,6 +72,32 @@ describe("AgentPanel settings", () => {
     expect(sessions[0].textContent).toContain("write a report");
   });
 
+  it("keeps provider input focus and caret after a session refresh", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const panel = new AgentPanel(root, handlers);
+    panel.setSessions(sessionList("first"));
+
+    const provider = root.querySelector<HTMLDetailsElement>(".agent-provider")!;
+    provider.open = true;
+    const endpoint = root.querySelector<HTMLInputElement>(
+      '[data-agent-focus="provider.endpoint"]',
+    )!;
+    endpoint.value = "https://example.test/v1/chat/completions";
+    endpoint.dispatchEvent(new Event("input", { bubbles: true }));
+    endpoint.focus();
+    endpoint.setSelectionRange(endpoint.value.length, endpoint.value.length);
+
+    panel.setSessions(sessionList("second"));
+
+    const restored = root.querySelector<HTMLInputElement>(
+      '[data-agent-focus="provider.endpoint"]',
+    )!;
+    expect(document.activeElement).toBe(restored);
+    expect(restored.value).toBe("https://example.test/v1/chat/completions");
+    expect(restored.selectionStart).toBe(restored.value.length);
+  });
+
   it("keeps provider details open when session data changes", () => {
     const root = document.createElement("div");
     const panel = new AgentPanel(root, handlers);

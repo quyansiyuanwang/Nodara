@@ -88,7 +88,7 @@ copy.
 | Collapse sections | Expand or collapse Execution, Configuration and Variables in Properties; Studio remembers the state |
 | Undo / redo | Use the toolbar buttons, `Ctrl+Z`, `Ctrl+Y`, or `Ctrl+Shift+Z` |
 | Navigate the canvas | The world is unbounded and supports negative coordinates; wheel to zoom, middle-drag or Space+left-drag to pan. Reaching a viewport edge never pans automatically |
-| Edge activity animation | Static arrowheads stay visible; runtime `edge_activated` / `data_transferred` events animate a moving arrow and dash flow along the actual traversed edge, then retain the path highlight until the next run or clear |
+| Edge activity animation | Idle edges show a restrained direction cue; runtime `edge_activated` / `data_transferred` events move one slower arrow along the traversed edge. Pausing or finishing stops the arrow and retains the path highlight until the next run or clear |
 | Auto layout | Use **Auto layout** to arrange the graph in left-to-right topology columns |
 | Duplicate a node | Use `Ctrl+D` or the context menu; `core.Start` is single-instance and cannot be duplicated or imported twice |
 | Bulk configuration | Use the Properties bulk form or floating quick card to set enabled, breakpoint, condition, delays, continue-on-error, retry and timeout together |
@@ -103,10 +103,11 @@ The Properties rail is an independently scrolling stack of compact cards. Graph 
 
 Motion is part of execution feedback, not decoration:
 
-- a running node pulses blue, a successful node pops green and a failed node glows red;
-- ports enlarge on hover and selected quick-config/menu/panel surfaces animate in;
-- activated control and data edges animate a moving dash phase plus a glowing arrow along the actual SVG path;
+- while idle, every edge carries a slow, low-contrast moving dash that keeps direction visible without visual noise;
+- while running, the active node uses a static highlight without pulses, pop effects or heavy glow;
+- activated control and data edges keep their highlight and show one slower moving arrow; the dash trail is only a faint cue;
 - completed paths keep their highlight until the next run or **Clear**.
+- Inspector and Agent inputs retain focus and caret position across automatic validation, canvas redraws and session refreshes.
 
 If a desktop policy disables general operating-system animations, Studio still keeps its workflow-edge motion enabled so execution direction remains visible.
 

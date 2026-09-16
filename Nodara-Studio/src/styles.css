@@ -1874,48 +1874,39 @@ button.problem {
 
 .edge--active,
 .edge--data-active {
-  stroke: #f6c85f;
-  stroke-width: 4;
+  stroke: #e9c96f;
+  stroke-width: 3.2;
   marker-end: url(#arrow-active);
-  filter: drop-shadow(0 0 4px rgb(246 200 95 / 70%));
 }
 
 .edge-flow {
   fill: none;
   stroke: #ffe9a3;
-  stroke-width: 3;
+  stroke-width: 2;
   stroke-linecap: round;
-  stroke-dasharray: 3 13;
+  stroke-dasharray: 2 15;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-  animation: edge-flow 620ms linear infinite;
-  filter: drop-shadow(0 0 3px rgb(246 200 95 / 80%));
+  opacity: 0.24;
 }
 
 .edge-flow--data {
   stroke: #a8d8ff;
   stroke-dasharray: 2 15;
-  animation-duration: 760ms;
 }
 
 .edge-runner {
   fill: #fff4b8;
   stroke: #8a6500;
-  stroke-width: 1;
+  stroke-width: 0.8;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-  filter: drop-shadow(0 0 4px rgb(255 232 145 / 90%));
+  filter: drop-shadow(0 0 2px rgb(255 232 145 / 55%));
 }
 
 .edge-runner--data {
   fill: #b9ddff;
   stroke: #14558d;
-}
-
-@keyframes edge-flow {
-  to {
-    stroke-dashoffset: -16;
-  }
 }
 
 .node-quick-config {
@@ -2516,27 +2507,20 @@ body {
 }
 
 /* Edge motion is intentionally independent of SMIL and OS reduced motion.
-   The runtime state persists after completion, so the traversed path stays
-   readable while the dash phase and runner continue to show direction. */
+   Runtime direction markers stop with the run, while the traversed-path
+   highlight remains readable until the next run or clear. */
 .edge {
   transition: stroke var(--motion-fast) ease, stroke-width var(--motion-fast) ease, filter var(--motion-fast) ease, opacity var(--motion-fast) ease;
 }
 
 .edge-group:hover .edge {
-  animation: edge-march 760ms linear infinite;
-  stroke-dasharray: 6 5;
+  stroke-width: 3;
 }
 
 .edge--active,
 .edge--data-active {
   stroke-linecap: round;
-  stroke-dasharray: 10 7;
-  animation: edge-march 560ms linear infinite;
-  filter: drop-shadow(0 0 6px rgb(246 200 95 / 85%));
-}
-
-.edge--data-active {
-  filter: drop-shadow(0 0 6px rgb(88 166 255 / 85%));
+  filter: none;
 }
 
 .edge-flow,
@@ -2545,64 +2529,59 @@ body {
 }
 
 .edge-flow {
-  stroke-width: 4;
-  opacity: 0.95;
+  animation: none;
+  filter: none;
 }
 
 .edge-runner {
-  filter: drop-shadow(0 0 6px rgb(255 232 145 / 95%));
+  filter: drop-shadow(0 0 2px rgb(255 232 145 / 55%));
 }
 
 .node--active .node__body {
-  animation: node-running-pulse 1.05s ease-in-out infinite;
+  filter: none;
 }
 
-.node--done .node__body {
-  animation: node-done-pop 420ms var(--ease-out) both;
-}
-
+.node--done .node__body,
 .node--failed .node__body {
-  animation: node-failed-shake 380ms ease-in-out both;
+  animation: none;
 }
 
-@keyframes edge-march {
+/* Idle edges use a restrained marching highlight so a workflow still reads as
+   a directed graph before a run. It is intentionally lighter than live state. */
+.edge-idle {
+  display: none;
+  fill: none;
+  stroke: #aeb8cc;
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-dasharray: 1.5 17;
+  opacity: 0.52;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.edge-idle--data {
+  stroke: #58a6ff;
+  opacity: 0.58;
+}
+
+.canvas:not([data-status="running"]):not([data-status="paused"]) .edge-idle {
+  display: inline;
+  animation: edge-idle-flow 3.4s linear infinite;
+}
+
+.canvas:not([data-status="running"]):not([data-status="paused"]) .edge-idle--data {
+  animation-duration: 3s;
+}
+
+.canvas:not([data-status="running"]):not([data-status="paused"]) .edge-flow,
+.canvas:not([data-status="running"]):not([data-status="paused"]) .edge-runner {
+  display: none;
+}
+
+@keyframes edge-idle-flow {
   to {
-    stroke-dashoffset: -17;
-  }
-}
-
-@keyframes node-running-pulse {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 2px rgb(91 141 239 / 45%));
-  }
-  50% {
-    filter: drop-shadow(0 0 12px rgb(91 141 239 / 95%));
-  }
-}
-
-@keyframes node-done-pop {
-  0% {
-    filter: drop-shadow(0 0 0 rgb(63 178 127 / 0%));
-  }
-  45% {
-    filter: drop-shadow(0 0 11px rgb(63 178 127 / 90%));
-  }
-  100% {
-    filter: drop-shadow(0 0 0 rgb(63 178 127 / 0%));
-  }
-}
-
-@keyframes node-failed-shake {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 0 rgb(224 96 96 / 0%));
-  }
-  25% {
-    filter: drop-shadow(0 0 10px rgb(224 96 96 / 95%));
-  }
-  75% {
-    filter: drop-shadow(0 0 10px rgb(224 96 96 / 95%));
+    stroke-dashoffset: -18.5;
   }
 }
 

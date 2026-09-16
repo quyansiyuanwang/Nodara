@@ -10,6 +10,7 @@
 - Studio Agent Provider/final-JSON expanders persist across polling and the page renders local controls before the runtime is reachable; the Properties rail uses denser card groups, and graph nodes are reduced to 200x108 with common-config summaries.
 - Studio adds persistent workflow node groups in the metadata extension bag, group-frame selection/movement, unified multi-selection execution configuration, a workflow-wide group manager, grouped/persistent drawer tabs, tab badges and local Agent session search.
 - Canvas nodes no longer render decorative vertical accent bars, and the floating quick configuration opens only after a click without node movement; dragging or marquee selection no longer opens it.
+- Studio now keeps Inspector and Agent input focus/caret across document re-renders and session polling, adds a restrained idle edge-flow cue, and replaces flashy run-time pulses/glows with static highlights plus one slower moving arrow per active edge.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
