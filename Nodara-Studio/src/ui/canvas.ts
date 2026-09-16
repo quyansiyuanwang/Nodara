@@ -2211,6 +2211,27 @@ export class Canvas {
   private drawPendingEdge(): void {
     if (!this.pending) return;
     const end = { x: this.pending.x, y: this.pending.y };
+
+    // A data-only drag must originate from the data output the operator
+    // grabbed. The previous implementation always drew the primary preview
+    // from the Always execution port, which made the line appear to snap to a
+    // control socket even though the eventual edge was a data edge.
+    if (this.pending.edgeKind === "data" && !this.pending.dual) {
+      const dataSourcePort = this.pending.dataSourcePort ?? this.pending.sourcePort;
+      const dataSource = this.portCenter(
+        this.pending.sourceId,
+        "data",
+        "output",
+        dataSourcePort,
+      );
+      this.pendingEdge.classList.add("edge--pending-data");
+      this.pendingEdge.setAttribute("d", this.pendingPath(dataSource, end));
+      this.pendingDataEdge.classList.add("is-hidden");
+      this.pendingDataEdge.removeAttribute("d");
+      return;
+    }
+
+    this.pendingEdge.classList.remove("edge--pending-data");
     const controlSourcePort = this.pending.edgeKind === "control"
       ? this.pending.sourcePort
       : "always";

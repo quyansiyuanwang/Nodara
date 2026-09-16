@@ -303,6 +303,27 @@ describe("graph editing on the canvas", () => {
     expect(workflow.edges[0].target_port).toBe("in");
   });
 
+  it("previews a data drag from its data output, not the control output", () => {
+    const { canvas, workflow } = harness();
+    canvas.render();
+
+    const output = document.querySelector<SVGCircleElement>(
+      '[data-node-id="start"] .port--output',
+    )!;
+    pointerDown(output, 100, 100);
+
+    const pending = document.getElementById("pending-edge") as unknown as SVGPathElement;
+    const path = pending.getAttribute("d") ?? "";
+    const start = /^M\s+([\d.-]+)\s+([\d.-]+)/.exec(path);
+    const startNode = workflow.nodes.find((node) => node.id === "start")!;
+
+    expect(pending.classList.contains("edge--pending-data")).toBe(true);
+    expect(start).not.toBeNull();
+    expect(Number(start![1])).toBe(startNode.position!.x + 200);
+    // The data output is aligned with the first descriptor output row (y+27),
+    // while Always is on the execution rail near the bottom (y+68).
+    expect(Number(start![2])).toBe(startNode.position!.y + 27);
+  });
   it("offers a choice when a node body has multiple compatible data ports", () => {
     const { canvas, workflow, descriptors } = harness();
     const targetDescriptor = descriptor("test.Multi");
