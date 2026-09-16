@@ -193,7 +193,9 @@ Agent 的护栏不能替代 runtime 策略。所有实际执行仍由 runtime �
 
 ## 6. Studio Agent 对话
 
-确认 Studio 连接正常后打开底部 **Agent** 页。首次使用展开 **Provider 设置**，填写 OpenAI-compatible `Endpoint`、`Model`、`API Key` 和超时；API Key 只保留在当前 Studio 进程内存中，不写 `localStorage`，也不会进入日志。
+节点落线支持自动推断唯一端口；`Alt+拖拽` 可同时创建控制线和数据线。工具栏提供六套主题，节点和连线可覆盖颜色。Agent 支持流式输出、Provider Profile、差异、Trace 和系统凭据库；Audit 支持实时/历史执行图。
+
+确认 Studio 连接正常后打开底部 **Agent** 页或展开全屏工作区。首次使用展开 **Provider 设置**，填写 OpenAI-compatible `Endpoint`、`Model`、`API Key` 和超时；API Key 按 Profile 写入 Windows 凭据管理器，不写 `localStorage`、workflow JSON 或日志。模型输出会按 token 实时显示，停止按钮只终止当前生成。
 
 1. 在聊天框输入目标，例如“创建一个截图并记录截图元数据的流程”；
 2. 选择运行模式：**仅规划**、**手动执行**、**部分审批**、**自动执行**；

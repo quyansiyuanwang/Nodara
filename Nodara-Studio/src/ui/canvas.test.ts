@@ -285,6 +285,78 @@ describe("graph editing on the canvas", () => {
     expect(document.querySelectorAll(".edge")).toHaveLength(1);
   });
 
+  it("infers the unique target port when a line is dropped on a node body", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    const output = document.querySelector<SVGCircleElement>(
+      '[data-node-id="start"] .port--output',
+    )!;
+    const target = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    pointerDown(output);
+    pointerUp(target);
+
+    expect(workflow.edges).toHaveLength(1);
+    expect(workflow.edges[0].kind).toBe("data");
+    expect(workflow.edges[0].source_port).toBe("out");
+    expect(workflow.edges[0].target_port).toBe("in");
+  });
+
+  it("offers a choice when a node body has multiple compatible data ports", () => {
+    const { canvas, workflow, descriptors } = harness();
+    const targetDescriptor = descriptor("test.Multi");
+    targetDescriptor.inputs = [
+      { name: "first", display_name: "First", kind: "input", value_type: "string", required: false },
+      { name: "second", display_name: "Second", kind: "input", value_type: "any", required: false },
+    ];
+    descriptors.set(targetDescriptor.node_type, targetDescriptor);
+    canvas.addNode(targetDescriptor, 200, 100);
+    canvas.render();
+    const output = document.querySelector<SVGCircleElement>(
+      '[data-node-id="start"] .port--output',
+    )!;
+    const targetId = workflow.nodes[workflow.nodes.length - 1].id;
+    const target = document.querySelector<SVGGElement>(`[data-node-id="${targetId}"]`)!;
+    pointerDown(output);
+    pointerUp(target);
+
+    expect(workflow.edges).toHaveLength(0);
+    const choices = document.querySelectorAll<HTMLButtonElement>(".context-menu__item");
+    expect(choices).toHaveLength(2);
+    choices[0].click();
+    expect(workflow.edges).toHaveLength(1);
+    expect(workflow.edges[0].kind).toBe("data");
+  });
+
+  it("creates control and data edges together with Alt-drag", () => {
+    const { canvas, workflow } = harness();
+    canvas.addNode(descriptor("core.Log"), 200, 100);
+    canvas.render();
+
+    const control = document.querySelector<SVGElement>(
+      '[data-node-id="start"] .exec-port--success',
+    )!;
+    const target = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    control.dispatchEvent(
+      new MouseEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        altKey: true,
+        clientX: 100,
+        clientY: 100,
+      }),
+    );
+    pointerUp(target);
+
+    expect(workflow.edges).toHaveLength(2);
+    const controlEdge = workflow.edges.find((edge) => edge.kind === "control")!;
+    const dataEdge = workflow.edges.find((edge) => edge.kind === "data")!;
+    expect(controlEdge.branch).toBe("success");
+    expect(dataEdge.source_port).toBe("out");
+    expect(dataEdge.target_port).toBe("in");
+  });
+
   it("refuses a duplicate connection", () => {
     const { canvas, workflow } = harness();
     canvas.addNode(descriptor("core.Log"), 200, 100);

@@ -366,6 +366,19 @@ async fn a_run_completes_and_reports_variables() {
     assert_eq!(snapshot["nodes_executed"], 4);
     assert_eq!(snapshot["variables"]["answer"], 42);
     assert!(snapshot["event_count"].as_u64().unwrap() >= 9);
+
+    let (status, workflow) = call(
+        &state,
+        Request::builder()
+            .uri(format!("/api/v1/runs/{run_id}/workflow"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(workflow["id"], "wf.api");
+    assert_eq!(workflow["nodes"].as_array().unwrap().len(), 4);
+    assert_eq!(workflow["edges"].as_array().unwrap().len(), 3);
 }
 
 #[tokio::test]

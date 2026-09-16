@@ -68,7 +68,7 @@
 | `author` | string / null | 作者或负责团队。 |
 | `version` | string / null | 工作流自身的语义化版本（与 `schema_version` 无关）。 |
 | `created_at`、`updated_at` | string / null | ISO-8601 时间戳。 |
-| `extensions` | object | 扩展包；未知字段会在往返中保留。 |
+| `extensions` | object | 扩展包；未知字段会在往返中保留。Studio 使用 `studio.groups` 保存节点分组、`studio.visuals` 保存节点/边颜色覆盖。 |
 
 ### `nodes[]`
 

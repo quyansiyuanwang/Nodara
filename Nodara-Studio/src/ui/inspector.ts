@@ -8,6 +8,15 @@
 import { localizeDiagnostic, t } from "../i18n";
 import { renderConfigForm } from "../schema/form";
 import {
+  EDGE_COLORS,
+  edgeColor,
+  NODE_COLORS,
+  nodeColor,
+  renameNodeVisual,
+  setEdgeColor,
+  setNodeColor,
+} from "../model/visuals";
+import {
   assignNodesToGroup,
   createWorkflowGroup,
   deleteWorkflowGroup,
@@ -100,6 +109,7 @@ export class Inspector {
     const descriptor = this.descriptorFor(node.type);
     this.renderHeader(node, descriptor);
     this.renderIdentity(node);
+    this.renderNodeAppearance(node);
     this.renderExecution(node, descriptor);
     this.renderNodeGroup(node);
     this.renderConfig(node, descriptor);
@@ -526,6 +536,7 @@ export class Inspector {
     path.className = "muted";
     path.textContent = t("inspector.edgePath", { source: edge.source, target: edge.target });
     this.root.appendChild(path);
+    this.renderEdgeAppearance(edge);
 
     if (edge.kind === "data") {
       const ports = document.createElement("p");
@@ -658,6 +669,7 @@ export class Inspector {
         if (edge.target === previous) edge.target = next;
       }
       renameNodeInGroups(this.workflow, previous, next);
+      renameNodeVisual(this.workflow, previous, next);
       this.handlers.onChange();
     });
     identity.appendChild(idLabel);
@@ -858,6 +870,66 @@ export class Inspector {
         return;
     }
     this.handlers.onChange();
+  }
+
+  private renderNodeAppearance(node: WorkflowNode): void {
+    this.renderAppearance(
+      t("inspector.appearance"),
+      nodeColor(this.workflow, node.id),
+      NODE_COLORS,
+      (color) => {
+        setNodeColor(this.workflow, node.id, color);
+        this.handlers.onChange();
+        this.render(node.id);
+      },
+    );
+  }
+
+  private renderEdgeAppearance(edge: WorkflowEdge): void {
+    this.renderAppearance(
+      t("inspector.appearance"),
+      edgeColor(this.workflow, edge.id),
+      EDGE_COLORS,
+      (color) => {
+        setEdgeColor(this.workflow, edge.id, color);
+        this.handlers.onChange();
+        this.render(null, [], edge.id);
+      },
+    );
+  }
+
+  private renderAppearance(
+    title: string,
+    current: string | undefined,
+    palette: readonly string[],
+    apply: (color: string | null) => void,
+  ): void {
+    const field = document.createElement("div");
+    field.className = "field appearance-field";
+    const label = document.createElement("label");
+    label.className = "field__label";
+    label.textContent = title;
+    const swatches = document.createElement("div");
+    swatches.className = "appearance-swatches";
+    for (const color of palette) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "appearance-swatch";
+      button.style.setProperty("--swatch", color);
+      button.title = color;
+      button.setAttribute("aria-label", `${title}: ${color}`);
+      if (current?.toLowerCase() === color.toLowerCase()) button.classList.add("is-selected");
+      button.addEventListener("click", () => apply(color));
+      swatches.appendChild(button);
+    }
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "btn btn--small";
+    reset.textContent = t("inspector.resetAppearance");
+    reset.disabled = !current;
+    reset.addEventListener("click", () => apply(null));
+    field.append(label, swatches, reset);
+    this.root.appendChild(field);
   }
 
   private renderConfig(node: WorkflowNode, descriptor: NodeDescriptor | undefined): void {

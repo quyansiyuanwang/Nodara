@@ -93,7 +93,7 @@ cargo run -p nodara-agent -- --report run "log a greeting"
 
 ### Studio transport
 
-Desktop Studio starts the hidden `studio` subcommand with one JSON request on
+Desktop Studio starts the hidden `studio --stream` subcommand with one JSON request on
 stdin and consumes one JSON response from stdout. The request includes the goal,
 optional base workflow, existing session id, provider settings and execution
 mode. The response includes the final workflow, run snapshot, report, trace,
@@ -103,6 +103,10 @@ and runtime session persist across turns.
 ```bash
 echo '{"goal":"log hello","mode":"forbidden","provider":{"endpoint":"...","model":"..."}}' \
   | nodara-agent --runtime http://127.0.0.1:8710 studio
+
+With `--stream`, stdout is JSONL: model deltas, validation, repair, plan, run
+and terminal events. Without it, the original single JSON response remains
+available for automation.
 ```
 
 The desktop modes map to runtime approval as follows:

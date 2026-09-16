@@ -103,6 +103,8 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 22. One of the NSIS/MSI installers installs, launches, connects, and uninstalls.
 23. Marquee selection and node dragging do not open the floating quick card; a click without movement opens it. After a multi-selection, click any selected node to edit shared execution settings.
 24. Type continuously in Inspector and Agent inputs while validation and session polling run; focus and caret position must remain stable. Plain clicks open the floating quick card, but Ctrl/Shift selection must not. Agent polling must also preserve button focus, expanded details and scroll position.
+25. Drop edges on node bodies to verify unique inference and ambiguous-port choice. Hold Alt to create control and data edges together, including partial success. Switch all six themes, override node/edge colors, export/import the workflow and verify the overrides survive.
+26. Verify Agent Provider Profiles use Windows Credential Manager, model output streams token by token, Stop cancels only generation, diffs and Trace render, and Audit shows live/history summary, graph, timeline and linked details.
 
 ## Agent
 

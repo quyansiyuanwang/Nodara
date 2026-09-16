@@ -9,15 +9,19 @@
 //! experience: if port 8710 is already served, that runtime is reused; if not,
 //! `nodara-runtime.exe` is started from the package and stopped with Studio.
 
+use std::collections::{HashMap, HashSet};
+use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpStream};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri::RunEvent;
+use tauri::ipc::Channel;
+use tauri::{RunEvent, State};
 
 const RUNTIME_ADDRESS: &str = "127.0.0.1:8710";
 const RUNTIME_START_TIMEOUT: Duration = Duration::from_secs(8);
@@ -26,7 +30,15 @@ fn main() {
     let mut runtime = RuntimeProcess::start();
 
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_agent_turn])
+        .manage(AgentProcesses::default())
+        .invoke_handler(tauri::generate_handler![
+            run_agent_turn,
+            run_agent_turn_stream,
+            stop_agent_turn,
+            agent_credential_set,
+            agent_credential_get,
+            agent_credential_delete,
+        ])
         .build(tauri::generate_context!())
         .expect("error while building the Studio shell");
 
@@ -78,6 +90,187 @@ fn run_agent_turn(request: serde_json::Value) -> Result<serde_json::Value, Strin
     }
     serde_json::from_slice(&output.stdout)
         .map_err(|error| format!("Agent returned invalid JSON: {error}"))
+}
+
+#[derive(Default)]
+struct AgentProcesses {
+    children: Arc<Mutex<HashMap<String, Arc<Mutex<Child>>>>>,
+    cancelled: Arc<Mutex<HashSet<String>>>,
+}
+
+/// Run one structured Agent turn and forward JSONL progress through a Tauri channel.
+#[tauri::command]
+async fn run_agent_turn_stream(
+    request: serde_json::Value,
+    turn_id: String,
+    on_event: Channel<serde_json::Value>,
+    processes: State<'_, AgentProcesses>,
+) -> Result<(), String> {
+    let children = processes.children.clone();
+    let cancelled = processes.cancelled.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        run_agent_turn_stream_inner(request, turn_id, on_event, children, cancelled)
+    })
+    .await
+    .map_err(|error| format!("Agent task failed: {error}"))?
+}
+
+fn run_agent_turn_stream_inner(
+    request: serde_json::Value,
+    turn_id: String,
+    on_event: Channel<serde_json::Value>,
+    processes_children: Arc<Mutex<HashMap<String, Arc<Mutex<Child>>>>>,
+    processes_cancelled: Arc<Mutex<HashSet<String>>>,
+) -> Result<(), String> {
+    let runtime = request
+        .get("runtime_url")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("http://127.0.0.1:8710");
+    let executable = find_agent_binary().ok_or_else(|| {
+        "nodara-agent.exe was not found; set NODARA_AGENT_BIN or install the desktop bundle"
+            .to_string()
+    })?;
+    let mut child = Command::new(&executable)
+        .arg("--runtime")
+        .arg(runtime)
+        .arg("studio")
+        .arg("--stream")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("could not start {}: {error}", executable.display()))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        let payload = serde_json::to_vec(&request)
+            .map_err(|error| format!("could not encode the Agent request: {error}"))?;
+        stdin
+            .write_all(&payload)
+            .map_err(|error| format!("could not send the Agent request: {error}"))?;
+    }
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Agent stdout was not available".to_string())?;
+    let stderr = child.stderr.take();
+    let shared = Arc::new(Mutex::new(child));
+    processes_children
+        .lock()
+        .map_err(|_| "Agent process registry is unavailable".to_string())?
+        .insert(turn_id.clone(), shared.clone());
+
+    let stderr_thread = stderr.map(|stderr| {
+        thread::spawn(move || {
+            let mut text = String::new();
+            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+                text.push_str(&line);
+                text.push('\n');
+            }
+            text
+        })
+    });
+
+    let stream_result = (|| -> Result<(), String> {
+        for line in BufReader::new(stdout).lines() {
+            let line = line.map_err(|error| format!("could not read Agent output: {error}"))?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let event = serde_json::from_str(&line)
+                .map_err(|error| format!("Agent emitted invalid JSONL: {error}: {line}"))?;
+            on_event
+                .send(event)
+                .map_err(|error| format!("could not forward Agent event: {error}"))?;
+        }
+        Ok(())
+    })();
+
+    let cancelled = processes_cancelled
+        .lock()
+        .map(|mut cancelled| cancelled.remove(&turn_id))
+        .unwrap_or(false);
+    let status = shared
+        .lock()
+        .map_err(|_| "Agent process lock failed".to_string())?
+        .wait()
+        .map_err(|error| format!("could not wait for the Agent: {error}"))?;
+    if let Ok(mut children) = processes_children.lock() {
+        children.remove(&turn_id);
+    }
+    let stderr_text = stderr_thread
+        .and_then(|thread| thread.join().ok())
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if cancelled {
+        let _ = on_event.send(serde_json::json!({ "type": "cancelled" }));
+        return Ok(());
+    }
+    stream_result?;
+    if !status.success() {
+        return Err(if stderr_text.is_empty() {
+            format!("Agent exited with {status}")
+        } else {
+            stderr_text
+        });
+    }
+    Ok(())
+}
+
+/// Stop only the current model-generation process. Runtime runs are untouched.
+#[tauri::command]
+fn stop_agent_turn(turn_id: String, processes: State<'_, AgentProcesses>) -> Result<bool, String> {
+    let child = processes
+        .children
+        .lock()
+        .map_err(|_| "Agent process registry is unavailable".to_string())?
+        .get(&turn_id)
+        .cloned();
+    let Some(child) = child else {
+        return Ok(false);
+    };
+    processes
+        .cancelled
+        .lock()
+        .map_err(|_| "Agent cancellation registry is unavailable".to_string())?
+        .insert(turn_id);
+    child
+        .lock()
+        .map_err(|_| "Agent process lock failed".to_string())?
+        .kill()
+        .map_err(|error| format!("could not stop Agent: {error}"))?;
+    Ok(true)
+}
+
+fn credential_entry(profile_id: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new("dev.nodara.studio.agent", profile_id)
+        .map_err(|error| format!("credential store unavailable: {error}"))
+}
+
+#[tauri::command]
+fn agent_credential_set(profile_id: String, secret: String) -> Result<(), String> {
+    credential_entry(&profile_id)?
+        .set_password(&secret)
+        .map_err(|error| format!("could not store API key: {error}"))
+}
+
+#[tauri::command]
+fn agent_credential_get(profile_id: String) -> Result<Option<String>, String> {
+    match credential_entry(&profile_id)?.get_password() {
+        Ok(secret) => Ok(Some(secret)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(format!("could not read API key: {error}")),
+    }
+}
+
+#[tauri::command]
+fn agent_credential_delete(profile_id: String) -> Result<(), String> {
+    match credential_entry(&profile_id)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(format!("could not delete API key: {error}")),
+    }
 }
 
 fn find_agent_binary() -> Option<PathBuf> {

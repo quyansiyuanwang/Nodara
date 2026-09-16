@@ -132,8 +132,10 @@ runtime 可执行文件，或先手工运行 runtime。
 |---|---|
 | 添加节点 | 在左侧列表中**单击**节点，或拖到画布指定位置；每个工作流只允许一个 `core.Start` |
 | 移动节点 | 按住节点拖动 |
-| 创建数据连线 | 从圆形数据输出拖到圆形数据输入；按 `Esc` 取消；悬停显示名称、方向、类型和用途 |
-| 创建执行连线 | 从右下角 Always / Success / Failure 菱形输出拖到左下角执行输入 |
+| 创建数据连线 | 从圆形数据输出拖到目标输入或节点主体；主体上只有一个兼容端口时自动连接，多个候选时弹出选择卡 |
+| 创建执行连线 | 从右下角 Always / Success / Failure 菱形输出拖到底部执行输入或节点主体 |
+| 同时创建控制线和数据线 | 按住 `Alt` 从节点主体、数据输出或执行输出拖拽；能唯一推断的端口自动连接，歧义时选择数据端口，只成功一条时保留并提示 |
+| 主题与局部配色 | 工具栏可选择 Obsidian、Graphite、Ocean、Ember、Paper、High Contrast；节点和连线可在属性面板覆盖颜色并恢复主题默认值 |
 | 框选与多选 | 空白处左键拖动框选；`Ctrl+左键` 切换单个节点；`Shift+左键` 选取控制图中锚点到目标的所有有向路径节点 |
 | 多节点操作 | 拖动任一已选节点会移动全部；删除、启停、断点应用整组；右栏统一配置和浮动快配置可批量设置常用执行字段 |
 | 浮动快配置 | **普通单击**节点且不拖动后显示；拖动、框选、`Ctrl+左键` 和 `Shift+左键` 选择都不会弹出。多选后可再普通单击任一已选节点，批量编辑常用执行字段 |
@@ -155,7 +157,11 @@ runtime 可执行文件，或先手工运行 runtime。
 
 Studio 使用面向操作的紧凑布局：工具栏、属性字段、事件行和默认底栏都降低了高度，并通过折叠节点分类提升信息密度。左栏分类会记住展开状态，默认只展开**核心**；需要更多空间时可直接拖动分隔条放大任意区域。
 
-右栏采用独立滚动的卡片式折叠分组，标题、字段和控制层级更紧凑。画布节点收紧为更小的信息块，空白区域用于显示常用配置摘要；Agent 的 **Provider 设置** 和最终 JSON 展开状态会在会话轮询及数据刷新后保留，不会自动收起。
+右栏采用独立滚动的卡片式折叠分组，标题、字段和控制层级更紧凑。画布节点收紧为更小的信息块，空白区域用于显示常用配置摘要；Agent 的 **Provider 设置** 和最终 JSON 展开状态会在会话轮询及数据刷新后保留，不会自动收起。主题外观保存在 Studio 全局设置，节点和连线的颜色覆盖随 workflow 保存。
+
+Agent 工作区支持多个命名 Provider Profile、提示词模板和每轮附加指令。API Key 写入 Windows 凭据管理器，不进入 localStorage、workflow JSON 或日志。模型返回会按 token 实时显示；停止只终止当前生成，不会取消已经启动的工作流。每轮结果展示节点/边差异、验证诊断、最终 JSON、决策 Trace 和执行入口，载入画布或运行仍需要用户明确确认。
+
+Audit 底栏提供摘要、时间线和执行图，并可展开为全屏工作区。运行中会实时更新节点状态和实际走过的边；点击节点或时间线记录后，右侧显示结构化详情和原始 JSON。旧运行没有 workflow 快照时自动降级为记录列表。
 
 动效用于表达真实执行状态，而不是单纯装饰：
 
@@ -399,10 +405,7 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 
 ### Agent 对话与审批
 
-桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio`，并把结构化请求
-通过 stdin/stdout 传给 Agent。Provider 可填写 OpenAI-compatible Endpoint、Model、
-API Key 和超时；API Key 仅保存在当前 Studio 进程内存。会话列表、完整消息历史、计划
-JSON、审批和运行记录都由 runtime session 保存。Provider 设置和计划 JSON 的展开状态会跨轮询刷新保留；未变化的会话响应不会重建 Agent DOM。Agent 页打开时即使 runtime 暂时不可达，也会先显示本地 Provider 配置和对话输入框。
+桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio --stream`，并把结构化请求通过 stdin/stdout 传给 Agent。Provider 支持多个命名 Profile、提示词模板、每轮附加指令和 OpenAI-compatible Endpoint/Model/超时；每个 Profile 的 API Key 写入 Windows 凭据管理器，不写 localStorage、workflow JSON 或日志。会话列表、完整消息历史、计划 JSON、审批和运行记录由 runtime session 保存；模型 token、验证、修复、计划和运行阶段通过 JSONL 实时显示。Provider 设置和计划 JSON 的展开状态会跨轮询刷新保留。
 
 四档执行模式：
 
@@ -414,7 +417,7 @@ JSON、审批和运行记录都由 runtime session 保存。Provider 设置和�
 | 自动执行 | 自动运行并自动放行，但仍记录 capability decision 和 audit |
 
 修改基线可选“当前画布”或“上一轮 Agent 计划”。Agent 结果永远不会自动覆盖画布；
-先检查最终 JSON 和诊断，再使用“载入画布”“验证”“运行此计划”或“打开对应审计”。
+先检查节点/边差异、最终 JSON、诊断和 Trace，再使用“载入画布”“验证”“运行此计划”或“打开对应审计”。生成过程中可停止当前模型输入，但不会取消已经启动的 runtime run。
 
 ## 6. Agent CLI 与桌面 Agent 操作
 

@@ -27,7 +27,7 @@ use serde_json::Value;
 
 use crate::audit::{AuditTrace, TraceEntry, TraceStep};
 use crate::error::{AgentError, AgentResult};
-use crate::planner::{PlanRequest, Planner};
+use crate::planner::{PlanObserver, PlanRequest, Planner};
 use crate::policy::{Budget, BudgetTracker, GuardrailPolicy};
 use crate::provider::LlmProvider;
 use crate::report::ExecutionReport;
@@ -36,6 +36,12 @@ use crate::selector::ToolSelector;
 
 /// How many run attempts the agent will make before giving up.
 const MAX_RUN_ATTEMPTS: u32 = 2;
+
+struct NoopPlanObserver;
+
+impl PlanObserver for NoopPlanObserver {
+    fn on_event(&mut self, _event: crate::planner::PlanEvent) {}
+}
 
 /// Session configuration.
 #[derive(Debug, Clone)]
@@ -273,15 +279,41 @@ impl<'a> Agent<'a> {
 
     /// Plan a workflow without running it.
     pub fn plan(&self, goal: &str, constraints: &[String]) -> AgentResult<AgentOutcome> {
-        self.session(goal, constraints, false)
+        self.session(goal, constraints, false, &mut NoopPlanObserver)
+    }
+
+    /// Plan a workflow while emitting structured progress events.
+    pub fn plan_streaming(
+        &self,
+        goal: &str,
+        constraints: &[String],
+        observer: &mut dyn PlanObserver,
+    ) -> AgentResult<AgentOutcome> {
+        self.session(goal, constraints, false, observer)
     }
 
     /// Plan a workflow and run it.
     pub fn plan_and_run(&self, goal: &str, constraints: &[String]) -> AgentResult<AgentOutcome> {
-        self.session(goal, constraints, true)
+        self.session(goal, constraints, true, &mut NoopPlanObserver)
     }
 
-    fn session(&self, goal: &str, constraints: &[String], run: bool) -> AgentResult<AgentOutcome> {
+    /// Plan and run while emitting structured progress events.
+    pub fn plan_and_run_streaming(
+        &self,
+        goal: &str,
+        constraints: &[String],
+        observer: &mut dyn PlanObserver,
+    ) -> AgentResult<AgentOutcome> {
+        self.session(goal, constraints, true, observer)
+    }
+
+    fn session(
+        &self,
+        goal: &str,
+        constraints: &[String],
+        run: bool,
+        observer: &mut dyn PlanObserver,
+    ) -> AgentResult<AgentOutcome> {
         let mut trace = match &self.config.trace_path {
             Some(path) => AuditTrace::open(path)?,
             None => AuditTrace::in_memory(),
@@ -361,7 +393,7 @@ impl<'a> Agent<'a> {
                     .push(format!("A previous attempt failed: {feedback}"));
             }
 
-            let outcome = match planner.plan(&request) {
+            let outcome = match planner.plan_with_observer(&request, observer) {
                 Ok(outcome) => outcome,
                 Err(error) => return self.fail_session(&session_id, error),
             };
@@ -452,6 +484,12 @@ impl<'a> Agent<'a> {
                 });
             }
 
+            if run || self.config.auto_run {
+                observer.on_event(crate::planner::PlanEvent::Phase {
+                    phase: "run".to_string(),
+                    message: "starting the accepted workflow".to_string(),
+                });
+            }
             match self.run_once(&session_id, &workflow, &mut trace) {
                 RunAttempt::Succeeded {
                     snapshot,

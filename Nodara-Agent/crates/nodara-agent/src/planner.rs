@@ -15,6 +15,35 @@ use crate::policy::BudgetTracker;
 use crate::prompt::{modify_prompt, repair_prompt, system_prompt, user_prompt};
 use crate::provider::LlmProvider;
 
+/// Progress emitted while a planner is drafting, validating and repairing.
+#[derive(Debug, Clone)]
+pub enum PlanEvent {
+    /// A named phase started.
+    Phase { phase: String, message: String },
+    /// Raw model text arrived.
+    ModelDelta { text: String },
+    /// A draft was validated.
+    Validation {
+        accepted: bool,
+        report: ValidationReport,
+    },
+    /// A repair round is requesting a corrected draft.
+    RepairStarted { attempt: u32 },
+    /// A valid workflow is ready for review.
+    PlanReady { workflow: Workflow },
+}
+
+/// Receives planner progress without coupling the planner to a transport.
+pub trait PlanObserver {
+    fn on_event(&mut self, event: PlanEvent);
+}
+
+struct NoopPlanObserver;
+
+impl PlanObserver for NoopPlanObserver {
+    fn on_event(&mut self, _event: PlanEvent) {}
+}
+
 /// Everything needed to plan one workflow.
 #[derive(Debug, Clone)]
 pub struct PlanRequest {
@@ -119,6 +148,15 @@ impl<'a> Planner<'a> {
 
     /// Plan a workflow, repairing until the runtime accepts it.
     pub fn plan(&mut self, request: &PlanRequest) -> AgentResult<PlanOutcome> {
+        self.plan_with_observer(request, &mut NoopPlanObserver)
+    }
+
+    /// Plan while reporting model deltas, validation and repair phases.
+    pub fn plan_with_observer(
+        &mut self,
+        request: &PlanRequest,
+        observer: &mut dyn PlanObserver,
+    ) -> AgentResult<PlanOutcome> {
         let system = system_prompt(&self.descriptors);
         let opening = match &request.base {
             Some(base) => {
@@ -132,16 +170,33 @@ impl<'a> Planner<'a> {
         messages.push(ChatMessage::user(opening));
 
         self.charge_step()?;
-        let first = self
-            .provider
-            .complete(&ChatRequest::new(messages.clone()))?;
+        observer.on_event(PlanEvent::Phase {
+            phase: "model_call".to_string(),
+            message: "requesting the first draft".to_string(),
+        });
+        let first =
+            self.provider
+                .complete_streaming(&ChatRequest::new(messages.clone()), &mut |text| {
+                    observer.on_event(PlanEvent::ModelDelta {
+                        text: text.to_string(),
+                    })
+                })?;
         let mut raw = first.content;
         let mut repairs = 0;
         let mut tokens_used = u64::from(first.usage.total());
 
         loop {
             let (workflow, report) = self.evaluate(&raw);
+            observer.on_event(PlanEvent::Validation {
+                accepted: report.is_valid(),
+                report: report.clone(),
+            });
             if report.is_valid() {
+                if let Some(workflow) = &workflow {
+                    observer.on_event(PlanEvent::PlanReady {
+                        workflow: workflow.clone(),
+                    });
+                }
                 return Ok(PlanOutcome {
                     workflow,
                     raw,
@@ -162,14 +217,24 @@ impl<'a> Planner<'a> {
                 });
             }
             repairs += 1;
+            observer.on_event(PlanEvent::RepairStarted { attempt: repairs });
 
             let diagnostics = serde_json::to_value(&report)?;
             messages.push(ChatMessage::assistant(raw.clone()));
             messages.push(ChatMessage::user(repair_prompt(&raw, &diagnostics)));
             self.charge_step()?;
-            let response = self
-                .provider
-                .complete(&ChatRequest::new(messages.clone()))?;
+            observer.on_event(PlanEvent::Phase {
+                phase: "repair".to_string(),
+                message: format!("repair round {repairs}"),
+            });
+            let response = self.provider.complete_streaming(
+                &ChatRequest::new(messages.clone()),
+                &mut |text| {
+                    observer.on_event(PlanEvent::ModelDelta {
+                        text: text.to_string(),
+                    })
+                },
+            )?;
             tokens_used += u64::from(response.usage.total());
             raw = response.content;
         }
@@ -268,6 +333,14 @@ mod tests {
     use crate::provider::MockProvider;
     use nodara_schema::NodeDescriptor;
 
+    struct Collector(Vec<PlanEvent>);
+
+    impl PlanObserver for Collector {
+        fn on_event(&mut self, event: PlanEvent) {
+            self.0.push(event);
+        }
+    }
+
     fn descriptors() -> Vec<NodeDescriptor> {
         vec![
             NodeDescriptor {
@@ -315,9 +388,24 @@ mod tests {
         .to_string();
         let provider = MockProvider::new([draft]);
         let mut planner = Planner::new(&provider, descriptors());
-        let outcome = planner.plan(&PlanRequest::new("log something")).unwrap();
+        let mut observer = Collector(Vec::new());
+        let outcome = planner
+            .plan_with_observer(&PlanRequest::new("log something"), &mut observer)
+            .unwrap();
         assert!(outcome.accepted);
         assert_eq!(outcome.repairs, 0);
+        assert!(observer
+            .0
+            .iter()
+            .any(|event| matches!(event, PlanEvent::ModelDelta { .. })));
+        assert!(observer
+            .0
+            .iter()
+            .any(|event| matches!(event, PlanEvent::Validation { .. })));
+        assert!(observer
+            .0
+            .iter()
+            .any(|event| matches!(event, PlanEvent::PlanReady { .. })));
     }
 
     #[test]

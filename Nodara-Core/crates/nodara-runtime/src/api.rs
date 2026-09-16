@@ -47,6 +47,7 @@ pub fn router(state: Arc<RuntimeState>) -> Router {
         // than carrying a WebSocket client of its own.
         .route("/runs/{id}/events", get(stream_run_events))
         .route("/runs/{id}/event-log", get(run_events))
+        .route("/runs/{id}/workflow", get(run_workflow))
         .route("/runs/{id}/artifacts", get(list_run_artifacts))
         .route("/runs/{id}/artifacts/{artifact_id}", get(get_run_artifact))
         .route(
@@ -456,6 +457,18 @@ async fn run_events(
         .get(&id)
         .ok_or_else(|| ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{id}`")))?;
     Ok(Json(handle.history()))
+}
+
+/// `GET /runs/{id}/workflow` — the exact workflow snapshot captured at start.
+async fn run_workflow(
+    State(state): State<Arc<RuntimeState>>,
+    Path(id): Path<String>,
+) -> Result<Json<nodara_schema::Workflow>, ApiError> {
+    let handle = state
+        .runs
+        .get(&id)
+        .ok_or_else(|| ApiError::not_found("E_RUN_NOT_FOUND", format!("no run with id `{id}`")))?;
+    Ok(Json(handle.workflow()))
 }
 
 #[derive(Debug, Serialize)]

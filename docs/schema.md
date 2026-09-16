@@ -72,7 +72,7 @@ document is also served under its file name (`/schema/workflow.schema.json`).
 | `author` | string / null | Author or owning team. |
 | `version` | string / null | Semantic version of the workflow itself (independent of `schema_version`). |
 | `created_at`, `updated_at` | string / null | ISO-8601 timestamps. |
-| `extensions` | object | Extension bag; unknown keys are preserved on round-trip. |
+| `extensions` | object | Extension bag; unknown keys are preserved on round-trip. Studio stores node groups under `studio.groups` and node/edge color overrides under `studio.visuals`. |
 
 ### `nodes[]`
 

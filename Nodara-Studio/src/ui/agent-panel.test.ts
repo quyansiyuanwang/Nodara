@@ -6,6 +6,11 @@ import type { AgentSessionList } from "../runtime/types";
 
 const handlers: AgentPanelHandlers = {
   onSubmit: async () => undefined,
+  onStopGeneration: async () => false,
+  onCredentialGet: async () => null,
+  onCredentialSet: async () => undefined,
+  onCredentialDelete: async () => undefined,
+  getCurrentWorkflow: () => ({ schema_version: "2.1", id: "wf", metadata: { name: "wf", tags: [] }, nodes: [], edges: [], variables: {} }),
   onDecide: () => undefined,
   onLoadPlan: () => undefined,
   onOpenRun: () => undefined,
@@ -88,6 +93,36 @@ describe("AgentPanel settings", () => {
     const restored = root.querySelector<HTMLButtonElement>('[data-agent-focus="new-chat"]')!;
     expect(document.activeElement).toBe(restored);
     expect(root.querySelector<HTMLElement>(".agent-main")!.scrollTop).toBe(120);
+  });
+
+  it("renders streamed model deltas and plan phases", async () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const streamHandlers: AgentPanelHandlers = {
+      ...handlers,
+      onSubmit: async (_request, _turnId, onEvent) => {
+        onEvent({ type: "phase_changed", phase: "model_call", message: "Planning" });
+        onEvent({ type: "model_delta", text: "{\"schema_version\":\"2.1\"}" });
+      },
+    };
+    new AgentPanel(root, streamHandlers);
+    const composer = root.querySelector<HTMLTextAreaElement>('[data-agent-focus="composer"]')!;
+    composer.value = "make a workflow";
+    composer.dispatchEvent(new Event("input", { bubbles: true }));
+    root.querySelector<HTMLFormElement>(".agent-composer")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(root.querySelector(".agent-stream")?.textContent).toContain("schema_version");
+  });
+
+  it("opens and persists the full workspace", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    new AgentPanel(root, handlers);
+    root.querySelector<HTMLButtonElement>('[data-agent-focus="workspace-toggle"]')!.click();
+    expect(root.classList.contains("agent--workspace")).toBe(true);
+    expect(localStorage.getItem("nodara.agent.settings.v1")).toContain('"workspaceOpen":true');
   });
 
   it("keeps provider input focus and caret after a session refresh", () => {

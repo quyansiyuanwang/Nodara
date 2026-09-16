@@ -27,6 +27,12 @@ import {
   renameWorkflowGroup,
 } from "../model/groups";
 import { NodeDescriptor, RunStatus, Workflow, WorkflowNode } from "../runtime/types";
+import {
+  edgeColor,
+  nodeColor,
+  removeEdgeVisual,
+  removeNodeVisual,
+} from "../model/visuals";
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 108;
@@ -52,7 +58,16 @@ interface PendingConnection {
   y: number;
   originX: number;
   originY: number;
-  mode: "drag" | "click";
+  mode: "drag" | "click" | "choose";
+  dual: boolean;
+  dataSourcePort?: string;
+}
+
+interface DataPortPair {
+  sourcePort: string;
+  targetPort: string;
+  sourceLabel: string;
+  targetLabel: string;
 }
 
 interface NodeDrag {
@@ -88,6 +103,7 @@ export class Canvas {
   private readonly edgesLayer: SVGGElement;
   private readonly groupsLayer: SVGGElement;
   private readonly pendingEdge: SVGPathElement;
+  private readonly pendingDataEdge: SVGPathElement;
   private readonly selectionBox: SVGRectElement;
   private readonly quickConfig: HTMLDivElement;
   private readonly edgeAnimations = new Map<string, EdgeAnimation>();
@@ -122,6 +138,10 @@ export class Canvas {
     this.groupsLayer.classList.add("groups");
     this.viewport.insertBefore(this.groupsLayer, this.edgesLayer);
     this.pendingEdge = svg.querySelector("#pending-edge")!;
+    this.pendingDataEdge = this.pendingEdge.cloneNode(false) as SVGPathElement;
+    this.pendingDataEdge.id = "pending-data-edge";
+    this.pendingDataEdge.classList.add("edge--pending-data");
+    this.pendingEdge.after(this.pendingDataEdge);
     this.selectionBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
     this.selectionBox.classList.add("canvas-selection-box", "is-hidden");
     this.viewport.appendChild(this.selectionBox);
@@ -809,10 +829,8 @@ export class Canvas {
       this.pan = null;
       this.svg.classList.remove("canvas--panning");
     }
-    if (this.pending) {
-      this.pending = null;
-      this.pendingEdge.classList.add("is-hidden");
-      this.pendingEdge.removeAttribute("d");
+    if (this.pending && this.pending.mode !== "choose") {
+      this.clearPendingConnection();
     }
     if (this.drag) {
       const drag = this.drag;
@@ -872,9 +890,7 @@ export class Canvas {
     }
     if (event.key === "Escape" && this.pending) {
       event.preventDefault();
-      this.pending = null;
-      this.pendingEdge.classList.add("is-hidden");
-      this.pendingEdge.removeAttribute("d");
+      this.clearPendingConnection();
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.key === "0") {
@@ -953,6 +969,7 @@ export class Canvas {
   private deleteSelection(): void {
     this.contextMenu.hidden = true;
     if (this.selectedEdge) {
+      removeEdgeVisual(this.workflow, this.selectedEdge);
       this.workflow.edges = this.workflow.edges.filter((edge) => edge.id !== this.selectedEdge);
       this.select(null);
       this.handlers.onChange();
@@ -960,6 +977,7 @@ export class Canvas {
     }
     if (this.selected.size > 0) {
       const ids = new Set(this.selected);
+      for (const id of ids) removeNodeVisual(this.workflow, id);
       this.workflow.nodes = this.workflow.nodes.filter((node) => !ids.has(node.id));
       this.workflow.edges = this.workflow.edges.filter(
         (edge) => !ids.has(edge.source) && !ids.has(edge.target),
@@ -1280,6 +1298,8 @@ export class Canvas {
       const x = node.position?.x ?? 0;
       const y = node.position?.y ?? 0;
       group.setAttribute("transform", `translate(${x}, ${y})`);
+      const customColor = nodeColor(this.workflow, node.id);
+      if (customColor) group.style.setProperty("--node-color", customColor);
 
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("width", String(NODE_WIDTH));
@@ -1385,6 +1405,26 @@ export class Canvas {
       group.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || this.spaceDown) return;
         if ((event.target as Element).closest(".port, .exec-port")) return;
+        if (event.altKey) {
+          event.preventDefault();
+          event.stopPropagation();
+          const point = this.toCanvas(event.clientX, event.clientY);
+          this.pending = {
+            sourceId: node.id,
+            sourcePort: "always",
+            edgeKind: "control",
+            x: point.x,
+            y: point.y,
+            originX: point.x,
+            originY: point.y,
+            mode: "drag",
+            dual: true,
+            dataSourcePort: undefined,
+          };
+          this.pendingEdge.classList.remove("is-hidden");
+          this.drawPendingEdge();
+          return;
+        }
         this.quickConfigVisible = false;
         event.preventDefault();
         event.stopPropagation();
@@ -1419,6 +1459,12 @@ export class Canvas {
           revealQuickConfig: !(event.ctrlKey || event.metaKey || event.shiftKey),
         };
         document.body.classList.add("is-canvas-dragging");
+      });
+      group.addEventListener("pointerup", (event) => {
+        if (!this.pending || (event.target as Element).closest(".port, .exec-port")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.finishConnectionOnNode(node.id, event.clientX, event.clientY);
       });
       group.addEventListener("contextmenu", (event) => {
         this.showContextMenu(event, { kind: "node", id: node.id });
@@ -1630,6 +1676,8 @@ export class Canvas {
           originX: point.x,
           originY: point.y,
           mode: "drag",
+          dual: event.altKey,
+          dataSourcePort: event.altKey ? portName : undefined,
         };
         this.pendingEdge.classList.remove("is-hidden");
         this.drawPendingEdge();
@@ -1651,6 +1699,8 @@ export class Canvas {
           originX: point.x,
           originY: point.y,
           mode: "click",
+          dual: event.altKey,
+          dataSourcePort: event.altKey ? portName : undefined,
         };
         this.pendingEdge.classList.remove("is-hidden");
         this.drawPendingEdge();
@@ -1659,12 +1709,14 @@ export class Canvas {
       circle.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || !this.pending || this.pending.mode !== "click") return;
         event.stopPropagation();
-        this.finishConnection(nodeId, portName);
+        if (this.pending.dual) this.finishDualConnection(nodeId, portName);
+        else this.finishConnection(nodeId, portName);
       });
       circle.addEventListener("pointerup", (event) => {
         if (event.button !== 0 || !this.pending) return;
         event.stopPropagation();
-        this.finishConnection(nodeId, portName);
+        if (this.pending.dual) this.finishDualConnection(nodeId, portName);
+        else this.finishConnection(nodeId, portName);
       });
     }
     return circle;
@@ -1708,6 +1760,8 @@ export class Canvas {
           originX: point.x,
           originY: point.y,
           mode,
+          dual: event.altKey,
+          dataSourcePort: undefined,
         };
         this.pendingEdge.classList.remove("is-hidden");
         this.drawPendingEdge();
@@ -1724,29 +1778,212 @@ export class Canvas {
       polygon.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || !this.pending || this.pending.mode !== "click") return;
         event.stopPropagation();
-        this.finishConnection(nodeId, "exec");
+        if (this.pending.dual) this.finishDualConnection(nodeId, "exec");
+        else this.finishConnection(nodeId, "exec");
       });
       polygon.addEventListener("pointerup", (event) => {
         if (event.button !== 0 || !this.pending) return;
         event.stopPropagation();
-        this.finishConnection(nodeId, "exec");
+        if (this.pending.dual) this.finishDualConnection(nodeId, "exec");
+        else this.finishConnection(nodeId, "exec");
       });
     }
     return polygon;
   }
 
-  private finishConnection(targetNodeId: string, targetPort: string): void {
-    if (!this.pending) return;
-    this.connect(
-      this.pending.sourceId,
-      targetNodeId,
-      this.pending.sourcePort,
-      targetPort,
-      this.pending.edgeKind,
-    );
+  private clearPendingConnection(): void {
     this.pending = null;
     this.pendingEdge.classList.add("is-hidden");
     this.pendingEdge.removeAttribute("d");
+    this.pendingDataEdge.classList.add("is-hidden");
+    this.pendingDataEdge.removeAttribute("d");
+    this.contextMenu.hidden = true;
+  }
+
+  private finishConnection(targetNodeId: string, targetPort: string): void {
+    if (!this.pending) return;
+    const pending = this.pending;
+    this.connect(
+      pending.sourceId,
+      targetNodeId,
+      pending.sourcePort,
+      targetPort,
+      pending.edgeKind,
+    );
+    this.clearPendingConnection();
+  }
+
+  private finishConnectionOnNode(targetNodeId: string, clientX: number, clientY: number): void {
+    if (!this.pending) return;
+    if (this.pending.dual) {
+      this.finishDualConnection(targetNodeId, undefined, clientX, clientY);
+      return;
+    }
+    if (this.pending.edgeKind === "control") {
+      this.finishConnection(targetNodeId, "exec");
+      return;
+    }
+    const pairs = this.dataPortPairs(targetNodeId);
+    if (pairs.length === 0) {
+      this.handlers.onStatus(t("canvas.noCompatibleTarget"));
+      this.clearPendingConnection();
+      return;
+    }
+    if (pairs.length === 1) {
+      this.finishConnection(targetNodeId, pairs[0].targetPort);
+      return;
+    }
+    this.showDataChooser(targetNodeId, pairs, clientX, clientY, false);
+  }
+
+  private finishDualConnection(
+    targetNodeId: string,
+    targetPort?: string,
+    clientX?: number,
+    clientY?: number,
+  ): void {
+    const pending = this.pending;
+    if (!pending) return;
+    const controlSource = pending.edgeKind === "control" ? pending.sourcePort : "always";
+    const dataPairs = this.dataPortPairs(
+      targetNodeId,
+      pending.edgeKind === "data" ? targetPort : undefined,
+    );
+    if (dataPairs.length === 0) {
+      const changed = this.connect(
+        pending.sourceId,
+        targetNodeId,
+        controlSource,
+        "exec",
+        "control",
+        false,
+      );
+      if (changed) this.handlers.onChange();
+      this.handlers.onStatus(t("canvas.controlOnly"));
+      this.clearPendingConnection();
+      return;
+    }
+    if (dataPairs.length > 1) {
+      this.showDataChooser(
+        targetNodeId,
+        dataPairs,
+        clientX ?? this.pending!.x * this.viewScale + this.viewX,
+        clientY ?? this.pending!.y * this.viewScale + this.viewY,
+        true,
+      );
+      return;
+    }
+    this.applyDualConnection(targetNodeId, controlSource, dataPairs[0]);
+  }
+
+  private applyDualConnection(
+    targetNodeId: string,
+    controlSource: string,
+    pair: DataPortPair,
+  ): void {
+    const pending = this.pending;
+    if (!pending) return;
+    const controlChanged = this.connect(
+      pending.sourceId,
+      targetNodeId,
+      controlSource,
+      "exec",
+      "control",
+      false,
+    );
+    const dataChanged = this.connect(
+      pending.sourceId,
+      targetNodeId,
+      pair.sourcePort,
+      pair.targetPort,
+      "data",
+      false,
+    );
+    if (controlChanged || dataChanged) this.handlers.onChange();
+    if (!dataChanged) this.handlers.onStatus(t("canvas.controlOnly"));
+    this.clearPendingConnection();
+  }
+
+  private dataPortPairs(targetNodeId: string, targetPort?: string): DataPortPair[] {
+    const pending = this.pending;
+    if (!pending) return [];
+    const sourceNode = this.workflow.nodes.find((node) => node.id === pending.sourceId);
+    const targetNode = this.workflow.nodes.find((node) => node.id === targetNodeId);
+    const sourceDescriptor = sourceNode ? this.handlers.descriptorFor(sourceNode.type) : undefined;
+    const targetDescriptor = targetNode ? this.handlers.descriptorFor(targetNode.type) : undefined;
+    if (!sourceDescriptor || !targetDescriptor) return [];
+    const outputs = sourceDescriptor.outputs.filter(
+      (port) => !pending.dataSourcePort || port.name === pending.dataSourcePort,
+    );
+    const inputs = targetDescriptor.inputs.filter(
+      (port) => !targetPort || port.name === targetPort,
+    );
+    const usedInputs = new Set(
+      this.workflow.edges
+        .filter((edge) => edge.kind === "data" && edge.target === targetNodeId)
+        .map((edge) => edge.target_port),
+    );
+    const pairs: Array<DataPortPair & { score: number }> = [];
+    outputs.forEach((output, outputIndex) => {
+      inputs.forEach((input, inputIndex) => {
+        if (!valueTypesCompatible(output.value_type, input.value_type)) return;
+        const exact = output.value_type !== "any" && output.value_type === input.value_type ? 1 : 0;
+        const unused = usedInputs.has(input.name) ? 0 : 1;
+        pairs.push({
+          sourcePort: output.name,
+          targetPort: input.name,
+          sourceLabel: output.display_name,
+          targetLabel: input.display_name,
+          score: exact * 100 + unused * 10 - outputIndex - inputIndex * 0.01,
+        });
+      });
+    });
+    return pairs
+      .sort((left, right) => right.score - left.score)
+      .map(({ score: _score, ...pair }) => pair);
+  }
+
+  private showDataChooser(
+    targetNodeId: string,
+    pairs: DataPortPair[],
+    clientX: number,
+    clientY: number,
+    dual: boolean,
+  ): void {
+    if (!this.pending) return;
+    this.pending.mode = "choose";
+    this.contextMenu.replaceChildren();
+    const title = document.createElement("p");
+    title.className = "context-menu__title";
+    title.textContent = t("canvas.chooseDataPort");
+    this.contextMenu.appendChild(title);
+    for (const pair of pairs) {
+      const choice = document.createElement("button");
+      choice.type = "button";
+      choice.className = "context-menu__item";
+      choice.textContent = `${pair.sourceLabel} → ${pair.targetLabel}`;
+      choice.addEventListener("click", () => {
+        if (dual) {
+          const controlSource = this.pending?.edgeKind === "control"
+            ? this.pending.sourcePort
+            : "always";
+          this.applyDualConnection(targetNodeId, controlSource, pair);
+        } else {
+          this.connect(
+            this.pending!.sourceId,
+            targetNodeId,
+            pair.sourcePort,
+            pair.targetPort,
+            "data",
+          );
+          this.clearPendingConnection();
+        }
+      });
+      this.contextMenu.appendChild(choice);
+    }
+    this.contextMenu.style.left = `${Math.min(window.innerWidth - 240, clientX)}px`;
+    this.contextMenu.style.top = `${Math.min(window.innerHeight - 160, clientY)}px`;
+    this.contextMenu.hidden = false;
   }
 
   private connect(
@@ -1755,14 +1992,15 @@ export class Canvas {
     sourcePort: string,
     targetPort: string,
     kind: "control" | "data",
-  ): void {
+    notify = true,
+  ): boolean {
     if (source === target) {
       this.handlers.onStatus(t("canvas.selfConnection"));
-      return;
+      return false;
     }
     if (edgeExists(this.workflow.edges, source, target, sourcePort, targetPort, kind)) {
       this.handlers.onStatus(t("canvas.duplicateConnection"));
-      return;
+      return false;
     }
     const sourceNode = this.workflow.nodes.find((node) => node.id === source);
     const targetNode = this.workflow.nodes.find((node) => node.id === target);
@@ -1777,7 +2015,7 @@ export class Canvas {
           target: input.value_type,
         }),
       );
-      return;
+      return false;
     }
     const base = {
       id: nextEdgeId(source, target, this.workflow.edges),
@@ -1791,7 +2029,8 @@ export class Canvas {
       const branch = sourcePort === "success" || sourcePort === "failure" ? sourcePort : undefined;
       this.workflow.edges.push(branch ? { ...base, branch } : { ...base });
     }
-    this.handlers.onChange();
+    if (notify) this.handlers.onChange();
+    return true;
   }
   private renderEdges(): void {
     this.cancelAllEdgeAnimations();
@@ -1821,6 +2060,8 @@ export class Canvas {
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.classList.add("edge", `edge--${edge.kind}`);
       path.dataset.edgeId = edge.id;
+      const customColor = edgeColor(this.workflow, edge.id);
+      if (customColor) path.style.setProperty("--edge-color", customColor);
       if (edge.kind === "control" && edge.condition) path.classList.add("edge--guarded");
       if (edge.kind === "control" && edge.branch && edge.branch !== "always") {
         path.classList.add(`edge--${edge.branch}`);
@@ -1955,21 +2196,53 @@ export class Canvas {
     return "{…}";
   }
 
+  private pendingPath(
+    source: { x: number; y: number },
+    end: { x: number; y: number },
+  ): string {
+    const dx = end.x - source.x;
+    const dy = end.y - source.y;
+    const handle = Math.max(34, Math.min(120, Math.hypot(dx, dy) * 0.35));
+    return Math.abs(dy) > Math.abs(dx) * 0.72
+      ? `M ${source.x} ${source.y} C ${source.x} ${source.y + Math.sign(dy) * handle}, ${end.x} ${end.y - Math.sign(dy) * handle}, ${end.x} ${end.y}`
+      : `M ${source.x} ${source.y} C ${source.x + handle} ${source.y}, ${end.x - handle} ${end.y}, ${end.x} ${end.y}`;
+  }
+
   private drawPendingEdge(): void {
     if (!this.pending) return;
-    const source = this.portCenter(
+    const end = { x: this.pending.x, y: this.pending.y };
+    const controlSourcePort = this.pending.edgeKind === "control"
+      ? this.pending.sourcePort
+      : "always";
+    const controlSource = this.portCenter(
       this.pending.sourceId,
-      this.pending.edgeKind,
+      "control",
       "output",
-      this.pending.sourcePort,
+      controlSourcePort,
     );
-    const dx = this.pending.x - source.x;
-    const dy = this.pending.y - source.y;
-    const handle = Math.max(34, Math.min(120, Math.hypot(dx, dy) * 0.35));
-    const path = Math.abs(dy) > Math.abs(dx) * 0.72
-      ? `M ${source.x} ${source.y} C ${source.x} ${source.y + Math.sign(dy) * handle}, ${this.pending.x} ${this.pending.y - Math.sign(dy) * handle}, ${this.pending.x} ${this.pending.y}`
-      : `M ${source.x} ${source.y} C ${source.x + handle} ${source.y}, ${this.pending.x - handle} ${this.pending.y}, ${this.pending.x} ${this.pending.y}`;
-    this.pendingEdge.setAttribute("d", path);
+    this.pendingEdge.setAttribute("d", this.pendingPath(controlSource, end));
+
+    if (!this.pending.dual) {
+      this.pendingDataEdge.classList.add("is-hidden");
+      this.pendingDataEdge.removeAttribute("d");
+      return;
+    }
+
+    const sourceNode = this.workflow.nodes.find((node) => node.id === this.pending?.sourceId);
+    const descriptor = sourceNode ? this.handlers.descriptorFor(sourceNode.type) : undefined;
+    const dataSourcePort = this.pending.dataSourcePort ?? descriptor?.outputs[0]?.name;
+    if (!dataSourcePort) {
+      this.pendingDataEdge.classList.add("is-hidden");
+      return;
+    }
+    const dataSource = this.portCenter(
+      this.pending.sourceId,
+      "data",
+      "output",
+      dataSourcePort,
+    );
+    this.pendingDataEdge.setAttribute("d", this.pendingPath(dataSource, end));
+    this.pendingDataEdge.classList.remove("is-hidden");
   }
   private toCanvas(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.svg.getBoundingClientRect();

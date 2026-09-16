@@ -59,7 +59,7 @@ struct RunState {
 /// A live run: its state, its event history and its subscribers.
 pub struct RunHandle {
     id: String,
-    workflow_id: Mutex<String>,
+    workflow: Mutex<Workflow>,
     control: RunControl,
     state: Mutex<RunState>,
     history: Mutex<Vec<EventEnvelope>>,
@@ -77,14 +77,14 @@ impl std::fmt::Debug for RunHandle {
 impl RunHandle {
     fn new(
         id: String,
-        workflow_id: String,
+        workflow: Workflow,
         control: RunControl,
         artifacts: Arc<ArtifactStore>,
     ) -> Arc<Self> {
         let (broadcaster, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
         Arc::new(Self {
             id,
-            workflow_id: Mutex::new(workflow_id),
+            workflow: Mutex::new(workflow),
             control,
             state: Mutex::new(RunState {
                 status: RunStatus::Pending,
@@ -108,7 +108,12 @@ impl RunHandle {
 
     /// Workflow being executed.
     pub fn workflow_id(&self) -> String {
-        self.workflow_id.lock().clone()
+        self.workflow.lock().id.clone()
+    }
+
+    /// Immutable workflow document captured when the run was created.
+    pub fn workflow(&self) -> Workflow {
+        self.workflow.lock().clone()
     }
 
     /// The control handle used for pause / resume / step / cancel.
@@ -181,7 +186,7 @@ impl RunHandle {
         match event {
             ExecutionEvent::RunStarted { workflow_id } => {
                 state.status = RunStatus::Running;
-                *self.workflow_id.lock() = workflow_id.clone();
+                self.workflow.lock().id = workflow_id.clone();
             }
             ExecutionEvent::RunPaused => {
                 if !state.status.is_terminal() {
@@ -341,7 +346,7 @@ impl RunManager {
         let artifacts = Arc::new(ArtifactStore::new());
         let handle = RunHandle::new(
             run_id.clone(),
-            workflow.id.clone(),
+            workflow.clone(),
             control.clone(),
             artifacts.clone(),
         );

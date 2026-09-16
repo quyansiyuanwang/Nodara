@@ -215,14 +215,15 @@ export function edgeExists(
   targetPort?: string,
   kind: WorkflowEdge["kind"] = "control",
 ): boolean {
-  return edges.some(
-    (edge) =>
-      edge.kind === kind &&
-      edge.source === source &&
-      edge.target === target &&
-      (edge.source_port ?? "out") === (sourcePort ?? "out") &&
-      (edge.target_port ?? "in") === (targetPort ?? "in"),
-  );
+  return edges.some((edge) => {
+    if (edge.kind !== kind || edge.source !== source || edge.target !== target) return false;
+    if (kind === "data") {
+      return (edge.source_port ?? "out") === (sourcePort ?? "out")
+        && (edge.target_port ?? "in") === (targetPort ?? "in");
+    }
+    if (sourcePort !== "success" && sourcePort !== "failure") return true;
+    return (edge.branch ?? "always") === sourcePort;
+  });
 }
 
 /** Build the default configuration for a newly added node. */

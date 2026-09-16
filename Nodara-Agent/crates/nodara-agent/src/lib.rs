@@ -30,7 +30,7 @@ pub use agent::{Agent, AgentConfig, AgentOutcome, ExplainTarget, RunApprovalMode
 pub use audit::{AuditTrace, TraceEntry, TraceStep};
 pub use error::{AgentError, AgentResult};
 pub use model::{ChatMessage, ChatRequest, ChatResponse, Role, TokenUsage};
-pub use planner::{PlanRequest, Planner};
+pub use planner::{PlanEvent, PlanObserver, PlanRequest, Planner};
 pub use policy::{Budget, GuardrailPolicy, ToolPolicy};
 pub use prompt::system_prompt;
 pub use provider::{LlmProvider, MockProvider, OpenAiProvider};

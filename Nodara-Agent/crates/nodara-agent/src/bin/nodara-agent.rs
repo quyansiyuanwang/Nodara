@@ -8,7 +8,8 @@ use clap::{Parser, Subcommand};
 use nodara_agent::{
     audit::{self, AuditTrace},
     Agent, AgentConfig, AgentError, AgentResult, ExplainTarget, GuardrailPolicy, LlmProvider,
-    MockProvider, OpenAiProvider, RunApprovalMode, RuntimeClient, ToolPolicy,
+    MockProvider, OpenAiProvider, PlanEvent, PlanObserver, RunApprovalMode, RuntimeClient,
+    ToolPolicy,
 };
 
 #[derive(Parser)]
@@ -98,10 +99,15 @@ enum Command {
         from: Option<PathBuf>,
     },
 
-    /// Machine-readable Studio transport. Reads one JSON request from stdin and
-    /// writes one JSON response to stdout.
+    /// Machine-readable Studio transport. Reads one JSON request from stdin.
+    /// Without `--stream` it writes one JSON response; with `--stream` it emits
+    /// JSONL progress followed by a terminal response.
     #[command(hide = true)]
-    Studio,
+    Studio {
+        /// Emit JSON Lines progress events instead of one final JSON object.
+        #[arg(long)]
+        stream: bool,
+    },
 
     /// Replay a recorded decision trace.
     Replay {
@@ -339,8 +345,8 @@ fn run() -> AgentResult<()> {
             Ok(())
         }
 
-        Command::Studio => {
-            run_studio_transport(&cli.runtime)?;
+        Command::Studio { stream } => {
+            run_studio_transport(&cli.runtime, stream)?;
             Ok(())
         }
 
@@ -452,11 +458,85 @@ fn run() -> AgentResult<()> {
     }
 }
 
-fn run_studio_transport(default_runtime: &str) -> AgentResult<()> {
+#[derive(serde::Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum StudioStreamEvent {
+    TurnStarted,
+    ModelDelta {
+        text: String,
+    },
+    PhaseChanged {
+        phase: String,
+        message: String,
+    },
+    ValidationResult {
+        accepted: bool,
+        errors: usize,
+        warnings: usize,
+        report: nodara_schema::ValidationReport,
+    },
+    RepairStarted {
+        attempt: u32,
+    },
+    PlanReady {
+        workflow: nodara_schema::Workflow,
+    },
+    RunFinished {
+        run: serde_json::Value,
+    },
+    Completed {
+        response: StudioResponse,
+    },
+    Failed {
+        message: String,
+    },
+}
+
+struct JsonlObserver;
+
+impl JsonlObserver {
+    fn emit(event: StudioStreamEvent) {
+        if let Ok(line) = serde_json::to_string(&event) {
+            println!("{line}");
+        }
+    }
+}
+
+impl PlanObserver for JsonlObserver {
+    fn on_event(&mut self, event: PlanEvent) {
+        match event {
+            PlanEvent::Phase { phase, message } => {
+                Self::emit(StudioStreamEvent::PhaseChanged { phase, message });
+            }
+            PlanEvent::ModelDelta { text } => {
+                Self::emit(StudioStreamEvent::ModelDelta { text });
+            }
+            PlanEvent::Validation { accepted, report } => {
+                Self::emit(StudioStreamEvent::ValidationResult {
+                    accepted,
+                    errors: report.error_count(),
+                    warnings: report.warning_count(),
+                    report,
+                });
+            }
+            PlanEvent::RepairStarted { attempt } => {
+                Self::emit(StudioStreamEvent::RepairStarted { attempt });
+            }
+            PlanEvent::PlanReady { workflow } => {
+                Self::emit(StudioStreamEvent::PlanReady { workflow });
+            }
+        }
+    }
+}
+
+fn run_studio_transport(default_runtime: &str, stream: bool) -> AgentResult<()> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
     let request: StudioRequest = serde_json::from_str(&input)?;
 
+    if stream {
+        JsonlObserver::emit(StudioStreamEvent::TurnStarted);
+    }
     let provider = OpenAiProvider::new(
         request.provider.endpoint.clone(),
         request.provider.model.clone(),
@@ -483,7 +563,23 @@ fn run_studio_transport(default_runtime: &str) -> AgentResult<()> {
         ..AgentConfig::default()
     };
     let agent = Agent::new(&provider, config);
-    let outcome = if auto_run {
+    let outcome = if stream {
+        let mut observer = JsonlObserver;
+        let result = if auto_run {
+            agent.plan_and_run_streaming(&request.goal, &request.constraints, &mut observer)
+        } else {
+            agent.plan_streaming(&request.goal, &request.constraints, &mut observer)
+        };
+        match result {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                JsonlObserver::emit(StudioStreamEvent::Failed {
+                    message: error.to_string(),
+                });
+                return Ok(());
+            }
+        }
+    } else if auto_run {
         agent.plan_and_run(&request.goal, &request.constraints)?
     } else {
         agent.plan(&request.goal, &request.constraints)?
@@ -497,7 +593,14 @@ fn run_studio_transport(default_runtime: &str) -> AgentResult<()> {
         trace: outcome.trace,
         tokens_used: outcome.tokens_used,
     };
-    println!("{}", serde_json::to_string(&response)?);
+    if stream {
+        if let Some(run) = &response.run {
+            JsonlObserver::emit(StudioStreamEvent::RunFinished { run: run.clone() });
+        }
+        JsonlObserver::emit(StudioStreamEvent::Completed { response });
+    } else {
+        println!("{}", serde_json::to_string(&response)?);
+    }
     Ok(())
 }
 

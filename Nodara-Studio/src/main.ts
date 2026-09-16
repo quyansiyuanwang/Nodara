@@ -7,7 +7,7 @@
 
 import "./styles.css";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
 import {
   applyStaticTranslations,
@@ -20,6 +20,11 @@ import {
 import { pruneWorkflowGroups } from "./model/groups";
 import { WorkflowHistory } from "./model/history";
 import { loadDraft, saveDraft } from "./model/draft";
+import {
+  applyTheme,
+  storedTheme,
+  THEME_PRESETS,
+} from "./model/visuals";
 import {
   applyWorkflow,
   localProblems,
@@ -37,7 +42,7 @@ import {
   Workflow,
 } from "./runtime/types";
 import { AgentPanel } from "./ui/agent-panel";
-import type { AgentSubmitRequest } from "./ui/agent-panel";
+import type { AgentStreamEvent, AgentSubmitRequest, AgentTurnResponse } from "./ui/agent-panel";
 import { AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
@@ -50,16 +55,6 @@ import { installResizer } from "./ui/resizer";
 import { RunDialog } from "./ui/run-dialog";
 import { RunPanel } from "./ui/run-panel";
 import { deriveRunControls, ValidationState } from "./ui/run-controls";
-
-interface AgentStudioResponse {
-  session_id?: string;
-  accepted: boolean;
-  workflow?: Workflow;
-  run?: { id: string; status: RunStatus };
-  report?: unknown;
-  trace?: unknown[];
-  tokens_used?: number;
-}
 
 function element<T extends Element = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -98,6 +93,7 @@ class Studio {
   private validationState: ValidationState = "unknown";
   private workflowRevision = 0;
   private auditToken = 0;
+  private auditRefreshTimer: number | null = null;
   private runsToken = 0;
   private extensionsToken = 0;
   private lastAgentPollError: string | null = null;
@@ -105,6 +101,7 @@ class Studio {
   private currentRunStatus: RunStatus | null = null;
   private runStarting = false;
   private readonly runOverrides = new Map<string, unknown>();
+  private readonly agentTraceBySession = new Map<string, unknown[]>();
 
   private readonly palette: Palette;
   private readonly canvas: Canvas;
@@ -167,7 +164,12 @@ class Studio {
       },
     );
     this.agents = new AgentPanel(element("agent"), {
-      onSubmit: (request) => this.submitAgent(request),
+      onSubmit: (request, turnId, onEvent) => this.submitAgent(request, turnId, onEvent),
+      onStopGeneration: (turnId) => this.stopAgentTurn(turnId),
+      onCredentialGet: (profileId) => this.getAgentCredential(profileId),
+      onCredentialSet: (profileId, secret) => this.setAgentCredential(profileId, secret),
+      onCredentialDelete: (profileId) => this.deleteAgentCredential(profileId),
+      getCurrentWorkflow: () => this.workflow,
       onDecide: (sessionId, approvalId, approve) =>
         void this.decideApproval(sessionId, approvalId, approve),
       onLoadPlan: (sessionId) => this.loadPlan(sessionId),
@@ -332,6 +334,18 @@ class Studio {
     element("btn-language").addEventListener("click", () => {
       toggleLocale();
       window.location.reload();
+    });
+
+    const themeSelect = element<HTMLSelectElement>("theme-select");
+    for (const theme of THEME_PRESETS) {
+      const option = document.createElement("option");
+      option.value = theme.id;
+      option.textContent = theme.label;
+      themeSelect.appendChild(option);
+    }
+    themeSelect.value = storedTheme();
+    themeSelect.addEventListener("change", () => {
+      applyTheme(themeSelect.value as ReturnType<typeof storedTheme>);
     });
 
     element("btn-new").addEventListener("click", () => {
@@ -842,6 +856,7 @@ class Studio {
         onEvent: (envelope) => {
           this.log.append(envelope);
           this.applyEvent(envelope.event);
+          if (!element("panel-audit").hidden) this.scheduleAuditRefresh();
         },
         onClose: () => {
           if (this.runId === snapshot.id) void this.refreshRun();
@@ -995,11 +1010,13 @@ class Studio {
     }
   }
 
-  /** Run one turn in the sibling desktop Agent process. */
-  private async submitAgent(request: AgentSubmitRequest): Promise<void> {
-    if (!isTauri()) {
-      throw new Error(t("agent.desktopOnly"));
-    }
+  /** Run one streaming Agent turn through the desktop shell. */
+  private async submitAgent(
+    request: AgentSubmitRequest,
+    turnId: string,
+    onEvent: (event: AgentStreamEvent) => void,
+  ): Promise<void> {
+    if (!isTauri()) throw new Error(t("agent.desktopOnly"));
     const selected = this.agents.selectedSession();
     if (request.baseMode === "last_plan" && !selected?.plan) {
       throw new Error(t("agent.lastPlanUnavailable"));
@@ -1007,11 +1024,19 @@ class Studio {
     const baseWorkflow = request.baseMode === "last_plan"
       ? selected?.plan?.workflow
       : this.workflow;
-    const response = await invoke<AgentStudioResponse>("run_agent_turn", {
+    const channel = new Channel<AgentStreamEvent>((event) => onEvent(event));
+    const response = await invoke<AgentTurnResponse>("run_agent_turn_stream", {
+      turnId,
+      onEvent: channel,
       request: {
         runtime_url: defaultRuntimeBaseUrl() || "http://127.0.0.1:8710",
         goal: request.goal,
-        constraints: [],
+        constraints: [
+          ...(request.extraInstructions.trim() ? [request.extraInstructions.trim()] : []),
+          ...(request.promptTemplateInstructions?.trim()
+            ? [request.promptTemplateInstructions.trim()]
+            : []),
+        ],
         base_workflow: baseWorkflow,
         session_id: request.sessionId,
         variables: Object.fromEntries(this.runOverrides),
@@ -1025,12 +1050,36 @@ class Studio {
       },
     });
     await this.pollAgentSessions();
-    if (response.session_id) this.agents.selectSession(response.session_id);
-    if (!response.accepted) {
-      throw new Error(t("agent.planRejected", { errors: 1 }));
+    if (response.session_id) {
+      this.agents.selectSession(response.session_id);
+      if (response.trace) {
+        this.agentTraceBySession.set(response.session_id, response.trace);
+        this.agents.setSessionTrace(response.session_id, response.trace);
+      }
     }
+    if (!response.accepted) throw new Error(t("agent.planRejected", { errors: 1 }));
     this.pushLocal(t("status.agentCompleted", { id: response.session_id?.slice(0, 8) ?? "-" }));
     if (response.run?.id) void this.openRun(response.run.id);
+  }
+
+  private async stopAgentTurn(turnId: string): Promise<boolean> {
+    if (!isTauri()) return false;
+    return invoke<boolean>("stop_agent_turn", { turnId });
+  }
+
+  private async getAgentCredential(profileId: string): Promise<string | null> {
+    if (!isTauri()) return null;
+    return invoke<string | null>("agent_credential_get", { profileId });
+  }
+
+  private async setAgentCredential(profileId: string, secret: string): Promise<void> {
+    if (!isTauri()) return;
+    await invoke("agent_credential_set", { profileId, secret });
+  }
+
+  private async deleteAgentCredential(profileId: string): Promise<void> {
+    if (!isTauri()) return;
+    await invoke("agent_credential_delete", { profileId });
   }
 
   /** Run a validated Agent plan without replacing the editor document. */
@@ -1100,6 +1149,7 @@ class Studio {
         onEvent: (envelope) => {
           this.log.append(envelope);
           this.applyEvent(envelope.event);
+          if (!element("panel-audit").hidden) this.scheduleAuditRefresh();
         },
         onClose: () => {
           if (this.runId === runId) void this.refreshRun();
@@ -1109,6 +1159,14 @@ class Studio {
     } catch (error) {
       this.reportError(error);
     }
+  }
+
+  private scheduleAuditRefresh(delay = 180): void {
+    if (this.auditRefreshTimer !== null) window.clearTimeout(this.auditRefreshTimer);
+    this.auditRefreshTimer = window.setTimeout(() => {
+      this.auditRefreshTimer = null;
+      void this.refreshAudit();
+    }, delay);
   }
 
   /** Load the audit log, optionally narrowed to the run being watched. */
@@ -1122,6 +1180,21 @@ class Studio {
         limit: 500,
       });
       if (token !== this.auditToken) return;
+      if (onlyCurrent && this.runId) {
+        try {
+          const [run, workflow, events] = await Promise.all([
+            this.client.getRun(this.runId),
+            this.client.getRunWorkflow(this.runId),
+            this.client.getRunEvents(this.runId),
+          ]);
+          if (token !== this.auditToken) return;
+          this.audit.setContext({ run, workflow, events });
+        } catch {
+          this.audit.setContext(null);
+        }
+      } else {
+        this.audit.setContext(null);
+      }
       this.audit.setRecords(records);
     } catch (error) {
       this.reportError(error);

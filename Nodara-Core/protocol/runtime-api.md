@@ -17,6 +17,7 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/runs` | Start a run |
 | `GET` | `/api/v1/runs` | List runs, newest first |
 | `GET` | `/api/v1/runs/{id}` | Snapshot one run |
+| `GET` | `/api/v1/runs/{id}/workflow` | Workflow document captured when the run started |
 | `POST` | `/api/v1/runs/{id}/pause` | Suspend at the next node boundary |
 | `POST` | `/api/v1/runs/{id}/resume` | Resume |
 | `POST` | `/api/v1/runs/{id}/step` | Allow exactly one more node |
@@ -34,6 +35,14 @@ API; neither links against runtime internals.
 | `POST` | `/api/v1/agent/sessions/{id}/approvals/{approval_id}` | Decide an approval |
 | `GET` | `/api/v1/agent/approvals` | Every approval waiting on an operator |
 | `GET` | `/api/v1/audit` | Audit records, filterable by run |
+
+## Historical workflow snapshots
+
+`GET /api/v1/runs/{id}/workflow` returns the exact workflow document captured
+when a run was created. The graphical Audit view uses it to reconstruct the
+node and edge topology for historical runs. Runs created before this endpoint
+was introduced do not have a snapshot; clients should fall back to the event and
+audit lists rather than inventing graph structure.
 
 ## Schemas and editor content hints
 

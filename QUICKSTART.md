@@ -166,6 +166,8 @@ guardrail result and the run outcome.
 
 ## 5. Studio canvas and Agent chat
 
+Node-body drops infer unique ports, while `Alt+drag` creates control and data edges together. Six themes and local node/edge colors are available. Agent streaming, diffs, Trace and OS credential storage are built in; Audit adds live/history execution graphs.
+
 The desktop `nodara-studio.exe` is the recommended path: it reuses or starts the runtime from the package, so there is no second process to launch manually.
 
 Canvas interaction:
@@ -181,7 +183,7 @@ Canvas interaction:
 - the compact palette collapses secondary categories while remembering their state; the Properties rail uses dense cards, nodes show short config summaries, Agent expanders survive polling refreshes, and running/completed/failed nodes plus panel changes have visible motion feedback;
 - multi-selection exposes unified execution settings and persistent node groups in Properties, group frames move as a unit, and the drawer tabs are grouped into Run, Agent, Workflow and Tools with the last tab remembered.
 
-Open the bottom **Agent** tab for a conversational workflow operator. Configure any OpenAI-compatible endpoint/model in Provider settings (the API key stays in process memory), choose a baseline (**current canvas** or **previous Agent plan**) and choose one of four modes:
+Open the bottom **Agent** tab or expand the full workspace for a conversational workflow operator. Configure one of several Provider Profiles (API keys are stored in Windows Credential Manager), choose a baseline (**current canvas** or **previous Agent plan**) and one of four modes:
 
 | Mode | Behavior |
 |---|---|

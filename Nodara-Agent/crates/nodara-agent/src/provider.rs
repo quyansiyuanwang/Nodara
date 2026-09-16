@@ -4,6 +4,7 @@
 //! knows about, so a local model, a hosted API and a scripted test double are
 //! interchangeable.
 
+use std::io::{BufRead, BufReader};
 use std::sync::Mutex;
 
 use crate::error::{AgentError, AgentResult};
@@ -16,6 +17,19 @@ pub trait LlmProvider: Send + Sync {
 
     /// Produce a completion.
     fn complete(&self, request: &ChatRequest) -> AgentResult<ChatResponse>;
+
+    /// Produce a completion while reporting text deltas when the provider
+    /// supports SSE streaming. Providers without native streaming fall back to
+    /// one complete delta so callers have a single code path.
+    fn complete_streaming(
+        &self,
+        request: &ChatRequest,
+        on_delta: &mut dyn FnMut(&str),
+    ) -> AgentResult<ChatResponse> {
+        let response = self.complete(request)?;
+        on_delta(&response.content);
+        Ok(response)
+    }
 }
 
 /// A provider that replays a fixed list of responses.
@@ -50,6 +64,20 @@ impl MockProvider {
 impl LlmProvider for MockProvider {
     fn name(&self) -> &'static str {
         "mock"
+    }
+
+    fn complete_streaming(
+        &self,
+        request: &ChatRequest,
+        on_delta: &mut dyn FnMut(&str),
+    ) -> AgentResult<ChatResponse> {
+        let response = self.complete(request)?;
+        for chunk in response.content.as_bytes().chunks(12) {
+            if let Ok(text) = std::str::from_utf8(chunk) {
+                on_delta(text);
+            }
+        }
+        Ok(response)
     }
 
     fn complete(&self, request: &ChatRequest) -> AgentResult<ChatResponse> {
@@ -132,6 +160,99 @@ impl OpenAiProvider {
 impl LlmProvider for OpenAiProvider {
     fn name(&self) -> &str {
         &self.model
+    }
+
+    fn complete_streaming(
+        &self,
+        request: &ChatRequest,
+        on_delta: &mut dyn FnMut(&str),
+    ) -> AgentResult<ChatResponse> {
+        let body = serde_json::json!({
+            "model": self.model,
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+            "messages": request.messages,
+            "response_format": if request.json_mode {
+                serde_json::json!({ "type": "json_object" })
+            } else {
+                serde_json::Value::Null
+            },
+            "stream": true,
+            "stream_options": { "include_usage": true },
+        });
+
+        let mut call = ureq::post(&self.endpoint).timeout(std::time::Duration::from_secs(120));
+        if let Some(key) = &self.api_key {
+            call = call.set("authorization", &format!("Bearer {key}"));
+        }
+        let response = match call.set("content-type", "application/json").send_json(body) {
+            Ok(response) => response,
+            Err(ureq::Error::Status(status, response)) => {
+                let detail = response.into_string().unwrap_or_default();
+                let detail = detail.trim();
+                if matches!(status, 400 | 404 | 405 | 415 | 422) {
+                    return self.complete(request);
+                }
+                return Err(AgentError::Provider(if detail.is_empty() {
+                    format!("provider returned HTTP {status}")
+                } else {
+                    format!("provider returned HTTP {status}: {detail}")
+                }));
+            }
+            Err(error) => return Err(AgentError::Provider(error.to_string())),
+        };
+
+        let reader = BufReader::new(response.into_reader());
+        let mut content = String::new();
+        let mut model = self.model.clone();
+        let mut usage = crate::model::TokenUsage::default();
+        for line in reader.lines() {
+            let line = line.map_err(|error| AgentError::Provider(error.to_string()))?;
+            let Some(data) = line.strip_prefix("data:") else {
+                continue;
+            };
+            let data = data.trim();
+            if data.is_empty() || data == "[DONE]" {
+                continue;
+            }
+            let payload: serde_json::Value = match serde_json::from_str(data) {
+                Ok(payload) => payload,
+                Err(_) => continue,
+            };
+            if let Some(value) = payload.get("model").and_then(serde_json::Value::as_str) {
+                model = value.to_string();
+            }
+            if let Some(delta) = payload
+                .get("choices")
+                .and_then(|choices| choices.get(0))
+                .and_then(|choice| choice.get("delta"))
+                .and_then(|delta| delta.get("content"))
+                .and_then(serde_json::Value::as_str)
+            {
+                content.push_str(delta);
+                on_delta(delta);
+            }
+            if let Some(value) = payload.get("usage") {
+                usage.prompt_tokens = value
+                    .get("prompt_tokens")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(usage.prompt_tokens as u64)
+                    as u32;
+                usage.completion_tokens = value
+                    .get("completion_tokens")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(usage.completion_tokens as u64)
+                    as u32;
+            }
+        }
+        if content.is_empty() {
+            return self.complete(request);
+        }
+        Ok(ChatResponse {
+            content,
+            model,
+            usage,
+        })
     }
 
     fn complete(&self, request: &ChatRequest) -> AgentResult<ChatResponse> {

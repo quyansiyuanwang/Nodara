@@ -78,7 +78,9 @@ copy.
 |---|---|
 | Add a node | **Click** it in the palette, or drag it to an exact canvas position; exactly one `core.Start` is allowed |
 | Move a node | Drag the node body |
-| Create a connection | Drag from an output port to an input port, or click the output and then the input; press `Escape` to cancel. Hover shows the port type and incompatible types are refused |
+| Create a connection | Drag from an output port to an input port or the target node body. A unique compatible port is inferred automatically; ambiguous data ports show a chooser. Press `Escape` to cancel |
+| Create control and data together | Hold `Alt` while dragging from a node body, data output or execution output. Unique ports connect automatically, ambiguous data ports open a chooser, and partial success is reported without rolling back the valid edge |
+| Themes and local colors | Choose Obsidian, Graphite, Ocean, Ember, Paper or High Contrast from the toolbar. Node and edge colors can be overridden in Properties and reset to theme defaults |
 | Delete a node or connection | Select it and press `Delete`, or right-click it and choose delete |
 | Edit a connection | Select it to edit label and guard, or right-click it to switch directly between Always, Success and Failure; the wide hit target makes thin edges easier to select |
 | Automatic validation | Run after every edit; the status beside `Validate` shows the result and errors disable `Run` |
@@ -99,7 +101,11 @@ copy.
 
 The Studio uses a compact operator layout: toolbar controls, inspector fields, event rows and the default bottom drawer are intentionally dense. Node categories in the left palette are collapsible and remember their state; only **Core** opens initially. Drag the dividers to enlarge any pane when a particular task needs more room.
 
-The Properties rail is an independently scrolling stack of compact cards. Graph nodes use tighter information blocks and show a short common-config summary instead of unused empty space. Agent Provider settings and final-JSON sections stay expanded across session polling and data refreshes.
+The Properties rail is an independently scrolling stack of compact cards. Graph nodes use tighter information blocks and show a short common-config summary instead of unused empty space. Agent Provider settings and final-JSON sections stay expanded across session polling and data refreshes. Themes are global Studio settings, while node and edge color overrides travel with the workflow.
+
+The Agent workspace supports named Provider Profiles, prompt templates and per-turn extra instructions. API keys are stored in Windows Credential Manager and never enter localStorage, workflow JSON or logs. Model output streams token by token; Stop cancels only the current generation and leaves an active workflow untouched. Every result shows node/edge diffs, diagnostics, final JSON, decision Trace and execution actions. Loading or running a plan always requires explicit confirmation.
+
+Audit provides summary cards, a timeline and an execution graph in the drawer, plus a full workspace view. Live runs update node and traversed-edge state, and selecting a graph node or timeline record opens structured and raw details. Runs without a workflow snapshot fall back to the record list.
 
 Motion is part of execution feedback, not decoration:
 
@@ -345,7 +351,7 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 ## Agent
 
-Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab, enter a goal, configure any OpenAI-compatible endpoint/model in Provider settings, choose a baseline and one of four execution modes, then Send. The API key remains in process memory only. Sessions preserve their visible message history across turns. Unchanged polling responses do not rebuild the panel, and Provider/final-JSON expanders retain their state when session data does change. The Agent page renders its local Provider controls and composer immediately, even while the runtime is temporarily unreachable.
+Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab or expand the full workspace, configure one of several named Provider Profiles, enter a goal, choose a prompt template, baseline and execution mode, then Send. API keys are stored per Profile in Windows Credential Manager and never enter localStorage, workflow JSON or logs. Model output streams token by token; Stop cancels only the current generation. Results include node/edge diffs, diagnostics, final JSON and decision Trace, and never replace the canvas automatically.
 
 | Mode | Behavior |
 |---|---|
@@ -356,7 +362,7 @@ Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent*
 
 Agent output never replaces the canvas automatically. Review the final JSON and diagnostics, then Load, Validate, Run this plan or Open audit. Browser Studio shows a desktop-only message because the process/JSON pipe is owned by the Tauri shell.
 
-The same capability is available for automation through `nodara-agent studio`, which reads one structured request from stdin and writes one structured response to stdout.
+The same capability is available for automation through `nodara-agent studio`, which reads one structured request from stdin and writes one structured response to stdout. Desktop Studio uses `nodara-agent studio --stream` to receive JSONL progress events.
 
 
 With the runtime running:

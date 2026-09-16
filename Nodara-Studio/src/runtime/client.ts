@@ -168,6 +168,14 @@ export class RuntimeClient {
     return this.request<RunSnapshot>(`/runs/${encodeURIComponent(runId)}`);
   }
 
+  getRunWorkflow(runId: string): Promise<Workflow> {
+    return this.request<Workflow>(`/runs/${encodeURIComponent(runId)}/workflow`);
+  }
+
+  getRunEvents(runId: string): Promise<EventEnvelope[]> {
+    return this.request<EventEnvelope[]>(`/runs/${encodeURIComponent(runId)}/event-log`);
+  }
+
   artifactUrl(runId: string, artifactId: string): string {
     return this.url(
       `/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}`,
