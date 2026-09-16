@@ -316,17 +316,25 @@ CI 会重新生成并与仓库比对，一旦不一致就失败，因此"改了�
   "run_id": "66aed51c-…",
   "seq": 7,
   "timestamp_ms": 1757226000000,
-  "event": { "type": "node_finished", "node_id": "greet", "outputs": { "out": "hello" }, "duration_ms": 3 }
+  "event": {
+    "type": "node_finished",
+    "node_id": "greet",
+    "outputs": { "out": "hello" },
+    "variables_after": { "greeting": "hello" },
+    "duration_ms": 3
+  }
 }
 ```
 
 | 事件 `type` | 载荷 |
 |---|---|
 | `run_started` | `workflow_id` |
-| `node_started` | `node_id`、`node_type` |
+| `node_started` | `node_id`、`node_type`，可选 `input` 快照：`config`、`resolved_config`、`inputs`、`variables_before`、`timeout_ms` |
 | `node_progress` | `node_id`、可选 `progress`、可选 `message` |
-| `node_finished` | `node_id`、`outputs`、`duration_ms` |
-| `node_failed` | `node_id`、`code`、`message`、`retryable` |
+| `node_finished` | `node_id`、`outputs`、`variables_after`、`duration_ms` |
+| `node_failed` | `node_id`、`code`、`message`、`retryable`、`variables_after` |
+| `edge_activated` | `edge_id`、`source`、`target`、`branch` |
+| `data_transferred` | `edge_id`、`source`、`target`、`source_port`、`target_port`、`value` |
 | `log` | `level`（`debug`/`info`/`warn`/`error`）、`message`、可选 `node_id` |
 | `run_paused`、`run_resumed` | — |
 | `run_cancelled` | 可选 `reason` |

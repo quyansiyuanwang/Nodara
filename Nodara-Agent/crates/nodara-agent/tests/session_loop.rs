@@ -83,6 +83,46 @@ fn plans_publishes_and_runs_end_to_end() {
 }
 
 #[test]
+fn continued_session_receives_node_snapshots_and_screenshot_images() {
+    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+        status: "completed".to_string(),
+        code: None,
+    }]);
+    let provider = MockProvider::new([
+        draft("wf.capture", "capture"),
+        draft("wf.inspect", "inspect"),
+    ]);
+    let first_agent = Agent::new(&provider, config(runtime.base()));
+    let first = first_agent
+        .plan_and_run("capture the desktop", &[])
+        .expect("the first session completes");
+
+    let mut second_config = config(runtime.base());
+    second_config.session_id = first.session_id.clone();
+    second_config.auto_run = false;
+    let second_agent = Agent::new(&provider, second_config);
+    second_agent
+        .plan("find the button in the screenshot", &[])
+        .expect("the continued session plans");
+
+    let calls = provider.calls();
+    let evidence = calls[1]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("[runtime evidence for run-1]"))
+        .expect("the previous run evidence is included in the next turn");
+    assert_eq!(
+        evidence.images.len(),
+        1,
+        "the screenshot is a native image part"
+    );
+    assert_eq!(evidence.images[0].media_type, "image/png");
+    assert!(evidence.content.contains("variables_before"));
+    assert!(evidence.content.contains("variables_after"));
+    assert!(evidence.content.contains("data_transferred"));
+}
+
+#[test]
 fn replans_after_a_fixable_run_failure() {
     let runtime = FakeRuntime::start(vec![
         RunScript::Immediate {

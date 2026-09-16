@@ -14,6 +14,7 @@
 - Ctrl/Cmd and Shift node-selection clicks no longer open the floating quick configuration, and Agent polling preserves focus, expander state and scroll position instead of resetting the panel.
 - Studio now supports node-body port inference, Alt-drag dual control/data connections, six themes with workflow-local colors, streaming Agent profiles backed by Windows Credential Manager, plan diffs and Trace, plus graphical live/history Audit views.
 - Data-only connection previews now stay anchored to the data output the operator grabbed instead of visually snapping to the Always execution port; Alt-drag still previews both control and data lines.
+- Agent sessions now receive complete node before/after evidence: authored and resolved config, data inputs, redacted variables, outputs, transferred edge values and image artifacts. Screenshots are attached to vision-capable models as native multimodal images during continued sessions and automatic repair.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses

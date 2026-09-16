@@ -503,6 +503,7 @@ impl WorkflowEngine {
                             code: error.code().to_string(),
                             message: error.to_string(),
                             retryable: false,
+                            variables_after: context.redacted_variables(),
                         });
                         self.audit.record(
                             AuditRecord::new(
@@ -566,6 +567,7 @@ impl WorkflowEngine {
                     code: error.code().to_string(),
                     message: message.clone(),
                     retryable: error.retryable(),
+                    variables_after: context.redacted_variables(),
                 });
                 self.audit.record(
                     AuditRecord::new(run_id.clone(), AuditCategory::NodeFailed, message.clone())
@@ -595,13 +597,14 @@ impl WorkflowEngine {
                     .and_then(|outputs| outputs.get(source_port))
                     .cloned()
                     .unwrap_or(serde_json::Value::Null);
-                inputs.insert(target_port.to_string(), value);
+                inputs.insert(target_port.to_string(), value.clone());
                 bus.emit(ExecutionEvent::DataTransferred {
                     edge_id: edge.id.clone(),
                     source: edge.source.clone(),
                     target: edge.target.clone(),
                     source_port: source_port.to_string(),
                     target_port: target_port.to_string(),
+                    value,
                 });
             }
 
@@ -617,6 +620,13 @@ impl WorkflowEngine {
             bus.emit(ExecutionEvent::NodeStarted {
                 node_id: node.id.clone(),
                 node_type: node.node_type.clone(),
+                input: Some(nodara_schema::NodeInputSnapshot {
+                    config: input.config.clone(),
+                    resolved_config: input.resolved_config.clone(),
+                    inputs: input.inputs.clone(),
+                    variables_before: context.redacted_variables(),
+                    timeout_ms: input.timeout_ms,
+                }),
             });
             self.audit.record(
                 AuditRecord::new(
@@ -687,6 +697,7 @@ impl WorkflowEngine {
                     bus.emit(ExecutionEvent::NodeFinished {
                         node_id: node.id.clone(),
                         outputs: output.outputs.clone(),
+                        variables_after: context.redacted_variables(),
                         duration_ms,
                     });
                     self.audit.record(
@@ -734,6 +745,7 @@ impl WorkflowEngine {
                         code: error.code().to_string(),
                         message: error.to_string(),
                         retryable: error.retryable(),
+                        variables_after: context.redacted_variables(),
                     });
                     self.audit.record(
                         AuditRecord::new(

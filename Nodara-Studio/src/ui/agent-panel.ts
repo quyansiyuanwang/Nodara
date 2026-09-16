@@ -504,8 +504,10 @@ export class AgentPanel {
     const hint = document.createElement("p");
     hint.className = "field__hint";
     hint.textContent = t("agent.apiKeyHint");
-    grid.appendChild(hint);
-    grid.appendChild(this.renderPromptTemplates());
+    const visionHint = document.createElement("p");
+    visionHint.className = "field__hint";
+    visionHint.textContent = t("agent.visionRuntimeHint");
+    grid.append(hint, visionHint, this.renderPromptTemplates());
     details.appendChild(grid);
     return details;
   }

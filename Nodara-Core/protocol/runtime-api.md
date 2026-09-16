@@ -203,7 +203,13 @@ Each frame is an `EventEnvelope`:
   "run_id": "5f0c...",
   "seq": 7,
   "timestamp_ms": 1736000001234,
-  "event": { "type": "node_finished", "node_id": "greet", "outputs": {}, "duration_ms": 3 }
+  "event": {
+    "type": "node_finished",
+    "node_id": "greet",
+    "outputs": { "out": "hello" },
+    "variables_after": { "greeting": "hello" },
+    "duration_ms": 3
+  }
 }
 ```
 
@@ -213,8 +219,14 @@ client can detect gaps after a reconnect.
 Event types come from
 [`execution-event.schema.json`](../schema/execution-event.schema.json):
 `run_started`, `node_started`, `node_progress`, `node_finished`, `node_failed`,
-`log`, `run_paused`, `run_resumed`, `run_cancelled`, `run_completed`,
-`run_failed`, `capability_decision`.
+`edge_activated`, `data_transferred`, `log`, `run_paused`, `run_resumed`,
+`run_cancelled`, `run_completed`, `run_failed`, `capability_decision`.
+
+`node_started` carries a complete pre-execution input snapshot and
+`node_finished`/`node_failed` carry `variables_after`; `data_transferred`
+carries the exact edge value. Secret variables are redacted before emission.
+The Agent uses this same evidence and attaches image artifacts to vision-capable
+models for screenshot inspection.
 
 `capability_decision` is emitted before every node executes. It is the observable
 side of the policy layer: a UI can show which capability was asked for, and

@@ -152,7 +152,9 @@ fn print_event(envelope: &EventEnvelope) {
         ExecutionEvent::RunStarted { workflow_id } => {
             println!("run started: {workflow_id}");
         }
-        ExecutionEvent::NodeStarted { node_id, node_type } => {
+        ExecutionEvent::NodeStarted {
+            node_id, node_type, ..
+        } => {
             println!("  -> {node_id} ({node_type})");
         }
         ExecutionEvent::NodeFinished {

@@ -192,7 +192,7 @@ Open the bottom **Agent** tab or expand the full workspace for a conversational 
 | Partial approval | Safe nodes run automatically; dangerous/privileged nodes require per-item approval. |
 | Automatic | Runs the final plan automatically and auto-approves capabilities while preserving capability decisions and audit records. |
 
-Agent output is never loaded into the canvas automatically. Review the final JSON and diagnostics, then use **Load into editor**, **Validate**, **Run this plan** or **Open audit**. The full session history remains visible for follow-up turns.
+Agent output is never loaded into the canvas automatically. Review the final JSON and diagnostics, then use **Load into editor**, **Validate**, **Run this plan** or **Open audit**. The full session history remains visible for follow-up turns. On a follow-up turn, Agent also receives the previous run’s complete node input/output evidence and screenshot artifacts as native image inputs; choose a vision-capable model for capture-based workflows.
 
 Workflow 2.1 separates the two edge meanings. A control edge uses `kind: "control"` and may use `branch`, `condition` and `label`, but no data ports. A data edge uses `kind: "data"`, requires explicit `source_port` and `target_port`, and cannot use control fields. Data edges never activate a target node. Legacy 2.0 documents fail with `WF118`; migrate them explicitly:
 

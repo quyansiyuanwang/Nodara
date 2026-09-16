@@ -105,6 +105,7 @@ With the runtime running, launch `nodara-studio.exe` and verify:
 24. Type continuously in Inspector and Agent inputs while validation and session polling run; focus and caret position must remain stable. Plain clicks open the floating quick card, but Ctrl/Shift selection must not. Agent polling must also preserve button focus, expanded details and scroll position.
 25. Drop edges on node bodies to verify unique inference and ambiguous-port choice. Hold Alt to create control and data edges together, including partial success. Switch all six themes, override node/edge colors, export/import the workflow and verify the overrides survive.
 26. Verify Agent Provider Profiles use Windows Credential Manager, model output streams token by token, Stop cancels only generation, diffs and Trace render, and Audit shows live/history summary, graph, timeline and linked details.
+27. Run a capture workflow, then send a follow-up Agent goal. Confirm the next model turn includes `node_started` inputs, `node_finished` outputs, transferred edge values and the screenshot as a native image attachment; automatic repair must use the same evidence.
 
 ## Agent
 

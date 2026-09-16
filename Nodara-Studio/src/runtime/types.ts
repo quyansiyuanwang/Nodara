@@ -230,14 +230,23 @@ export interface PluginListResponse {
   failures: { id: string; message: string }[];
 }
 
+export interface NodeInputSnapshot {
+  config: Record<string, unknown>;
+  resolved_config: Record<string, unknown>;
+  inputs: Record<string, unknown>;
+  variables_before: Record<string, unknown>;
+  timeout_ms?: number;
+}
+
 export type ExecutionEvent =
   | { type: "run_started"; workflow_id: string }
-  | { type: "node_started"; node_id: string; node_type: string }
+  | { type: "node_started"; node_id: string; node_type: string; input?: NodeInputSnapshot }
   | { type: "node_progress"; node_id: string; progress?: number; message?: string }
   | {
       type: "node_finished";
       node_id: string;
       outputs: Record<string, unknown>;
+      variables_after?: Record<string, unknown>;
       duration_ms: number;
     }
   | {
@@ -246,6 +255,7 @@ export type ExecutionEvent =
       code: string;
       message: string;
       retryable: boolean;
+      variables_after?: Record<string, unknown>;
     }
   | { type: "log"; level: "debug" | "info" | "warn" | "error"; message: string; node_id?: string }
   | {
@@ -262,6 +272,7 @@ export type ExecutionEvent =
       target: string;
       source_port: string;
       target_port: string;
+      value?: unknown;
     }
   | { type: "run_paused" }
   | { type: "run_resumed" }

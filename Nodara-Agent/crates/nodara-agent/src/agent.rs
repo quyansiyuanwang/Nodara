@@ -20,22 +20,32 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use base64::Engine as _;
+
 use nodara_schema::{
-    ExecutionEvent, NodeDescriptor, PlanPreview, SessionStatus, ValidationReport, Workflow,
+    AgentSession, EventEnvelope, ExecutionEvent, NodeDescriptor, PlanPreview, SessionStatus,
+    ValidationReport, Workflow,
 };
 use serde_json::Value;
 
 use crate::audit::{AuditTrace, TraceEntry, TraceStep};
 use crate::error::{AgentError, AgentResult};
+use crate::model::{ChatImage, ChatMessage};
 use crate::planner::{PlanObserver, PlanRequest, Planner};
 use crate::policy::{Budget, BudgetTracker, GuardrailPolicy};
 use crate::provider::LlmProvider;
 use crate::report::ExecutionReport;
-use crate::runtime_client::RuntimeClient;
+use crate::runtime_client::{RuntimeArtifact, RuntimeClient};
 use crate::selector::ToolSelector;
 
 /// How many run attempts the agent will make before giving up.
 const MAX_RUN_ATTEMPTS: u32 = 2;
+/// Maximum number of screenshot artifacts attached to one model turn.
+const MAX_CONTEXT_IMAGES: usize = 12;
+/// Maximum encoded image size accepted for one artifact.
+const MAX_CONTEXT_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+/// Maximum combined image bytes accepted for one model turn.
+const MAX_CONTEXT_IMAGE_TOTAL_BYTES: usize = 24 * 1024 * 1024;
 
 struct NoopPlanObserver;
 
@@ -333,7 +343,7 @@ impl<'a> Agent<'a> {
 
         // Publish the session first: the Studio can then watch from the start,
         // and a gated node later has somewhere to ask for approval.
-        let (session_id, conversation) = if self.config.offline {
+        let (session_id, mut conversation) = if self.config.offline {
             trace.record(
                 TraceStep::Note,
                 "offline planning: the runtime is not contacted".to_string(),
@@ -529,6 +539,24 @@ impl<'a> Agent<'a> {
                         format!("re-planning after failure: {reason}"),
                         snapshot.clone().unwrap_or(Value::Null),
                     );
+                    if attempts < MAX_RUN_ATTEMPTS {
+                        if let Some(run_id) = snapshot
+                            .as_ref()
+                            .and_then(|value| value.get("id"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                        {
+                            let artifacts = self.client.artifacts(&run_id).unwrap_or_default();
+                            conversation.push(self.runtime_context_from_parts(
+                                &run_id,
+                                snapshot.clone().unwrap_or(Value::Null),
+                                Some(workflow.clone()),
+                                events.clone(),
+                                artifacts,
+                                &mut trace,
+                            ));
+                        }
+                    }
                     if attempts >= MAX_RUN_ATTEMPTS {
                         let snapshot = snapshot.unwrap_or(Value::Null);
                         let report = self.build_report(
@@ -627,7 +655,7 @@ impl<'a> Agent<'a> {
         &self,
         goal: &str,
         trace: &mut AuditTrace,
-    ) -> (Option<String>, Vec<crate::model::ChatMessage>) {
+    ) -> (Option<String>, Vec<ChatMessage>) {
         if !self.config.publish_session {
             return (None, Vec::new());
         }
@@ -643,7 +671,10 @@ impl<'a> Agent<'a> {
                     return (None, Vec::new());
                 }
             };
-            let history = session_messages_to_chat(&session.messages);
+            let mut history = session_messages_to_chat(&session.messages);
+            if let Some(evidence) = self.runtime_context_message(&session, trace) {
+                history.push(evidence);
+            }
             let _ =
                 self.client
                     .append_message(session_id, nodara_schema::MessageRole::Operator, goal);
@@ -676,6 +707,114 @@ impl<'a> Agent<'a> {
                 (None, Vec::new())
             }
         }
+    }
+
+    /// Load the previous run's complete before/after node evidence for the
+    /// next model turn. Image artifacts are attached as native multimodal
+    /// content parts, not embedded as text or base64 inside the prompt.
+    fn runtime_context_message(
+        &self,
+        session: &AgentSession,
+        trace: &mut AuditTrace,
+    ) -> Option<ChatMessage> {
+        let run_id = session.run_id.as_deref()?;
+        let snapshot = self.client.get_run(run_id).ok()?;
+        let workflow = self.client.run_workflow(run_id).ok();
+        let events = self.client.event_log(run_id).unwrap_or_default();
+        let artifacts = self.client.artifacts(run_id).unwrap_or_default();
+        Some(self.runtime_context_from_parts(run_id, snapshot, workflow, events, artifacts, trace))
+    }
+
+    /// Build one model turn containing the complete run evidence and native
+    /// image parts. Kept separate so automatic repair can reuse the exact same
+    /// evidence without another round-trip.
+    fn runtime_context_from_parts(
+        &self,
+        run_id: &str,
+        snapshot: Value,
+        workflow: Option<Workflow>,
+        events: Vec<EventEnvelope>,
+        artifacts: Vec<RuntimeArtifact>,
+        trace: &mut AuditTrace,
+    ) -> ChatMessage {
+        let mut images = Vec::new();
+        let mut image_bytes = 0usize;
+        let mut skipped_images = Vec::new();
+
+        for artifact in &artifacts {
+            if !artifact.content_type.starts_with("image/") {
+                continue;
+            }
+            if images.len() >= MAX_CONTEXT_IMAGES
+                || artifact.size > MAX_CONTEXT_IMAGE_BYTES
+                || image_bytes.saturating_add(artifact.size) > MAX_CONTEXT_IMAGE_TOTAL_BYTES
+            {
+                skipped_images.push(artifact.name.clone());
+                continue;
+            }
+            match self.client.artifact_bytes(run_id, &artifact.id) {
+                Ok((media_type, bytes))
+                    if bytes.len() <= MAX_CONTEXT_IMAGE_BYTES
+                        && image_bytes.saturating_add(bytes.len())
+                            <= MAX_CONTEXT_IMAGE_TOTAL_BYTES =>
+                {
+                    image_bytes += bytes.len();
+                    images.push(ChatImage {
+                        name: artifact.name.clone(),
+                        media_type,
+                        data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+                        artifact_id: Some(artifact.id.clone()),
+                    });
+                }
+                Ok(_) => skipped_images.push(artifact.name.clone()),
+                Err(error) => {
+                    trace.record(
+                        TraceStep::Note,
+                        format!("could not load artifact `{}`: {error}", artifact.name),
+                        serde_json::json!({ "artifact_id": artifact.id }),
+                    );
+                    skipped_images.push(artifact.name.clone());
+                }
+            }
+        }
+
+        let evidence = serde_json::json!({
+            "instructions": "This is the exact runtime evidence for the previous turn. Node input snapshots contain authored config, resolved config, data-port inputs and redacted variables before execution. Node finished events contain outputs and redacted variables after execution. DataTransferred events contain the exact value on each data edge. Use image attachments to inspect screenshots and derive pixel positions or visual styling.",
+            "run": snapshot,
+            "workflow": workflow,
+            "events": events,
+            "artifacts": artifacts,
+            "image_attachments": images.iter().map(|image| serde_json::json!({
+                "artifact_id": image.artifact_id,
+                "name": image.name,
+                "media_type": image.media_type,
+            })).collect::<Vec<_>>(),
+            "image_attachments_skipped": skipped_images,
+        });
+        trace.record(
+            TraceStep::Note,
+            format!(
+                "loaded complete runtime evidence for run {run_id}: {} event(s), {} image(s), {} byte(s)",
+                events.len(),
+                images.len(),
+                image_bytes,
+            ),
+            serde_json::json!({
+                "run_id": run_id,
+                "events": events.len(),
+                "images_attached": images.len(),
+                "image_bytes": image_bytes,
+                "images_skipped": skipped_images,
+            }),
+        );
+        ChatMessage::user_with_images(
+            format!(
+                "[runtime evidence for {run_id}]
+{}",
+                serde_json::to_string_pretty(&evidence).unwrap_or_else(|_| evidence.to_string())
+            ),
+            images,
+        )
     }
 
     fn publish_plan(

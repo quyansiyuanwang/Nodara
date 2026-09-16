@@ -342,17 +342,25 @@ the audit log.
   "run_id": "66aed51c-…",
   "seq": 7,
   "timestamp_ms": 1757226000000,
-  "event": { "type": "node_finished", "node_id": "greet", "outputs": { "out": "hello" }, "duration_ms": 3 }
+  "event": {
+    "type": "node_finished",
+    "node_id": "greet",
+    "outputs": { "out": "hello" },
+    "variables_after": { "greeting": "hello" },
+    "duration_ms": 3
+  }
 }
 ```
 
 | Event `type` | Payload |
 |---|---|
 | `run_started` | `workflow_id` |
-| `node_started` | `node_id`, `node_type` |
+| `node_started` | `node_id`, `node_type`, optional `input` snapshot: `config`, `resolved_config`, `inputs`, `variables_before`, `timeout_ms` |
 | `node_progress` | `node_id`, optional `progress`, optional `message` |
-| `node_finished` | `node_id`, `outputs`, `duration_ms` |
-| `node_failed` | `node_id`, `code`, `message`, `retryable` |
+| `node_finished` | `node_id`, `outputs`, `variables_after`, `duration_ms` |
+| `node_failed` | `node_id`, `code`, `message`, `retryable`, `variables_after` |
+| `edge_activated` | `edge_id`, `source`, `target`, `branch` |
+| `data_transferred` | `edge_id`, `source`, `target`, `source_port`, `target_port`, `value` |
 | `log` | `level` (`debug`/`info`/`warn`/`error`), `message`, optional `node_id` |
 | `run_paused`, `run_resumed` | — |
 | `run_cancelled` | optional `reason` |

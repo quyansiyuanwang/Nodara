@@ -72,6 +72,50 @@ describe("run status visualisation", () => {
     expect(node("start").classList.contains("node--done")).toBe(true);
   });
 
+  it("renders complete node-before and node-after evidence", () => {
+    log.append(
+      envelope(0, {
+        type: "node_started",
+        node_id: "capture",
+        node_type: "windows.Desktop.Capture",
+        input: {
+          config: { x: 10, y: 20 },
+          resolved_config: { x: 10, y: 20 },
+          inputs: { in: "ready" },
+          variables_before: { screen: "desktop" },
+        },
+      }),
+    );
+    log.append(
+      envelope(1, {
+        type: "node_finished",
+        node_id: "capture",
+        outputs: { artifact: { id: "shot" } },
+        variables_after: { shot: { id: "shot" } },
+        duration_ms: 9,
+      }),
+    );
+    log.append(
+      envelope(2, {
+        type: "data_transferred",
+        edge_id: "capture-log",
+        source: "capture",
+        target: "log",
+        source_port: "artifact",
+        target_port: "in",
+        value: { id: "shot" },
+      }),
+    );
+
+    const summaries = [...document.querySelectorAll(".event-outputs summary")].map(
+      (element) => element.textContent,
+    );
+    expect(summaries).toContain("Node input snapshot");
+    expect(summaries).toContain("Variables after node");
+    expect(summaries).toContain("Transferred value");
+    expect(document.querySelector(".event-entry")?.textContent).toContain("screen");
+  });
+
   it("renders image artifact previews from node outputs", () => {
     log = new EventLog(
       document.getElementById("events")!,

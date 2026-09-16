@@ -180,6 +180,24 @@ fn serve(
         serde_json::from_slice(&body).unwrap_or(Value::Null)
     };
 
+    // Artifact bodies are raw bytes in the real runtime. Keep that contract in
+    // the fake so the Agent's multimodal path is exercised end to end.
+    if method == "GET" && path.contains("/artifacts/") && !path.ends_with("/artifacts") {
+        let bytes = [0x89, b'P', b'N', b'G', 1, 2, 3, 4];
+        write!(
+            stream,
+            "HTTP/1.1 200 OK
+content-type: image/png
+content-length: {}
+connection: close
+
+",
+            bytes.len()
+        )?;
+        stream.write_all(&bytes)?;
+        return stream.flush();
+    }
+
     let (status, payload) = route(&method, &path, &body, recorded, state);
     let encoded = serde_json::to_vec(&payload).unwrap_or_else(|_| b"{}".to_vec());
     write!(
@@ -279,6 +297,7 @@ fn route(
             };
             let id = format!("run-{}", state.attempts);
             let snapshot = snapshot(&id, &status, code.as_deref(), state.attempts);
+            state.session["run_id"] = json!(id);
             state.runs.push(snapshot.clone());
             (202, snapshot)
         }
@@ -304,6 +323,17 @@ fn route(
                     let run = &state.runs[index];
                     (200, json!(events_for(run)))
                 }
+                ("GET", Some("artifacts")) => (
+                    200,
+                    json!({
+                        "artifacts": [{
+                            "id": "artifact-1",
+                            "name": "desktop.png",
+                            "content_type": "image/png",
+                            "size": 8
+                        }]
+                    }),
+                ),
                 ("POST", Some(action @ ("pause" | "resume" | "cancel"))) => {
                     let status = match action {
                         "pause" => "paused",
@@ -435,11 +465,50 @@ fn events_for(run: &Value) -> Vec<Value> {
     match status {
         "completed" => {
             events.push(json!({
-                "run_id": run["id"], "seq": 2, "timestamp_ms": 1010,
-                "event": { "type": "node_finished", "node_id": "log", "outputs": {}, "duration_ms": 9 }
+                "run_id": run["id"], "seq": 2, "timestamp_ms": 1005,
+                "event": {
+                    "type": "node_started",
+                    "node_id": "capture",
+                    "node_type": "windows.Desktop.Capture",
+                    "input": {
+                        "config": { "x": 10, "y": 20, "output_var": "shot" },
+                        "resolved_config": { "x": 10, "y": 20, "output_var": "shot" },
+                        "inputs": { "in": "ready" },
+                        "variables_before": { "screen": "desktop" }
+                    }
+                }
             }));
             events.push(json!({
-                "run_id": run["id"], "seq": 3, "timestamp_ms": 1012,
+                "run_id": run["id"], "seq": 3, "timestamp_ms": 1008,
+                "event": {
+                    "type": "data_transferred",
+                    "edge_id": "capture-log",
+                    "source": "capture",
+                    "target": "log",
+                    "source_port": "artifact",
+                    "target_port": "in",
+                    "value": "ready"
+                }
+            }));
+            events.push(json!({
+                "run_id": run["id"], "seq": 4, "timestamp_ms": 1010,
+                "event": {
+                    "type": "node_finished",
+                    "node_id": "capture",
+                    "outputs": {
+                        "artifact": {
+                            "id": "artifact-1",
+                            "name": "desktop.png",
+                            "content_type": "image/png",
+                            "size": 8
+                        }
+                    },
+                    "variables_after": { "shot": { "id": "artifact-1" } },
+                    "duration_ms": 9
+                }
+            }));
+            events.push(json!({
+                "run_id": run["id"], "seq": 5, "timestamp_ms": 1012,
                 "event": { "type": "run_completed", "nodes_executed": 3, "duration_ms": 12 }
             }));
         }

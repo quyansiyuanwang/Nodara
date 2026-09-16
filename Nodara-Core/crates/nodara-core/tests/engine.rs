@@ -1062,7 +1062,20 @@ fn data_edges_transfer_values_without_becoming_control_edges() {
     let events = sink.snapshot();
     assert!(events.iter().any(|envelope| matches!(
         &envelope.event,
-        ExecutionEvent::DataTransferred { edge_id, .. } if edge_id == "producer-value"
+        ExecutionEvent::DataTransferred { edge_id, value, .. }
+            if edge_id == "producer-value" && value == &serde_json::json!(7)
+    )));
+    assert!(events.iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::NodeStarted { node_id, input: Some(input), .. }
+            if node_id == "consumer"
+                && input.inputs.get("in") == Some(&serde_json::json!(7))
+    )));
+    assert!(events.iter().any(|envelope| matches!(
+        &envelope.event,
+        ExecutionEvent::NodeFinished { node_id, outputs, .. }
+            if node_id == "producer"
+                && outputs.get("out") == Some(&serde_json::json!(7))
     )));
     assert!(events.iter().any(|envelope| matches!(
         &envelope.event,

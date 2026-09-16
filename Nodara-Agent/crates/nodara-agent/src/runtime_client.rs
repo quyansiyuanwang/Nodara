@@ -4,12 +4,14 @@
 //! to the engine, so it cannot execute anything without the runtime's policy
 //! layer seeing it first.
 
+use std::io::Read;
 use std::time::Duration;
 
 use nodara_schema::{
     AgentSession, ApprovalRequest, EventEnvelope, MessageRole, NodeDescriptor, PlanPreview,
     SessionStatus, ValidationReport, Workflow,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::agent::RunApprovalMode;
@@ -31,6 +33,19 @@ fn segment(id: &str) -> String {
         }
     }
     out
+}
+
+/// Artifact metadata returned by the runtime for one run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeArtifact {
+    /// Stable artifact id.
+    pub id: String,
+    /// Human-readable artifact name.
+    pub name: String,
+    /// MIME type.
+    pub content_type: String,
+    /// Size in bytes.
+    pub size: usize,
 }
 
 /// A REST client for one runtime instance.
@@ -156,6 +171,67 @@ impl RuntimeClient {
     /// Read a run snapshot.
     pub fn get_run(&self, run_id: &str) -> AgentResult<Value> {
         self.get(&format!("/api/v1/runs/{}", segment(run_id)))
+    }
+
+    /// Read the immutable workflow snapshot captured when the run started.
+    pub fn run_workflow(&self, run_id: &str) -> AgentResult<Workflow> {
+        let payload = self.get(&format!("/api/v1/runs/{}/workflow", segment(run_id)))?;
+        Ok(serde_json::from_value(payload)?)
+    }
+
+    /// List every artifact retained for a run.
+    pub fn artifacts(&self, run_id: &str) -> AgentResult<Vec<RuntimeArtifact>> {
+        let payload = self.get(&format!("/api/v1/runs/{}/artifacts", segment(run_id)))?;
+        let artifacts = payload
+            .get("artifacts")
+            .cloned()
+            .ok_or_else(|| AgentError::Transport("missing `artifacts` in response".to_string()))?;
+        Ok(serde_json::from_value(artifacts)?)
+    }
+
+    /// Download one artifact as raw bytes and its MIME type.
+    pub fn artifact_bytes(
+        &self,
+        run_id: &str,
+        artifact_id: &str,
+    ) -> AgentResult<(String, Vec<u8>)> {
+        let response = ureq::get(&format!(
+            "{}/api/v1/runs/{}/artifacts/{}",
+            self.base,
+            segment(run_id),
+            segment(artifact_id),
+        ))
+        .timeout(self.timeout)
+        .call();
+        match response {
+            Ok(response) => {
+                let content_type = response
+                    .header("content-type")
+                    .unwrap_or("application/octet-stream")
+                    .split(';')
+                    .next()
+                    .unwrap_or("application/octet-stream")
+                    .trim()
+                    .to_string();
+                let mut bytes = Vec::new();
+                response
+                    .into_reader()
+                    .take(32 * 1024 * 1024)
+                    .read_to_end(&mut bytes)
+                    .map_err(|error| AgentError::Transport(error.to_string()))?;
+                Ok((content_type, bytes))
+            }
+            Err(ureq::Error::Status(status, response)) => {
+                let body = response.into_json::<Value>().unwrap_or(Value::Null);
+                let message = body
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("runtime returned an error")
+                    .to_string();
+                Err(AgentError::Runtime { status, message })
+            }
+            Err(error) => Err(AgentError::Transport(error.to_string())),
+        }
     }
 
     /// The buffered event sequence for a run.

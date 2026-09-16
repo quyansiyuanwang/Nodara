@@ -90,7 +90,10 @@ export class EventLog {
     entry.appendChild(row);
     this.appendArtifactPreviews(entry, envelope);
     this.appendCommandOutput(entry, envelope);
+    this.appendNodeInputs(entry, envelope);
     this.appendNodeOutputs(entry, envelope);
+    this.appendVariablesAfter(entry, envelope);
+    this.appendTransferredValue(entry, envelope);
     this.root.appendChild(entry);
     while (this.root.querySelectorAll(".event-entry").length > MAX_ROWS) {
       this.root.firstElementChild?.remove();
@@ -176,6 +179,12 @@ export class EventLog {
     }
   }
 
+  /** Show the complete pre-execution snapshot that produced this event. */
+  private appendNodeInputs(entry: HTMLElement, envelope: EventEnvelope): void {
+    if (envelope.event.type !== "node_started" || !envelope.event.input) return;
+    this.appendJsonDetails(entry, t("event.inputs"), envelope.event.input);
+  }
+
   /** Keep every node output inspectable even when no dedicated renderer exists. */
   private appendNodeOutputs(entry: HTMLElement, envelope: EventEnvelope): void {
     if (envelope.event.type !== "node_finished") return;
@@ -188,6 +197,31 @@ export class EventLog {
     summary.textContent = t("event.outputs");
     const pre = document.createElement("pre");
     pre.textContent = JSON.stringify(outputs, null, 2);
+    details.append(summary, pre);
+    entry.appendChild(details);
+  }
+
+  /** Show the redacted run scope after a node completed or failed. */
+  private appendVariablesAfter(entry: HTMLElement, envelope: EventEnvelope): void {
+    const event = envelope.event;
+    if (event.type !== "node_finished" && event.type !== "node_failed") return;
+    if (!event.variables_after || Object.keys(event.variables_after).length === 0) return;
+    this.appendJsonDetails(entry, t("event.variablesAfter"), event.variables_after);
+  }
+
+  /** Show the exact value carried by a data edge. */
+  private appendTransferredValue(entry: HTMLElement, envelope: EventEnvelope): void {
+    if (envelope.event.type !== "data_transferred" || envelope.event.value === undefined) return;
+    this.appendJsonDetails(entry, t("event.transferredValue"), envelope.event.value);
+  }
+
+  private appendJsonDetails(entry: HTMLElement, label: string, value: unknown): void {
+    const details = document.createElement("details");
+    details.className = "event-outputs";
+    const summary = document.createElement("summary");
+    summary.textContent = label;
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(value, null, 2);
     details.append(summary, pre);
     entry.appendChild(details);
   }

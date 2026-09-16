@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader};
 use std::sync::Mutex;
 
 use crate::error::{AgentError, AgentResult};
-use crate::model::{ChatRequest, ChatResponse, TokenUsage};
+use crate::model::{ChatMessage, ChatRequest, ChatResponse, TokenUsage};
 
 /// Something that can complete a chat request.
 pub trait LlmProvider: Send + Sync {
@@ -157,6 +157,49 @@ impl OpenAiProvider {
     }
 }
 
+/// Convert provider-neutral messages to OpenAI-compatible content parts.
+///
+/// Messages without images remain ordinary strings, preserving compatibility
+/// with text-only and older OpenAI-compatible servers. Messages with artifacts
+/// use the documented `text` + `image_url` content-part shape.
+fn wire_messages(messages: &[ChatMessage]) -> serde_json::Value {
+    serde_json::Value::Array(
+        messages
+            .iter()
+            .map(|message| {
+                let role = serde_json::to_value(message.role)
+                    .unwrap_or_else(|_| serde_json::Value::String("user".to_string()));
+                if message.images.is_empty() {
+                    return serde_json::json!({
+                        "role": role,
+                        "content": message.content,
+                    });
+                }
+                let mut parts = vec![serde_json::json!({
+                    "type": "text",
+                    "text": message.content,
+                })];
+                parts.extend(message.images.iter().map(|image| {
+                    serde_json::json!({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": format!(
+                                "data:{};base64,{}",
+                                image.media_type,
+                                image.data_base64,
+                            )
+                        }
+                    })
+                }));
+                serde_json::json!({
+                    "role": role,
+                    "content": parts,
+                })
+            })
+            .collect(),
+    )
+}
+
 impl LlmProvider for OpenAiProvider {
     fn name(&self) -> &str {
         &self.model
@@ -171,7 +214,7 @@ impl LlmProvider for OpenAiProvider {
             "model": self.model,
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
-            "messages": request.messages,
+            "messages": wire_messages(&request.messages),
             "response_format": if request.json_mode {
                 serde_json::json!({ "type": "json_object" })
             } else {
@@ -260,7 +303,7 @@ impl LlmProvider for OpenAiProvider {
             "model": self.model,
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
-            "messages": request.messages,
+            "messages": wire_messages(&request.messages),
             "response_format": if request.json_mode {
                 serde_json::json!({ "type": "json_object" })
             } else {
@@ -325,5 +368,39 @@ impl LlmProvider for OpenAiProvider {
                     .unwrap_or(0) as u32,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::ChatImage;
+
+    #[test]
+    fn image_messages_use_openai_content_parts() {
+        let message = ChatMessage::user_with_images(
+            "inspect the screenshot",
+            vec![ChatImage {
+                name: "desktop.png".to_string(),
+                media_type: "image/png".to_string(),
+                data_base64: "AQID".to_string(),
+                artifact_id: Some("artifact-1".to_string()),
+            }],
+        );
+
+        let wire = wire_messages(&[message]);
+        assert_eq!(wire[0]["role"], "user");
+        assert_eq!(wire[0]["content"][0]["type"], "text");
+        assert_eq!(wire[0]["content"][1]["type"], "image_url");
+        assert_eq!(
+            wire[0]["content"][1]["image_url"]["url"],
+            "data:image/png;base64,AQID"
+        );
+    }
+
+    #[test]
+    fn text_only_messages_remain_plain_strings() {
+        let wire = wire_messages(&[ChatMessage::user("hello")]);
+        assert_eq!(wire[0]["content"], "hello");
     }
 }

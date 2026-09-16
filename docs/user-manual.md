@@ -105,6 +105,8 @@ The Properties rail is an independently scrolling stack of compact cards. Graph 
 
 The Agent workspace supports named Provider Profiles, prompt templates and per-turn extra instructions. API keys are stored in Windows Credential Manager and never enter localStorage, workflow JSON or logs. Model output streams token by token; Stop cancels only the current generation and leaves an active workflow untouched. Every result shows node/edge diffs, diagnostics, final JSON, decision Trace and execution actions. Loading or running a plan always requires explicit confirmation.
 
+For follow-up turns and automatic repair, Agent reloads the previous run as complete evidence: workflow snapshot, run snapshot, event log and artifacts. `node_started` shows the authored/resolved configuration, data inputs and variables before the node; `node_finished` shows outputs and variables after it; data edges include the exact transferred value. Screenshots are attached as native image inputs rather than base64 text, so use a vision-capable model when the workflow captures the screen. Secret variables are masked before Agent sees the snapshots.
+
 Audit provides summary cards, a timeline and an execution graph in the drawer, plus a full workspace view. Live runs update node and traversed-edge state, and selecting a graph node or timeline record opens structured and raw details. Runs without a workflow snapshot fall back to the record list.
 
 Motion is part of execution feedback, not decoration:

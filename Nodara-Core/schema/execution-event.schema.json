@@ -53,6 +53,17 @@
         {
           "description": "A node began executing.",
           "properties": {
+            "input": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/NodeInputSnapshot"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Complete input and variable state immediately before execution."
+            },
             "node_id": {
               "description": "Node id.",
               "type": "string"
@@ -134,6 +145,12 @@
                 "node_finished"
               ],
               "type": "string"
+            },
+            "variables_after": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Redacted run-scope variables after the node published its outputs.",
+              "type": "object"
             }
           },
           "required": [
@@ -168,6 +185,12 @@
                 "node_failed"
               ],
               "type": "string"
+            },
+            "variables_after": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Redacted run-scope variables after the failure was recorded.",
+              "type": "object"
             }
           },
           "required": [
@@ -245,6 +268,10 @@
                 "data_transferred"
               ],
               "type": "string"
+            },
+            "value": {
+              "default": null,
+              "description": "Exact value transferred, for replay and model inspection."
             }
           },
           "required": [
@@ -465,6 +492,41 @@
           "type": "string"
         }
       ]
+    },
+    "NodeInputSnapshot": {
+      "description": "Complete input snapshot captured immediately before a node executes.\n\nThe runtime resolves secret variables to `***` before this snapshot is emitted, so the same observability surface can be consumed by the Studio and the Agent without exposing secret values.",
+      "properties": {
+        "config": {
+          "default": null,
+          "description": "Raw configuration exactly as authored in the workflow."
+        },
+        "inputs": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Values arriving on data input ports, keyed by port name.",
+          "type": "object"
+        },
+        "resolved_config": {
+          "default": null,
+          "description": "Configuration after template and variable resolution."
+        },
+        "timeout_ms": {
+          "description": "Per-attempt timeout, when configured.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "variables_before": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Redacted run-scope variables before the node starts.",
+          "type": "object"
+        }
+      },
+      "type": "object"
     }
   },
   "description": "A sequenced envelope around an [`ExecutionEvent`].",

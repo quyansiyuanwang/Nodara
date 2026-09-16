@@ -14,13 +14,30 @@ pub enum Role {
     Assistant,
 }
 
+/// One image supplied to a vision-capable chat model.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatImage {
+    /// Human-readable artifact name.
+    pub name: String,
+    /// MIME type, for example `image/png`.
+    pub media_type: String,
+    /// Raw image bytes encoded as base64 without a data-URL prefix.
+    pub data_base64: String,
+    /// Runtime artifact id, when this image came from an execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_id: Option<String>,
+}
+
 /// One chat message.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChatMessage {
     /// Author.
     pub role: Role,
-    /// Content.
+    /// Text content.
     pub content: String,
+    /// Optional images for multimodal models.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<ChatImage>,
 }
 
 impl ChatMessage {
@@ -29,6 +46,7 @@ impl ChatMessage {
         Self {
             role: Role::System,
             content: content.into(),
+            images: Vec::new(),
         }
     }
 
@@ -37,6 +55,16 @@ impl ChatMessage {
         Self {
             role: Role::User,
             content: content.into(),
+            images: Vec::new(),
+        }
+    }
+
+    /// A user message carrying runtime image artifacts.
+    pub fn user_with_images(content: impl Into<String>, images: Vec<ChatImage>) -> Self {
+        Self {
+            role: Role::User,
+            content: content.into(),
+            images,
         }
     }
 
@@ -45,6 +73,7 @@ impl ChatMessage {
         Self {
             role: Role::Assistant,
             content: content.into(),
+            images: Vec::new(),
         }
     }
 }

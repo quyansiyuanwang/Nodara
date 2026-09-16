@@ -47,7 +47,7 @@ pub mod workflow_schema;
 
 pub use descriptor::{NodeDescriptor, PortDescriptor, PortKind, ValueType};
 pub use error::{SchemaError, SchemaResult};
-pub use event::{EventEnvelope, ExecutionEvent, LogLevel, RunStatus};
+pub use event::{EventEnvelope, ExecutionEvent, LogLevel, NodeInputSnapshot, RunStatus};
 pub use extension::{ExtensionDescriptor, ExtensionKind};
 pub use graph::{GraphError, WorkflowGraph};
 pub use manifest::{PluginFeature, PluginManifest, MANIFEST_FILE};

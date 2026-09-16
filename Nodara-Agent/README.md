@@ -46,6 +46,19 @@ discover capabilities ──▶ select tools ──▶ plan ──▶ guardrails
 * **Observation uses the same events as the Studio.** The agent polls
   `GET /runs/{id}/event-log`, which returns the identical sequence the Studio
   streams over its WebSocket.
+* **Runtime evidence is complete.** A continued session and an automatic repair
+  turn load the run snapshot, workflow, event log and artifact list. `node_started`
+  captures authored config, resolved config, data-port inputs and redacted
+  variables before execution; `node_finished` captures outputs and variables after
+  execution; `data_transferred` carries the exact edge value. Image artifacts are
+  sent as native OpenAI-compatible multimodal `image_url` parts, so a vision model
+  can inspect screenshots and derive pixel positions or visual styling. Secret
+  variables are redacted before these snapshots leave the execution context.
+
+Structured node evidence is complete. Binary image attachments are bounded to
+protect finite model context windows: at most 12 images, 8 MiB per image and
+24 MiB combined per turn. Images outside those bounds remain available through
+the artifact API, and the Trace records which attachments were skipped.
 
 The planner is a loop rather than a single call: it drafts, asks the runtime to
 validate, feeds the runtime's own diagnostics back to the model, and retries

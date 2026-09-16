@@ -49,6 +49,30 @@ pub enum LogLevel {
     Error,
 }
 
+/// Complete input snapshot captured immediately before a node executes.
+///
+/// The runtime resolves secret variables to `***` before this snapshot is
+/// emitted, so the same observability surface can be consumed by the Studio and
+/// the Agent without exposing secret values.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
+pub struct NodeInputSnapshot {
+    /// Raw configuration exactly as authored in the workflow.
+    #[serde(default)]
+    pub config: serde_json::Value,
+    /// Configuration after template and variable resolution.
+    #[serde(default)]
+    pub resolved_config: serde_json::Value,
+    /// Values arriving on data input ports, keyed by port name.
+    #[serde(default)]
+    pub inputs: BTreeMap<String, serde_json::Value>,
+    /// Redacted run-scope variables before the node starts.
+    #[serde(default)]
+    pub variables_before: BTreeMap<String, serde_json::Value>,
+    /// Per-attempt timeout, when configured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+}
+
 /// Payload of an execution event.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -64,6 +88,9 @@ pub enum ExecutionEvent {
         node_id: String,
         /// Node type.
         node_type: String,
+        /// Complete input and variable state immediately before execution.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        input: Option<NodeInputSnapshot>,
     },
     /// A node reported incremental progress.
     NodeProgress {
@@ -83,6 +110,9 @@ pub enum ExecutionEvent {
         /// Node outputs.
         #[serde(default)]
         outputs: BTreeMap<String, serde_json::Value>,
+        /// Redacted run-scope variables after the node published its outputs.
+        #[serde(default)]
+        variables_after: BTreeMap<String, serde_json::Value>,
         /// Wall-clock duration in milliseconds.
         duration_ms: u64,
     },
@@ -97,6 +127,9 @@ pub enum ExecutionEvent {
         /// Whether the runtime will retry.
         #[serde(default)]
         retryable: bool,
+        /// Redacted run-scope variables after the failure was recorded.
+        #[serde(default)]
+        variables_after: BTreeMap<String, serde_json::Value>,
     },
     /// A control edge activated a target node.
     EdgeActivated {
@@ -121,6 +154,9 @@ pub enum ExecutionEvent {
         source_port: String,
         /// Target input port.
         target_port: String,
+        /// Exact value transferred, for replay and model inspection.
+        #[serde(default)]
+        value: serde_json::Value,
     },
     /// A structured log record.
     Log {
@@ -222,6 +258,16 @@ mod tests {
             ExecutionEvent::NodeStarted {
                 node_id: "log".into(),
                 node_type: "core.Log".into(),
+                input: Some(NodeInputSnapshot {
+                    config: serde_json::json!({ "message": "{{greeting}}" }),
+                    resolved_config: serde_json::json!({ "message": "hello" }),
+                    inputs: BTreeMap::from([("in".into(), serde_json::json!("hello"))]),
+                    variables_before: BTreeMap::from([(
+                        "greeting".into(),
+                        serde_json::json!("hello"),
+                    )]),
+                    timeout_ms: Some(1000),
+                }),
             },
         );
         let json = serde_json::to_string(&envelope).unwrap();
