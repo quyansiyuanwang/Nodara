@@ -16,6 +16,8 @@
 - Data-only connection previews now stay anchored to the data output the operator grabbed instead of visually snapping to the Always execution port; Alt-drag still previews both control and data lines.
 - Agent sessions now receive complete node before/after evidence: authored and resolved config, data inputs, redacted variables, outputs, transferred edge values and image artifacts. Screenshots are attached to vision-capable models as native multimodal images during continued sessions and automatic repair.
 - Studio artifact previews now hide the fallback message while an image is healthy, and the Open action launches loopback runtime artifacts in the system browser instead of silently failing inside WebView2.
+- Completed, failed and cancelled runs now clear every execution-only node, edge, marker and moving-arrow decoration; paused runs keep their snapshot for inspection.
+- Studio component styles now use semantic theme tokens for surfaces, borders, text, status panels, SVG edges and arrow markers, canvas grids, Inspector, Agent and Audit views, with a proper light color-scheme for the Paper theme.
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses

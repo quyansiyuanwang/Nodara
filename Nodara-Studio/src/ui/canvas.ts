@@ -236,10 +236,17 @@ export class Canvas {
     if (status === "running") {
       // Resume the direction markers when a paused run continues.
       for (const [edgeId, state] of this.edgeStates) this.setEdgeState(edgeId, state);
-    } else {
-      // Keep traversed-path highlighting, but stop all post-run animation.
-      this.cancelAllEdgeAnimations();
+      return;
     }
+    if (status === "paused") {
+      // Paused runs keep their execution snapshot visible for inspection.
+      this.cancelAllEdgeAnimations();
+      return;
+    }
+    // Pending and terminal runs must leave no execution-only colors or arrows
+    // behind. Freeze is for a paused run only; completed, failed and cancelled
+    // runs return the canvas to its authored document appearance.
+    this.clearStates();
   }
 
   /** Highlight a node as the one currently executing. */
@@ -277,7 +284,7 @@ export class Canvas {
     this.cancelAllEdgeAnimations();
     this.edgeStates.clear();
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
-      element.classList.remove("node--running", "node--done", "node--failed", "node--active");
+      element.classList.remove("node--running", "node--done", "node--failed", "node--active", "node--ready");
     }
     for (const group of this.edgesLayer.querySelectorAll<SVGGElement>(".edge-group")) {
       group.querySelector(".edge-flow")?.remove();

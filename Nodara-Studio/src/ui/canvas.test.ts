@@ -788,6 +788,34 @@ describe("graph editing on the canvas", () => {
     expect(group?.querySelector(".edge-runner")).toBeNull();
   });
 
+  it.each(["completed", "cancelled", "failed"] as const)(
+    "clears all execution colors and arrows when the run is %s",
+    (status) => {
+      const { canvas, workflow } = harness();
+      workflow.edges.push({ id: "s-e", kind: "control", source: "start", target: "end" });
+      canvas.render();
+      canvas.setStatus("running");
+      canvas.render();
+      canvas.setNodeState("start", "done");
+      canvas.setEdgeState("s-e", "active");
+
+      const node = document.querySelector<SVGGElement>('[data-node-id="start"]')!;
+      const group = document.querySelector<SVGGElement>('.edge-group[data-edge-id="s-e"]')!;
+      expect(node.classList.contains("node--ready")).toBe(true);
+      expect(node.classList.contains("node--done")).toBe(true);
+      expect(group.querySelector(".edge--active")).not.toBeNull();
+      expect(group.querySelector(".edge-runner")).not.toBeNull();
+
+      canvas.setStatus(status);
+
+      expect(node.className.baseVal).not.toContain("node--ready");
+      expect(node.className.baseVal).not.toContain("node--done");
+      expect(group.querySelector(".edge--active")).toBeNull();
+      expect(group.querySelector(".edge-flow")).toBeNull();
+      expect(group.querySelector(".edge-runner")).toBeNull();
+    },
+  );
+
   it("does not pan when the pointer merely reaches the viewport edge", () => {
     harness();
     const viewport = document.getElementById("viewport")!;
