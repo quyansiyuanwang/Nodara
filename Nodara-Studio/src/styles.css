@@ -1167,6 +1167,11 @@ body.is-resizing-y * {
   min-width: 0;
 }
 
+.event-artifact__image[hidden],
+.event-artifact__error[hidden] {
+  display: none;
+}
+
 .event-artifact__error {
   display: grid;
   place-items: center;

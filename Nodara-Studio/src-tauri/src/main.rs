@@ -38,6 +38,7 @@ fn main() {
             agent_credential_set,
             agent_credential_get,
             agent_credential_delete,
+            open_artifact_url,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Studio shell");
@@ -271,6 +272,54 @@ fn agent_credential_delete(profile_id: String) -> Result<(), String> {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(error) => Err(format!("could not delete API key: {error}")),
     }
+}
+
+/// Open a runtime-local artifact in the user's default browser.
+///
+/// Artifact links must not navigate the Tauri webview away from Studio, and a
+/// plain `target="_blank"` anchor is not reliable inside WebView2. The frontend
+/// invokes this command instead; the loopback restriction keeps the command
+/// from becoming a general-purpose URL launcher.
+#[tauri::command]
+fn open_artifact_url(url: String) -> Result<(), String> {
+    if !is_loopback_artifact_url(&url) {
+        return Err("only loopback runtime artifact URLs can be opened".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = Command::new("rundll32.exe");
+        command.args(["url.dll,FileProtocolHandler", &url]);
+        command
+    };
+    #[cfg(not(target_os = "windows"))]
+    let mut command = {
+        let mut command = Command::new("xdg-open");
+        command.arg(&url);
+        command
+    };
+
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("could not open artifact URL: {error}"))
+}
+
+fn is_loopback_artifact_url(url: &str) -> bool {
+    if url.is_empty() || url.len() > 8192 || url.chars().any(char::is_control) {
+        return false;
+    }
+
+    for prefix in ["http://127.0.0.1:", "http://localhost:"] {
+        let Some(rest) = url.strip_prefix(prefix) else {
+            continue;
+        };
+        let (port, _) = rest.split_once('/').unwrap_or((rest, ""));
+        return !port.is_empty()
+            && port.bytes().all(|byte| byte.is_ascii_digit())
+            && port.parse::<u16>().is_ok();
+    }
+    false
 }
 
 fn find_agent_binary() -> Option<PathBuf> {
@@ -529,4 +578,21 @@ fn assign_to_job(child: &Child) -> std::io::Result<OwnedHandle> {
     }
 
     Ok(unsafe { OwnedHandle::from_raw_handle(job) })
+}
+#[cfg(test)]
+mod tests {
+    use super::is_loopback_artifact_url;
+
+    #[test]
+    fn artifact_opener_accepts_only_loopback_http_urls() {
+        assert!(is_loopback_artifact_url(
+            "http://127.0.0.1:8710/api/v1/runs/r1/artifacts/a1"
+        ));
+        assert!(is_loopback_artifact_url(
+            "http://localhost:8710/api/v1/runs/r1/artifacts/a1"
+        ));
+        assert!(!is_loopback_artifact_url("https://example.com/artifact"));
+        assert!(!is_loopback_artifact_url("http://127.0.0.1.evil.test/artifact"));
+        assert!(!is_loopback_artifact_url("file:///C:/secret.txt"));
+    }
 }

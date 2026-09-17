@@ -5,6 +5,8 @@
  * which is the point: one event contract, three consumers.
  */
 
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 import { t } from "../i18n";
 import { Canvas } from "./canvas";
 import { EventEnvelope, ExecutionEvent, RunStatus } from "../runtime/types";
@@ -173,6 +175,14 @@ export class EventLog {
       open.target = "_blank";
       open.rel = "noreferrer";
       open.textContent = t("actions.open");
+      open.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (isTauri()) {
+          void invoke("open_artifact_url", { url });
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      });
       caption.append(details, open);
       preview.append(media, caption);
       entry.appendChild(preview);

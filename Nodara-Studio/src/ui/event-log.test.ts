@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Canvas } from "./canvas";
 import { EventLog } from "./event-log";
@@ -141,6 +141,42 @@ describe("run status visualisation", () => {
     const image = document.querySelector<HTMLImageElement>(".event-artifact__image")!;
     expect(image.src).toContain("/artifacts/r1/image-1");
     expect(document.querySelector(".event-artifact__caption")?.textContent).toContain("image/png");
+    expect(document.querySelector<HTMLElement>(".event-artifact__error")!.hidden).toBe(true);
+  });
+
+  it("opens an artifact preview in a separate browser context", () => {
+    log = new EventLog(
+      document.getElementById("events")!,
+      canvas,
+      (runId, artifactId) => `/artifacts/${runId}/${artifactId}`,
+    );
+    log.append(
+      envelope(0, {
+        type: "node_finished",
+        node_id: "capture",
+        outputs: {
+          artifact: {
+            id: "image-open",
+            name: "desktop",
+            content_type: "image/png",
+            size: 128,
+          },
+        },
+        duration_ms: 9,
+      }),
+    );
+
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    try {
+      document.querySelector<HTMLAnchorElement>(".event-artifact__caption a")!.click();
+      expect(open).toHaveBeenCalledWith(
+        expect.stringContaining("/artifacts/r1/image-open"),
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } finally {
+      open.mockRestore();
+    }
   });
 
   it("finds nested artifacts and exposes the complete node output", () => {
@@ -238,9 +274,9 @@ describe("run status visualisation", () => {
     const image = document.querySelector<HTMLImageElement>(".event-artifact__image")!;
     image.dispatchEvent(new Event("error"));
     expect(image.hidden).toBe(true);
-    expect(document.querySelector(".event-artifact__error")?.textContent).toContain(
-      "Preview unavailable",
-    );
+    const failure = document.querySelector<HTMLElement>(".event-artifact__error")!;
+    expect(failure.hidden).toBe(false);
+    expect(failure.textContent).toContain("Preview unavailable");
   });
 
   it("renders command stdout, stderr and exit metadata", () => {
