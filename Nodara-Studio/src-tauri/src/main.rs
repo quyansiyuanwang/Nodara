@@ -40,6 +40,20 @@ fn main() {
             agent_credential_delete,
             open_artifact_url,
         ])
+        .setup(|app| {
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                // Config windows exist before the setup hook runs, so every
+                // webview can be prepared here.
+                for window in app.webview_windows().into_values() {
+                    forward_f5_to_the_page(&window);
+                }
+            }
+            #[cfg(not(windows))]
+            let _ = app;
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("error while building the Studio shell");
 
@@ -48,6 +62,56 @@ fn main() {
             runtime.stop();
         }
     });
+}
+
+/// Let the Studio own F5.
+///
+/// WebView2 ships F5 as a browser accelerator and reloads the whole webview,
+/// which throws the editor document away; the Studio binds F5 to Run instead.
+/// Marking the key as handled would stop the reload but would also stop the key
+/// from ever reaching the page, so this clears the *browser* accelerator for
+/// that single key: WebView2 skips its own handling, the key propagates to the
+/// web content, and the Studio's keydown handler runs the workflow. Every other
+/// browser accelerator — including the F12 developer tools — keeps working.
+#[cfg(windows)]
+fn forward_f5_to_the_page(window: &tauri::WebviewWindow) {
+    use webview2_com::AcceleratorKeyPressedEventHandler;
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2AcceleratorKeyPressedEventArgs2;
+    use windows_core::Interface;
+
+    /// `VK_F5`
+    const F5: u32 = 0x74;
+
+    let attached = window.with_webview(|webview| {
+        let handler = AcceleratorKeyPressedEventHandler::create(Box::new(|_sender, args| {
+            if let Some(args) = args {
+                let mut virtual_key = 0;
+                unsafe { args.VirtualKey(&mut virtual_key)? };
+                if virtual_key == F5 {
+                    if let Ok(accelerator) =
+                        args.cast::<ICoreWebView2AcceleratorKeyPressedEventArgs2>()
+                    {
+                        unsafe { accelerator.SetIsBrowserAcceleratorKeyEnabled(false)? };
+                    }
+                }
+            }
+            Ok(())
+        }));
+        let mut token = 0;
+        // The controller holds the subscription's own reference, so the handler
+        // stays alive for as long as the webview does.
+        let subscription = unsafe {
+            webview
+                .controller()
+                .add_AcceleratorKeyPressed(&handler, &mut token)
+        };
+        if let Err(error) = subscription {
+            eprintln!("Nodara Studio: WebView2 kept F5 as a reload key: {error}");
+        }
+    });
+    if let Err(error) = attached {
+        eprintln!("Nodara Studio: WebView2 kept F5 as a reload key: {error}");
+    }
 }
 
 /// Run one structured Agent turn through the sibling agent binary.
@@ -469,6 +533,7 @@ fn spawn_runtime(executable: &Path) -> std::io::Result<Child> {
     if let Some(directory) = executable.parent() {
         command.current_dir(directory);
     }
+    attach_plugin_roots(&mut command);
     command
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
@@ -484,6 +549,77 @@ fn spawn_runtime(executable: &Path) -> std::io::Result<Child> {
     }
 
     command.spawn()
+}
+
+/// Environment variable the runtime reads for extra plugin roots.
+const PLUGIN_DIRS_ENV: &str = "NODARA_PLUGIN_DIRS";
+
+/// Tell the runtime we start where the plugins live.
+///
+/// The runtime resolves plugins relative to its own executable and its working
+/// directory. A `cargo build` tree has neither: every plugin binary lands beside
+/// the runtime, but no `plugins/` folder with the manifests does, and Studio
+/// starts the runtime with that directory as its working directory. Without this
+/// hint the auto-started runtime exposes core nodes only, and every workflow
+/// using `windows.*`, `vision.*` or `system.*` nodes fails validation — leaving
+/// Run disabled with nothing to click.
+///
+/// An operator-set `NODARA_PLUGIN_DIRS` always wins: it is inherited by the child
+/// untouched, so this only fills the gap.
+fn attach_plugin_roots(command: &mut Command) {
+    if std::env::var_os(PLUGIN_DIRS_ENV).is_some() {
+        return;
+    }
+    let roots = workspace_plugin_roots();
+    if roots.is_empty() {
+        return;
+    }
+    // The runtime splits on `;`, so join explicitly rather than relying on the
+    // platform path separator.
+    let joined = roots
+        .iter()
+        .map(|root| root.display().to_string())
+        .collect::<Vec<_>>()
+        .join(";");
+    eprintln!("Nodara Studio: runtime plugin roots: {joined}");
+    command.env(PLUGIN_DIRS_ENV, joined);
+}
+
+/// Workspace plugin directories, found the same way the runtime binary is.
+fn workspace_plugin_roots() -> Vec<PathBuf> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(directory) = current.parent() {
+            starts.push(directory.to_path_buf());
+        }
+    }
+    if let Ok(current_dir) = std::env::current_dir() {
+        starts.push(current_dir);
+    }
+    if let Some(binary) = find_runtime_binary() {
+        if let Some(directory) = binary.parent() {
+            starts.push(directory.to_path_buf());
+        }
+    }
+
+    let mut roots: Vec<PathBuf> = Vec::new();
+    for start in starts {
+        collect_plugin_roots(&start, &mut roots);
+    }
+    roots
+}
+
+fn collect_plugin_roots(start: &Path, roots: &mut Vec<PathBuf>) {
+    for ancestor in start.ancestors().take(7) {
+        let candidate = ancestor.join("Nodara-Core").join("plugins");
+        if !candidate.is_dir() {
+            continue;
+        }
+        let resolved = candidate.canonicalize().unwrap_or(candidate);
+        if !roots.contains(&resolved) {
+            roots.push(resolved);
+        }
+    }
 }
 
 fn find_runtime_binary() -> Option<PathBuf> {
@@ -581,7 +717,8 @@ fn assign_to_job(child: &Child) -> std::io::Result<OwnedHandle> {
 }
 #[cfg(test)]
 mod tests {
-    use super::is_loopback_artifact_url;
+    use super::{collect_plugin_roots, is_loopback_artifact_url};
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn artifact_opener_accepts_only_loopback_http_urls() {
@@ -594,5 +731,26 @@ mod tests {
         assert!(!is_loopback_artifact_url("https://example.com/artifact"));
         assert!(!is_loopback_artifact_url("http://127.0.0.1.evil.test/artifact"));
         assert!(!is_loopback_artifact_url("file:///C:/secret.txt"));
+    }
+
+    /// A Studio started from this checkout must find the plugin manifests, or
+    /// the runtime it starts exposes core nodes only.
+    #[test]
+    fn finds_the_workspace_plugin_root() {
+        let mut roots: Vec<PathBuf> = Vec::new();
+        collect_plugin_roots(Path::new(env!("CARGO_MANIFEST_DIR")), &mut roots);
+        assert!(
+            roots
+                .iter()
+                .any(|root| root.ends_with(Path::new("Nodara-Core").join("plugins"))),
+            "expected the workspace plugin root, found {roots:?}"
+        );
+    }
+
+    #[test]
+    fn ignores_directories_without_a_plugin_root() {
+        let mut roots: Vec<PathBuf> = Vec::new();
+        collect_plugin_roots(&std::env::temp_dir(), &mut roots);
+        assert!(roots.is_empty(), "unexpected roots {roots:?}");
     }
 }

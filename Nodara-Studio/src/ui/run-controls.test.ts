@@ -33,4 +33,27 @@ describe("run control state", () => {
   it("keeps Run clickable while an automatic validation pass is pending", () => {
     expect(deriveRunControls(null, true, "checking", 0).runDisabled).toBe(false);
   });
+
+  it("only offers Restart while a run is in flight", () => {
+    expect(deriveRunControls(null, true, "valid", 0).restartDisabled).toBe(true);
+    expect(deriveRunControls("completed", true, "valid", 0).restartDisabled).toBe(true);
+    expect(deriveRunControls("failed", true, "valid", 0).restartDisabled).toBe(true);
+    expect(deriveRunControls("pending", true, "valid", 0).restartDisabled).toBe(false);
+    expect(deriveRunControls("running", true, "valid", 0).restartDisabled).toBe(false);
+    expect(deriveRunControls("paused", true, "valid", 0).restartDisabled).toBe(false);
+  });
+
+  it("names why Run cannot start", () => {
+    // A silent grey button is the whole feedback otherwise, and an unreachable
+    // runtime or a missing plugin node type is easy to miss.
+    expect(deriveRunControls(null, false, "valid", 0).runBlockReason).toBe("offline");
+    expect(deriveRunControls(null, true, "valid", 2).runBlockReason).toBe("localProblems");
+    expect(deriveRunControls(null, true, "invalid", 0).runBlockReason).toBe("validation");
+    expect(deriveRunControls(null, true, "unavailable", 0).runBlockReason).toBe("validation");
+    expect(deriveRunControls(null, true, "valid", 0).runBlockReason).toBeNull();
+    expect(deriveRunControls(null, true, "checking", 0).runBlockReason).toBeNull();
+    // An in-flight run needs no explanation.
+    expect(deriveRunControls("running", true, "valid", 0).runBlockReason).toBeNull();
+    expect(deriveRunControls("paused", false, "valid", 0).runBlockReason).toBeNull();
+  });
 });

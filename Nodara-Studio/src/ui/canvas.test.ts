@@ -816,6 +816,42 @@ describe("graph editing on the canvas", () => {
     },
   );
 
+  it("keeps the run decoration on nodes when the document is re-rendered", () => {
+    const { canvas, workflow } = harness();
+    workflow.nodes.push({
+      id: "log",
+      type: "core.Log",
+      label: "Log",
+      config: {},
+      position: { x: 400, y: 160 },
+    });
+    canvas.render();
+    canvas.setStatus("running");
+    canvas.setActiveNode("log");
+    canvas.setNodeState("start", "done");
+    canvas.setNodeState("log", "running");
+
+    // The health poll, an edit or a click each rebuild every node element.
+    canvas.render();
+
+    const start = document.querySelector<SVGGElement>('[data-node-id="start"]')!;
+    const log = document.querySelector<SVGGElement>('[data-node-id="log"]')!;
+    const end = document.querySelector<SVGGElement>('[data-node-id="end"]')!;
+    expect(log.classList.contains("node--active")).toBe(true);
+    expect(log.classList.contains("node--running")).toBe(true);
+    expect(log.classList.contains("node--ready")).toBe(true);
+    expect(start.classList.contains("node--done")).toBe(true);
+    expect(end.classList.contains("node--done")).toBe(false);
+
+    // The snapshot is decoration only: clearing it clears the re-rendered nodes.
+    canvas.clearStates();
+    canvas.render();
+    expect(log.classList.contains("node--active")).toBe(false);
+    expect(log.classList.contains("node--running")).toBe(false);
+    expect(start.classList.contains("node--done")).toBe(false);
+    expect(start.classList.contains("node--ready")).toBe(false);
+  });
+
   it("does not pan when the pointer merely reaches the viewport edge", () => {
     harness();
     const viewport = document.getElementById("viewport")!;

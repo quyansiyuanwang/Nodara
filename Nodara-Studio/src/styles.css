@@ -307,6 +307,19 @@ body {
   background: var(--accent);
 }
 
+/* Keyboard hints ---------------------------------------------------------- */
+/* The key that fires a toolbar button, drawn from `data-shortcut` so that
+   re-applying translations, which replaces button text, cannot erase it. Only
+   the execution keys are printed; the rest live in the button's tooltip. */
+.btn[data-shortcut]::after {
+  content: attr(data-shortcut);
+  margin-left: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .input {
   width: 100%;
   padding: 6px 8px;

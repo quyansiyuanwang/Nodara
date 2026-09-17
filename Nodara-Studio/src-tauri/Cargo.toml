@@ -16,6 +16,10 @@ serde_json = "1"
 
 [target.'cfg(windows)'.dependencies]
 keyring = "4.2"
+# Taking F5 back from WebView2's browser accelerator keys needs the raw
+# controller interface; both versions match the ones tauri already builds.
+webview2-com = "0.38"
+windows-core = "0.61"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
 
 [features]

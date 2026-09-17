@@ -54,7 +54,13 @@ import { RegionPicker } from "./ui/region-picker";
 import { installResizer } from "./ui/resizer";
 import { RunDialog } from "./ui/run-dialog";
 import { RunPanel } from "./ui/run-panel";
-import { deriveRunControls, ValidationState } from "./ui/run-controls";
+import { deriveRunControls, RunBlockReason, RunControls, ValidationState } from "./ui/run-controls";
+import {
+  annotateToolbarShortcuts,
+  buttonIdFor,
+  installShortcuts,
+  TOOLBAR_COMMANDS,
+} from "./ui/shortcuts";
 
 function element<T extends Element = HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -102,6 +108,28 @@ class Studio {
   private runStarting = false;
   private readonly runOverrides = new Map<string, unknown>();
   private readonly agentTraceBySession = new Map<string, unknown[]>();
+  private controls: RunControls = deriveRunControls(null, false, "unknown", 0);
+
+  /**
+   * Every toolbar button resolves to one of these commands, and every keyboard
+   * shortcut dispatches the same id, so a key can never do something its button
+   * does not.
+   */
+  private readonly commands: Record<string, () => void> = {
+    new: () => this.newWorkflow(),
+    import: () => element<HTMLInputElement>("file-input").click(),
+    export: () => this.exportWorkflow(),
+    undo: () => this.undo(),
+    redo: () => this.redo(),
+    validate: () => void this.validate(true),
+    run: () => this.runOrContinue(),
+    restart: () => void this.restart(),
+    runOptions: () => this.runDialog.open(),
+    pause: () => void this.control("pause"),
+    resume: () => void this.control("resume"),
+    step: () => void this.stepRun(),
+    cancel: () => void this.control("cancel"),
+  };
 
   private readonly palette: Palette;
   private readonly canvas: Canvas;
@@ -323,6 +351,18 @@ class Studio {
   }
 
   private bindToolbar(): void {
+    // One click handler per toolbar command, plus the keyboard layer that
+    // dispatches the very same command ids. The toolbar then advertises the key
+    // that fires each button.
+    for (const { command, buttonId } of TOOLBAR_COMMANDS) {
+      element(buttonId).addEventListener("click", () => this.runCommand(command));
+    }
+    installShortcuts({
+      isEnabled: (command) => this.isCommandEnabled(command),
+      invoke: (command) => this.runCommand(command),
+    });
+    annotateToolbarShortcuts();
+
     element<HTMLInputElement>("event-filter").addEventListener("input", (event) => {
       this.log.filter((event.target as HTMLInputElement).value);
     });
@@ -348,31 +388,7 @@ class Studio {
       applyTheme(themeSelect.value as ReturnType<typeof storedTheme>);
     });
 
-    element("btn-new").addEventListener("click", () => {
-      if (!confirm(t("dialog.discardWorkflow"))) return;
-      this.replaceWorkflow(starterWorkflow());
-    });
-
-    element("btn-undo").addEventListener("click", () => {
-      this.flushHistory();
-      this.undo();
-    });
-    element("btn-redo").addEventListener("click", () => this.redo());
-
-    element("btn-export").addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(this.workflow, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${this.workflow.id}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    });
-
     const fileInput = element<HTMLInputElement>("file-input");
-    element("btn-import").addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
@@ -385,14 +401,7 @@ class Studio {
       }
     });
 
-    element("btn-validate").addEventListener("click", () => void this.validate(true));
     element("validation-status").addEventListener("click", () => this.showTab("problems"));
-    element("btn-run").addEventListener("click", () => void this.run());
-    element("btn-run-options").addEventListener("click", () => this.runDialog.open());
-    element("btn-pause").addEventListener("click", () => void this.control("pause"));
-    element("btn-resume").addEventListener("click", () => void this.control("resume"));
-    element("btn-step").addEventListener("click", () => void this.stepRun());
-    element("btn-cancel").addEventListener("click", () => void this.control("cancel"));
     element("canvas-zoom-out").addEventListener("click", () => this.canvas.zoomOut());
     element("canvas-zoom-in").addEventListener("click", () => this.canvas.zoomIn());
     element("canvas-zoom-level").addEventListener("click", () => this.canvas.resetView());
@@ -402,7 +411,6 @@ class Studio {
     element<HTMLInputElement>("palette-filter").addEventListener("input", (event) => {
       this.palette.filter((event.target as HTMLInputElement).value);
     });
-    window.addEventListener("keydown", (event) => this.onHistoryKeyDown(event));
 
     for (const tab of document.querySelectorAll<HTMLButtonElement>(".tab")) {
       tab.addEventListener("click", () => {
@@ -618,21 +626,56 @@ class Studio {
     this.scheduleValidation();
   }
 
-  private onHistoryKeyDown(event: KeyboardEvent): void {
-    const target = event.target as HTMLElement | null;
-    if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-    if (!(event.ctrlKey || event.metaKey)) return;
-    const key = event.key.toLowerCase();
-    if (key === "z") {
-      event.preventDefault();
-      this.flushHistory();
-      if (event.shiftKey) this.redo();
-      else this.undo();
-    } else if (key === "y") {
-      event.preventDefault();
-      this.flushHistory();
-      this.redo();
+  private runCommand(command: string): void {
+    this.commands[command]?.();
+  }
+
+  /**
+   * A shortcut fires only when its button would be clickable, with one
+   * exception: a run parked at a breakpoint is continued by the same key that
+   * started it, exactly like Visual Studio's Start/Continue.
+   */
+  private isCommandEnabled(command: string): boolean {
+    if (command === "run" && this.currentRunStatus === "paused") {
+      return !this.controls.resumeDisabled;
     }
+    const buttonId = buttonIdFor(command);
+    const button = buttonId ? document.getElementById(buttonId) : null;
+    return button instanceof HTMLButtonElement && !button.disabled;
+  }
+
+  /** F5 starts the workflow, or continues one parked at a breakpoint. */
+  private runOrContinue(): void {
+    if (this.currentRunStatus === "paused") {
+      void this.control("resume");
+      return;
+    }
+    void this.run();
+  }
+
+  /** Replace the document with an empty workflow, once the user agrees. */
+  private newWorkflow(): void {
+    if (!confirm(t("dialog.discardWorkflow"))) return;
+    this.replaceWorkflow(starterWorkflow());
+  }
+
+  private exportWorkflow(): void {
+    const blob = new Blob([JSON.stringify(this.workflow, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${this.workflow.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Visual Studio's Ctrl+Shift+F5: stop the active run, then start it again. */
+  private async restart(): Promise<void> {
+    if (this.runStarting || this.controls.restartDisabled) return;
+    await this.control("cancel");
+    await this.run();
   }
 
   private renderInspector(): void {
@@ -1284,20 +1327,41 @@ class Studio {
 
   private updateRunControls(): void {
     const localErrorCount = localProblems(this.workflow).length;
-    const controls = deriveRunControls(
+    this.controls = deriveRunControls(
       this.currentRunStatus,
       this.connected,
       this.validationState,
       localErrorCount,
       this.runStarting,
     );
-    element<HTMLButtonElement>("btn-run").disabled = controls.runDisabled;
-    element<HTMLButtonElement>("btn-run-options").disabled = controls.runDisabled;
-    element<HTMLButtonElement>("btn-pause").disabled = controls.pauseDisabled;
-    element<HTMLButtonElement>("btn-resume").disabled = controls.resumeDisabled;
-    element<HTMLButtonElement>("btn-step").disabled = controls.stepDisabled;
-    element<HTMLButtonElement>("btn-cancel").disabled = controls.cancelDisabled;
+    element<HTMLButtonElement>("btn-run").disabled = this.controls.runDisabled;
+    element<HTMLButtonElement>("btn-restart").disabled = this.controls.restartDisabled;
+    element<HTMLButtonElement>("btn-run-options").disabled = this.controls.runDisabled;
+    element<HTMLButtonElement>("btn-pause").disabled = this.controls.pauseDisabled;
+    element<HTMLButtonElement>("btn-resume").disabled = this.controls.resumeDisabled;
+    element<HTMLButtonElement>("btn-step").disabled = this.controls.stepDisabled;
+    element<HTMLButtonElement>("btn-cancel").disabled = this.controls.cancelDisabled;
     element<HTMLButtonElement>("btn-validate").disabled = !this.connected;
+    this.describeRunBlock(this.controls.runBlockReason);
+  }
+
+  /**
+   * Say why Run is unavailable, in its tooltip.
+   *
+   * A disabled button receives no clicks, so without this the only trace of a
+   * missing plugin node type or an unreachable runtime is the validation badge
+   * or the Problems tab. The base title (with its shortcut) is captured once.
+   */
+  private describeRunBlock(reason: RunBlockReason): void {
+    const button = element<HTMLButtonElement>("btn-run");
+    const base = button.dataset.baseTitle ?? (button.dataset.baseTitle = button.title);
+    const hints: Record<string, string> = {
+      offline: t("actions.runOffline"),
+      localProblems: t("actions.runLocalProblems"),
+      validation: t("actions.runValidationProblems"),
+    };
+    const hint = reason ? hints[reason] : undefined;
+    button.title = hint ? `${base} — ${hint}` : base;
   }
 
   private reportError(error: unknown): void {

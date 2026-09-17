@@ -112,6 +112,18 @@ export class Canvas {
   private primarySelected: string | null = null;
   private selectedEdge: string | null = null;
   private readonly edgeStates = new Map<string, "active" | "data">();
+  /**
+   * Node side of the execution snapshot.
+   *
+   * Re-rendering rebuilds every node element, and `renderNodes` can only draw
+   * what it is told about, so the run decoration is recorded here and re-applied
+   * on each render — exactly like `edgeStates`. Without it a re-render in the
+   * middle of a run (the health poll every 5s, an edit, a selection change)
+   * wiped the running node's highlight and the finished nodes' marks, leaving
+   * the canvas looking idle while the runtime was still working.
+   */
+  private activeNodeId: string | null = null;
+  private readonly nodeStates = new Map<string, "running" | "done" | "failed">();
   private pending: PendingConnection | null = null;
   private pendingDragMoved = false;
   private drag: NodeDrag | null = null;
@@ -251,6 +263,7 @@ export class Canvas {
 
   /** Highlight a node as the one currently executing. */
   setActiveNode(nodeId: string | null): void {
+    this.activeNodeId = nodeId;
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
       element.classList.toggle("node--active", element.dataset.nodeId === nodeId);
     }
@@ -258,6 +271,7 @@ export class Canvas {
 
   /** Mark a node as finished, failed or skipped. */
   setNodeState(nodeId: string, state: "running" | "done" | "failed"): void {
+    this.nodeStates.set(nodeId, state);
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
       if (element.dataset.nodeId !== nodeId) continue;
       element.classList.remove("node--running", "node--done", "node--failed");
@@ -283,6 +297,8 @@ export class Canvas {
   clearStates(): void {
     this.cancelAllEdgeAnimations();
     this.edgeStates.clear();
+    this.activeNodeId = null;
+    this.nodeStates.clear();
     for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
       element.classList.remove("node--running", "node--done", "node--failed", "node--active", "node--ready");
     }
@@ -1478,6 +1494,14 @@ export class Canvas {
       });
 
       this.nodesLayer.appendChild(group);
+    }
+    // Mirror `renderEdges`: a rebuilt node element carries no execution state,
+    // so the recorded snapshot is re-applied before anything else reads it.
+    for (const element of this.nodesLayer.querySelectorAll<SVGGElement>(".node")) {
+      const nodeId = element.dataset.nodeId ?? "";
+      if (nodeId === this.activeNodeId) element.classList.add("node--active");
+      const state = this.nodeStates.get(nodeId);
+      if (state) element.classList.add(`node--${state}`);
     }
     this.updateSelectionVisuals();
   }

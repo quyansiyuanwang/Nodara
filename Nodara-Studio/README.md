@@ -42,6 +42,24 @@ development. Point it elsewhere with `NODARA_RUNTIME_URL`:
 NODARA_RUNTIME_URL=http://192.168.1.10:8710 npm run dev
 ```
 
+Start the runtime with the plugin directory, or the Studio will only offer the
+core node types and every `windows.*`, `vision.*` or `system.*` node in a
+workflow will fail validation:
+
+```bash
+cargo run -p nodara-cli -- serve --in-process --plugin-dir plugins   # from Nodara-Core/
+```
+
+The runtime resolves plugins relative to its own executable and its working
+directory, so `nodara-runtime.exe` started from `target/release` — or from a
+shortcut — finds no manifests and reports `node_types=7, plugins=0` instead of
+`node_types=19, plugins=2`. Point it at the manifests explicitly:
+
+```powershell
+$env:NODARA_PLUGIN_DIRS = "D:\path\to\Nodara\Nodara-Core\plugins"
+.\Nodara-Core\target\release\nodara-runtime.exe
+```
+
 ## Building
 
 ```bash
@@ -71,6 +89,13 @@ a runtime started by Studio is stopped when Studio exits. This makes the package
 desktop app a one-click entry point while keeping the browser build unchanged.
 The browser build still uses relative `/api` URLs so Vite or a reverse proxy can
 route them.
+
+A runtime started by Studio is given the workspace plugin roots
+(`Nodara-Core/plugins`) through `NODARA_PLUGIN_DIRS`, because the build tree keeps
+the plugin executables beside the runtime but the manifests in the workspace.
+Without that hint the auto-started runtime exposes core nodes only and plugin
+workflows cannot validate. An operator-set `NODARA_PLUGIN_DIRS` is inherited
+untouched and always wins.
 
 Debug builds intentionally retain the console window for startup and runtime
 logs. The child runtime is launched without an additional console window.
@@ -184,6 +209,35 @@ workflow variables marked secret are not persisted beyond the browser session.
   while the runtime takes a fresh screenshot, then reopens a mouse-driven
   rectangle picker and writes X/Y/Width/Height back into the node.
 
+## Keyboard shortcuts
+
+Visual Studio's debugging keys drive the toolbar. **Run** prints `F5` and
+**Cancel** prints `Shift+F5`, because those are the keys pressed without looking
+at the toolbar; every other binding is in its button's tooltip (and in
+`aria-keyshortcuts`). A shortcut runs the same command as its button, and is
+ignored while that button is disabled — except that `F5` continues a paused run,
+the way Start/Continue does in Visual Studio.
+
+| Keys | Action |
+|------|--------|
+| `F5` | Run the workflow, or continue a run parked at a breakpoint |
+| `Shift+F5` | Cancel the active run |
+| `Ctrl+Shift+F5` | Restart: cancel the active run, then start it again |
+| `Ctrl+F5` | Open the run-variable dialog |
+| `F10` | Step one node |
+| `Ctrl+Shift+B` | Validate against the runtime |
+| `Ctrl+N`, `Ctrl+O`, `Ctrl+S` | New, Import, Export the workflow |
+| `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` | Undo, redo |
+| `F9` | Toggle a breakpoint on the selected node |
+| `Ctrl+0`, `Ctrl+=`, `Ctrl+-` | Reset zoom, zoom in, zoom out |
+
+`F5` never reloads the page. Both builds claim it in a capture-phase listener, so
+a disabled Run cannot throw the document away, and the desktop shell additionally
+asks WebView2 to skip its own browser accelerator for that single key — leaving
+the F12 developer tools and every other accelerator untouched. Function keys stay
+live while a field has focus, while editing chords such as `Ctrl+Z` are left to
+the focused field.
+
 ## Layout
 
 ```text
@@ -205,6 +259,7 @@ src/
     ├── region-picker.ts   screenshot rectangle selection
     ├── run-dialog.ts      temporary run-variable overrides
     ├── run-panel.ts       run history
+    ├── shortcuts.ts       toolbar commands, key bindings, on-button key hints
     ├── extension-panel.ts unified extension registrations
     ├── feature-registry.ts ordered drawer/panel registration
     └── agent-panel.ts     agent sessions, plan preview, approval prompts
@@ -296,6 +351,7 @@ The test suite covers the editor's critical interactions:
 | Node drop, connect and delete | `src/ui/canvas.test.ts` |
 | Run-status visualisation | `src/ui/event-log.test.ts` |
 | Step-control availability | `src/ui/run-controls.test.ts` |
+| Toolbar keys, key hints and command wiring | `src/ui/shortcuts.test.ts` |
 | Screenshot rectangle selection | `src/ui/region-picker.test.ts` |
 | Runtime disconnect and recovery | `src/runtime/client.test.ts` |
 | Document model and local validation | `src/model/workflow.test.ts` |
