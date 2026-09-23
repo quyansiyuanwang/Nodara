@@ -8,13 +8,13 @@ export type ThemeId =
   | "paper"
   | "high-contrast";
 
-export const THEME_PRESETS: ReadonlyArray<{ id: ThemeId; label: string }> = [
-  { id: "obsidian", label: "Obsidian" },
-  { id: "graphite", label: "Graphite" },
-  { id: "ocean", label: "Ocean" },
-  { id: "ember", label: "Ember" },
-  { id: "paper", label: "Paper" },
-  { id: "high-contrast", label: "High contrast" },
+export const THEME_PRESETS: ReadonlyArray<{ id: ThemeId; label: string; labelKey: string }> = [
+  { id: "obsidian", label: "Obsidian", labelKey: "theme.obsidian" },
+  { id: "graphite", label: "Graphite", labelKey: "theme.graphite" },
+  { id: "ocean", label: "Ocean", labelKey: "theme.ocean" },
+  { id: "ember", label: "Ember", labelKey: "theme.ember" },
+  { id: "paper", label: "Paper", labelKey: "theme.paper" },
+  { id: "high-contrast", label: "High contrast", labelKey: "theme.high-contrast" },
 ];
 
 export const NODE_COLORS = ["#5b8def", "#3fb27f", "#e0a33e", "#e06060", "#9b7cf6", "#3aa6b9", "#d878b0"] as const;

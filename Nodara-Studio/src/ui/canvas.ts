@@ -1414,7 +1414,14 @@ export class Canvas {
           this.makePort(node.id, port.name, port.display_name, port.value_type, "output", index),
         );
       });
-      group.appendChild(this.makeExecutionPort(node.id, "exec", "Execution input", "input"));
+      group.appendChild(
+        this.makeExecutionPort(
+          node.id,
+          "exec",
+          t("execution.inputPort"),
+          "input",
+        ),
+      );
       for (const [branch, label] of [
         ["always", t("inspector.edgeBranchAlways")],
         ["success", t("inspector.edgeBranchSuccess")],
@@ -1773,7 +1780,10 @@ export class Canvas {
     polygon.dataset.branch = branch;
     polygon.dataset.portKind = "execution";
     const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-    title.textContent = `${displayName} execution ${kind === "input" ? "input" : "output"}`;
+    title.textContent = t("canvas.executionPort", {
+      label: displayName,
+      kind: t(kind === "input" ? "execution.inputPort" : "execution.outputPort"),
+    });
     polygon.appendChild(title);
 
     if (kind === "output") {

@@ -18,6 +18,7 @@ pub mod agent;
 pub mod audit;
 pub mod error;
 pub mod model;
+pub mod observation;
 pub mod planner;
 pub mod policy;
 pub mod prompt;

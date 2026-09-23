@@ -407,7 +407,11 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 
 ### Agent 对话与审批
 
-桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio --stream`，并把结构化请求通过 stdin/stdout 传给 Agent。Provider 支持多个命名 Profile、提示词模板、每轮附加指令和 OpenAI-compatible Endpoint/Model/超时；每个 Profile 的 API Key 写入 Windows 凭据管理器，不写 localStorage、workflow JSON 或日志。会话列表、完整消息历史、计划 JSON、审批和运行记录由 runtime session 保存；模型 token、验证、修复、计划和运行阶段通过 JSONL 实时显示。Provider 设置和计划 JSON 的展开状态会跨轮询刷新保留。
+桌面 Studio 的 `Agent` 页会调用同目录的 `nodara-agent.exe studio --stream`，并把结构化请求通过 stdin/stdout 传给 Agent。会话列表、完整消息历史、计划 JSON、审批和运行记录由 runtime session 保存；模型 token、验证、修复、计划和运行阶段通过 JSONL 实时显示。
+
+**配置集中在「设置…」对话框**：Provider Profile（含 API Key）、提示词模板与每轮附加指令都属于配置，对话框用整窗高度承载，对话列只保留目标输入、每轮控制项和结果。Provider 提供 DeepSeek / OpenAI / Ollama / LM Studio 预设，一键回填 Endpoint 与模型；API Key 输入框会显示凭据状态（已保存 / 未设置 / 读取失败 + 重试），Endpoint、模型、超时（1000–3600000 毫秒）非法时就地报错且**不会写进配置**。每个 Profile 的 API Key 写入 Windows 凭据管理器，不写 localStorage、workflow JSON 或日志。
+
+**提示词模板随 Studio 内置**：观测优先、最小改动、稳健 UI 自动化、结果可验证，标注「内置」，打开即可用、跟随界面语言、不会被误删；它们与你自建的模板一样，作为**操作员约束**附加在目标之后发送。自建模板列在下方，对话框底部会预览本轮实际发送的约束。
 
 四档执行模式：
 
@@ -417,6 +421,17 @@ GET /api/v1/runs/{run_id}/artifacts/{artifact_id}
 | 手动执行 | 结果确认后以 paused 启动，由操作者 Resume |
 | 部分审批 | 安全节点自动执行，危险/特权节点等待逐项审批 |
 | 自动执行 | 自动运行并自动放行，但仍记录 capability decision 和 audit |
+
+模式选择器下方会写明当前模式的后果，避免误读。
+
+#### 先观测，再动手
+
+Agent 看不到屏幕：它只依据运行时的节点目录规划，并被明确要求不得编造「只有运行才能得到」的值。两条机制保证计划不虚假，一个动作让你把证据喂进去：
+
+* 如果计划里的输入坐标来自**工作流中没有任何节点写入的变量**，该草稿会在发布和运行之前被退回给规划器一次，并附带原因；操作员可在会话 Trace 中看到这次复核，被退回的草稿不会进入运行。
+* 继续会话时，**上一轮运行的截图会作为原生图片输入**发送给模型；面板会显示「下一轮将收到的截图」，「观测屏幕」按钮会截取桌面、把该次运行绑定到当前会话并打开运行视图，于是这张截图会进入下一轮。屏幕采集属于受控能力：手动/部分审批模式下这次运行会像其它受控节点一样等待你批准。
+
+`vision.Ocr` 需要操作员配置 OCR 后端（`NODARA_OCR_COMMAND`）且只返回文本，无法给出屏幕上某物的位置；需要定位目标时请用 `vision.TemplateMatch` 并自备模板图。
 
 修改基线可选“当前画布”或“上一轮 Agent 计划”。Agent 结果永远不会自动覆盖画布；
 先检查节点/边差异、最终 JSON、诊断和 Trace，再使用“载入画布”“验证”“运行此计划”或“打开对应审计”。生成过程中可停止当前模型输入，但不会取消已经启动的 runtime run。

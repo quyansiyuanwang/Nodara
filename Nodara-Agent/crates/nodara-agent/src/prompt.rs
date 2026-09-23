@@ -47,8 +47,31 @@ Hard rules:
 5. Reference data between nodes with `{{{{variable_name}}}}` placeholders. A node
    publishes a variable by writing to the `output_var` its schema names.
 6. Give every node a `position` so the editor can lay the graph out sensibly.
-7. Prefer the smallest graph that accomplishes the goal. Do not add logging
-   nodes unless the operator asked to see progress.
+7. Prefer the smallest graph that accomplishes the goal — but never drop the
+   step that observes what the goal depends on. Do not add logging nodes unless
+   the operator asked to see progress.
+8. You cannot see the screen, the filesystem, the clipboard or the desktop: you
+   have no observation channel of your own. Everything you know about this
+   machine is either in the catalogue below or produced by a node at run time.
+9. Never invent a value that only a run can produce: screen coordinates, pixel
+   colours, window titles, window handles, process ids, file contents, clipboard
+   contents, match results or timestamps. A literal coordinate in a click, move,
+   drag or scroll node is a defect, not a simplification.
+10. When the goal depends on what is on screen, plan the observation first:
+    capture it (`windows.Desktop.Capture` or `windows.Window.Capture`) and locate
+    or read the target with `vision.TemplateMatch` / `vision.Ocr`, then feed the
+    coordinate that node published (`center_x`, `center_y`) into the input node.
+    The capture node's `output_var` receives an artefact, not a path.
+11. `variables` is the operator's override surface. Declare a variable only for
+    a value the operator supplies — a template image path, an expected text, a
+    target window title — and reference it as `{{name}}`. Never declare a
+    variable whose value the workflow itself is supposed to discover, and never
+    give one a made-up default: nothing in the plan can know that value.
+12. Before sending input to an application, make sure the right window is in
+    front: use `windows.Window.Wait` / `windows.Window.Focus` instead of
+    assuming the foreground window is already the target.
+13. `vision.Ocr` needs an OCR backend the operator configures and returns text
+    only; it cannot tell you where on the screen something is.
 
 ## Node catalogue
 
@@ -198,4 +221,41 @@ speculate beyond the evidence given. Plain prose, no JSON.\n\n",
         out.push_str("\n```\n");
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn catalogue() -> Vec<NodeDescriptor> {
+        vec![
+            NodeDescriptor::new("core.Start", "Start", "Core"),
+            NodeDescriptor::new("windows.Input.Mouse", "Mouse", "Input"),
+            NodeDescriptor::new("vision.TemplateMatch", "Template Match", "Vision"),
+        ]
+    }
+
+    /// The planner is the only component that authors a workflow, and it has no
+    /// way to look at the machine. These rules are what stops it from filling a
+    /// click with a coordinate nobody measured.
+    #[test]
+    fn forbids_values_only_a_run_can_produce() {
+        let prompt = system_prompt(&catalogue());
+        assert!(prompt.contains("You cannot see the screen"));
+        assert!(prompt.contains("Never invent a value that only a run can produce"));
+        assert!(prompt.contains("A literal coordinate in a click, move"));
+        assert!(prompt.contains("plan the observation first"));
+        assert!(prompt.contains("windows.Desktop.Capture"));
+        assert!(prompt.contains("vision.TemplateMatch"));
+        assert!(prompt.contains("Never declare a\n    variable whose value the workflow itself is supposed to discover"));
+        assert!(prompt.contains("windows.Window.Wait` / `windows.Window.Focus"));
+        assert!(prompt.contains("it cannot tell you where on the screen something is"));
+    }
+
+    #[test]
+    fn still_describes_the_installed_catalogue() {
+        let prompt = system_prompt(&catalogue());
+        assert!(prompt.contains("`vision.TemplateMatch`"));
+        assert!(prompt.contains(SCHEMA_VERSION));
+    }
 }

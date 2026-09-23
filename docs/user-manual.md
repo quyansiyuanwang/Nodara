@@ -353,7 +353,13 @@ http://127.0.0.1:8710/api/v1/schema/workflow
 
 ## Agent
 
-Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab or expand the full workspace, configure one of several named Provider Profiles, enter a goal, choose a prompt template, baseline and execution mode, then Send. API keys are stored per Profile in Windows Credential Manager and never enter localStorage, workflow JSON or logs. Model output streams token by token; Stop cancels only the current generation. Results include node/edge diffs, diagnostics, final JSON and decision Trace, and never replace the canvas automatically.
+Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent** tab or expand the full workspace, enter a goal, choose a prompt template, baseline and execution mode, then Send. Everything that is *configuration* — Provider Profiles, API keys, prompt templates and the per-turn extra instructions — lives in the **Settings…** dialog, so the conversation column keeps only the goal, the per-turn controls and the result.
+
+Provider Profiles come with presets (DeepSeek, OpenAI, Ollama and LM Studio) that fill the endpoint and model in one click. The API key field shows whether a credential is stored, says so when the credential store cannot be read, and keeps invalid input out of the profile: a bad endpoint, an empty model or a timeout outside 1000–3600000 ms is reported inline and never written through. API keys are stored per Profile in Windows Credential Manager and never enter localStorage, workflow JSON or logs.
+
+**Prompt templates** ship with the Studio: *Observe first*, *Minimal change*, *Robust UI automation* and *Verifiable result*, marked `built-in` and available immediately in the template picker. They follow the interface language, cannot be deleted by accident, and are sent to the model exactly like a template you write yourself — as an operator constraint appended to the goal. Your own templates are listed underneath, and the dialog previews the constraints a turn will carry.
+
+Model output streams token by token; Stop cancels only the current generation. Results include node/edge diffs, diagnostics, final JSON and decision Trace, and never replace the canvas automatically.
 
 | Mode | Behavior |
 |---|---|
@@ -361,6 +367,17 @@ Desktop Studio owns the conversational Agent lifecycle. Open the bottom **Agent*
 | Manual | Confirm the plan, start paused, then Resume from Studio |
 | Partial approval | Run safe nodes automatically and wait for each dangerous/privileged approval |
 | Automatic | Run and auto-approve while preserving capability decisions and audit records |
+
+The row under the mode selector states what the selected mode will do, so a mode cannot be misread.
+
+### Looking before acting
+
+The agent has no way to see the screen: it plans from the runtime's node catalogue only, and it is told not to invent values that only a run can produce. Two mechanisms keep a plan honest and one action lets you supply the evidence:
+
+* A plan that reads an input position from a variable **no node in the workflow writes** is sent back to the planner once, with the reason, before anything is published or run. The operator sees the review in the session Trace, and the reviewed draft never reaches the run.
+* A continued session receives the **previous run's screenshots as native image inputs**, so the model can inspect what actually happened. The panel shows the screenshots the next turn will receive, and *Observe screen* captures the desktop, binds that run to the session and opens it — the capture then reaches the next turn as an image. Screen capture is a gated capability, so in manual and partial modes the captured run waits for your approval like any other privileged node.
+
+`vision.Ocr` needs an OCR backend (`NODARA_OCR_COMMAND`) and returns text only, so it cannot tell you where something is on screen; use `vision.TemplateMatch` with a template image you supply when a workflow has to locate a target.
 
 Agent output never replaces the canvas automatically. Review the final JSON and diagnostics, then Load, Validate, Run this plan or Open audit. Browser Studio shows a desktop-only message because the process/JSON pipe is owned by the Tauri shell.
 

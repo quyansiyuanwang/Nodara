@@ -302,12 +302,24 @@ node/edge color overrides are stored in workflow metadata.
 ## The Agent tab
 
 Desktop Studio starts `nodara-agent.exe studio --stream` for each turn over a
-structured JSONL pipe. The Agent panel owns multiple Provider Profiles,
-prompt templates, token streaming, Stop, plan diffs, decision Trace, a persistent
-chat session, current-canvas/previous-plan baselines and four execution modes:
-plan-only, manual, partial approval and automatic. It polls
-`GET /api/v1/agent/sessions` for the shared runtime session and writes operator
-approval decisions back to the same session.
+structured JSONL pipe. The Agent panel owns token streaming, Stop, plan diffs,
+decision Trace, a persistent chat session, current-canvas/previous-plan
+baselines and four execution modes: plan-only, manual, partial approval and
+automatic. It polls `GET /api/v1/agent/sessions` for the shared runtime session
+and writes operator approval decisions back to the same session.
+
+Configuration is a modal task, so it does not compete with the conversation:
+the **Settings…** dialog holds Provider Profiles (with DeepSeek/OpenAI/Ollama/LM
+Studio presets, inline validation and a credential state chip), the prompt
+templates and the per-turn extra instructions, and previews the constraints a
+turn will carry. The conversation column keeps the goal, the mode/baseline/
+template row — which explains what the mode will do — the result and the
+composer.
+
+Prompt templates ship with the Studio (*Observe first*, *Minimal change*,
+*Robust UI automation*, *Verifiable result*). They are virtual: they follow the
+language, need no migration, cannot be deleted by accident, and reach the model
+exactly like an operator template.
 
 That decision is not cosmetic. When policy requires approval, the runtime's
 approval handler is *blocking the run thread*; the Approve button in this panel
@@ -318,7 +330,17 @@ is what releases it. The session card shows:
   validation diagnostics, with a button to load it into the editor;
 * every approval request, with the node, the permissions it wants and the exact
   input it would receive, so the decision can be judged rather than rubber-stamped;
+* the screenshots the next turn will receive, because a continued session gets
+  the previous run's images as native image inputs;
 * a link to the run the session started, plus a run-filtered Audit action.
+
+**Observe screen** captures the desktop, binds that run to the session and opens
+it, so the next turn can look before it plans a click. Capture is a gated
+capability, so in manual and partial modes it waits for approval like any other
+privileged node. The agent is also told never to invent values only a run can
+produce, and a plan that reads an input position from a variable no node writes
+is sent back to the planner once — with the reason — before anything is
+published or run.
 
 API keys are stored per Profile in Windows Credential Manager and never enter
 localStorage, workflow JSON or logs. Agent output is never loaded into the

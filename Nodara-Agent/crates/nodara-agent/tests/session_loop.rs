@@ -39,8 +39,7 @@ fn config(base: &str) -> AgentConfig {
 }
 
 #[test]
-fn plans_publishes_and_runs_end_to_end() {
-    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+fn plans_publishes_and_runs_end_to_end() {    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
         status: "completed".to_string(),
         code: None,
     }]);
@@ -431,4 +430,107 @@ fn all_mode_uses_automatic_approval_without_pausing() {
     let recorded = runtime.recorded();
     assert_eq!(recorded.start_paused_on_runs, vec![false]);
     assert_eq!(recorded.approval_on_runs, vec![Some("auto".to_string())]);
+}
+
+/// A plan the runtime accepts can still be fiction.
+///
+/// The model cannot see the screen, so a click position it "remembers" is a
+/// guess. The agent must notice that nothing in the draft produces that value,
+/// ask for the observation it needs, and only then publish a plan and run it.
+#[test]
+fn asks_once_for_positions_the_workflow_never_produces() {
+    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+        status: "completed".to_string(),
+        code: None,
+    }]);
+    let fabricated = json!({
+        "schema_version": "2.1",
+        "id": "wf.fabricated",
+        "nodes": [
+            { "id": "start", "type": "core.Start" },
+            {
+                "id": "capture",
+                "type": "windows.Desktop.Capture",
+                "config": { "output_var": "screenshot" }
+            },
+            {
+                "id": "click",
+                "type": "windows.Input.Mouse",
+                "config": { "action": "click", "x": "{{genshin_x}}", "y": "{{genshin_y}}" }
+            },
+            { "id": "end", "type": "core.End" }
+        ],
+        "edges": [
+            { "id": "e1", "kind": "control", "source": "start", "target": "capture" },
+            { "id": "e2", "kind": "control", "source": "capture", "target": "click" },
+            { "id": "e3", "kind": "control", "source": "click", "target": "end" }
+        ],
+        "variables": {
+            "genshin_x": { "value": 960 },
+            "genshin_y": { "value": 1060 }
+        }
+    })
+    .to_string();
+    let informed = json!({
+        "schema_version": "2.1",
+        "id": "wf.informed",
+        "nodes": [
+            { "id": "start", "type": "core.Start" },
+            {
+                "id": "capture",
+                "type": "windows.Desktop.Capture",
+                "config": { "output_var": "screenshot" }
+            },
+            {
+                "id": "find",
+                "type": "vision.TemplateMatch",
+                "config": {
+                    "frame": "{{screenshot.artifact}}",
+                    "template": "{{icon_template}}",
+                    "output_var": "match"
+                }
+            },
+            {
+                "id": "click",
+                "type": "windows.Input.Mouse",
+                "config": { "action": "click", "x": "{{match.center_x}}", "y": "{{match.center_y}}" }
+            },
+            { "id": "end", "type": "core.End" }
+        ],
+        "edges": [
+            { "id": "e1", "kind": "control", "source": "start", "target": "capture" },
+            { "id": "e2", "kind": "control", "source": "capture", "target": "find" },
+            { "id": "e3", "kind": "control", "source": "find", "target": "click" },
+            { "id": "e4", "kind": "control", "source": "click", "target": "end" }
+        ],
+        "variables": { "icon_template": { "value": "C:/icons/genshin.png" } }
+    })
+    .to_string();
+    let provider = MockProvider::new([fabricated, informed]);
+    let agent = Agent::new(&provider, config(runtime.base()));
+
+    let outcome = agent
+        .plan_and_run("click the genshin icon in the taskbar", &[])
+        .expect("the session completes");
+
+    // Two planning rounds, one published plan, one run.
+    assert_eq!(outcome.report.attempts, 2);
+    assert_eq!(outcome.workflow.as_ref().map(|workflow| workflow.id.as_str()), Some("wf.informed"));
+    let recorded = runtime.recorded();
+    assert_eq!(recorded.plans_published, 1);
+    assert_eq!(recorded.runs_started, 1);
+
+    // The rejected draft is accounted for in the trace...
+    assert!(outcome
+        .trace
+        .iter()
+        .any(|entry| entry.summary.contains("plan reviewed")));
+
+    // ...and the second turn was told exactly what was missing.
+    let calls = provider.calls();
+    assert_eq!(calls.len(), 2);
+    assert!(calls[1]
+        .messages
+        .iter()
+        .any(|message| message.content.contains("no node in this workflow writes")));
 }

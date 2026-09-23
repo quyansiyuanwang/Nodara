@@ -381,7 +381,13 @@ impl<'a> Agent<'a> {
 
         let mut tokens_used = 0u64;
         let mut attempts = 0u32;
+        let mut run_attempts = 0u32;
         let mut feedback = String::new();
+        // Set when the planner was already asked once to derive values that only
+        // a run can observe. Kept separate from `attempts` so the review cannot
+        // consume the run-failure repair budget.
+        let mut observation_feedback = String::new();
+        let mut observation_reviewed = false;
 
         loop {
             attempts += 1;
@@ -401,6 +407,12 @@ impl<'a> Agent<'a> {
                 request
                     .constraints
                     .push(format!("A previous attempt failed: {feedback}"));
+            }
+            if !observation_feedback.is_empty() {
+                request.constraints.push(observation_feedback.clone());
+                // Consumed once: a later attempt must not be told about a draft
+                // that has already been replaced.
+                observation_feedback.clear();
             }
 
             let outcome = match planner.plan_with_observer(&request, observer) {
@@ -468,6 +480,31 @@ impl<'a> Agent<'a> {
                 }
             }
 
+            // A document the runtime accepts can still be fiction: a click whose
+            // position no node in the run ever measured. Ask the planner once to
+            // derive such values from an observation, then proceed either way —
+            // this is a review, not a policy, and the run itself is unchanged.
+            if !observation_reviewed {
+                if let Some(constraint) = crate::observation::observation_constraint(&workflow) {
+                    observation_reviewed = true;
+                    observation_feedback = constraint.clone();
+                    let findings = crate::observation::uninformed_inputs(&workflow);
+                    trace.record(
+                        TraceStep::Note,
+                        format!(
+                            "plan reviewed: {} value(s) no node in the workflow produces",
+                            findings.len()
+                        ),
+                        serde_json::to_value(&findings).unwrap_or(Value::Null),
+                    );
+                    observer.on_event(crate::planner::PlanEvent::Phase {
+                        phase: "observation_required".to_string(),
+                        message: constraint,
+                    });
+                    continue;
+                }
+            }
+
             self.publish_plan(&session_id, &workflow, &outcome.report);
 
             if !(run || self.config.auto_run) {
@@ -500,6 +537,9 @@ impl<'a> Agent<'a> {
                     message: "starting the accepted workflow".to_string(),
                 });
             }
+            // Counted separately from `attempts`: the observation review above
+            // must not eat into the repair budget for a run that actually failed.
+            run_attempts += 1;
             match self.run_once(&session_id, &workflow, &mut trace) {
                 RunAttempt::Succeeded {
                     snapshot,
@@ -539,7 +579,7 @@ impl<'a> Agent<'a> {
                         format!("re-planning after failure: {reason}"),
                         snapshot.clone().unwrap_or(Value::Null),
                     );
-                    if attempts < MAX_RUN_ATTEMPTS {
+                    if run_attempts < MAX_RUN_ATTEMPTS {
                         if let Some(run_id) = snapshot
                             .as_ref()
                             .and_then(|value| value.get("id"))
@@ -557,7 +597,7 @@ impl<'a> Agent<'a> {
                             ));
                         }
                     }
-                    if attempts >= MAX_RUN_ATTEMPTS {
+                    if run_attempts >= MAX_RUN_ATTEMPTS {
                         let snapshot = snapshot.unwrap_or(Value::Null);
                         let report = self.build_report(
                             goal,

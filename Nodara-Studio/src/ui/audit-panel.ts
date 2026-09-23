@@ -21,7 +21,22 @@ export class AuditPanel {
   private selectedNode: string | null = null;
   private workspaceOpen = false;
 
-  constructor(private readonly root: HTMLElement) {}
+  constructor(private readonly root: HTMLElement) {
+    this.root.addEventListener("keydown", (event) => this.onKeyDown(event));
+  }
+
+  /** Escape leaves the expanded workspace, like every other overlay here. */
+  private onKeyDown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || !this.workspaceOpen) return;
+    if (document.querySelector("dialog[open]")) return;
+    event.stopPropagation();
+    this.setWorkspaceOpen(false);
+  }
+
+  private setWorkspaceOpen(open: boolean): void {
+    this.workspaceOpen = open;
+    this.render();
+  }
 
   setRecords(records: AuditRecord[]): void {
     this.records = records;
@@ -76,10 +91,7 @@ export class AuditPanel {
     expand.type = "button";
     expand.className = "btn btn--small";
     expand.textContent = this.workspaceOpen ? t("audit.collapse") : t("audit.expand");
-    expand.addEventListener("click", () => {
-      this.workspaceOpen = !this.workspaceOpen;
-      this.render();
-    });
+    expand.addEventListener("click", () => this.setWorkspaceOpen(!this.workspaceOpen));
     toolbar.append(title, expand);
     this.root.appendChild(toolbar);
     const summary = document.createElement("div");
@@ -103,10 +115,7 @@ export class AuditPanel {
     expand.type = "button";
     expand.className = "btn btn--small";
     expand.textContent = this.workspaceOpen ? t("audit.collapse") : t("audit.expand");
-    expand.addEventListener("click", () => {
-      this.workspaceOpen = !this.workspaceOpen;
-      this.render();
-    });
+    expand.addEventListener("click", () => this.setWorkspaceOpen(!this.workspaceOpen));
     toolbar.append(title, expand);
     return toolbar;
   }

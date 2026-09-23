@@ -2174,39 +2174,11 @@ button.problem {
   overflow: hidden;
 }
 
-.agent-provider {
-  flex: 0 0 auto;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.agent-provider summary {
-  cursor: pointer;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.agent-provider__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  margin-top: 8px;
-}
-
-.agent-provider__grid .field {
-  margin: 0;
-}
-
-.agent-provider__grid .field__hint {
-  grid-column: 1 / -1;
-}
-
 .agent-controls {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 7px;
 }
 
@@ -2789,14 +2761,18 @@ body {
   }
 }
 
+/* The entrance animation must not leave a transform behind: with
+   `animation-fill-mode: both` the final `translateY(0)` stays on the element
+   forever, and any transform — even the identity matrix — makes it the
+   containing block for `position: fixed` descendants. That silently trapped the
+   Agent and Audit workspace overlays inside the ~158px drawer panel, so
+   "expand" never expanded. Fade only; never add a transform here. */
 @keyframes panel-in {
   from {
     opacity: 0;
-    transform: translateY(3px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -3036,65 +3012,6 @@ body {
   gap: 6px;
 }
 
-.agent-provider {
-  overflow: hidden;
-  padding: 0;
-  border-color: var(--line-soft);
-  background: var(--surface-4);
-}
-
-.agent-provider > summary {
-  position: relative;
-  padding: 6px 8px;
-  list-style: none;
-  font-size: 11px;
-}
-
-.agent-provider > summary::-webkit-details-marker {
-  display: none;
-}
-
-.agent-provider > summary::before {
-  content: "›";
-  display: inline-block;
-  margin-right: 5px;
-  color: var(--text-muted);
-  transition: color var(--motion-fast) ease, transform var(--motion-fast) ease;
-}
-
-.agent-provider[open] > summary {
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-4);
-}
-
-.agent-provider[open] > summary::before {
-  color: var(--accent);
-  transform: rotate(90deg);
-}
-
-.agent-provider__grid {
-  margin: 0;
-  padding: 7px 8px 8px;
-  gap: 5px 7px;
-}
-
-.agent-provider__grid .field__label {
-  margin-bottom: 1px;
-  font-size: 10px;
-}
-
-.agent-provider__grid .input {
-  min-height: 25px;
-  padding: 3px 6px;
-  font-size: 11px;
-}
-
-.agent-provider__grid .field__hint {
-  margin: 0;
-  font-size: 9.5px;
-  line-height: 1.3;
-}
-
 .agent-controls {
   gap: 5px;
 }
@@ -3181,6 +3098,14 @@ body {
   overflow: auto;
   padding-right: 2px;
   scrollbar-gutter: stable;
+}
+
+/* The composer is the primary control, so in an expanded workspace it stays at
+   the bottom of the column instead of floating under the last line of content
+   (the auto margin collapses once the column overflows, and `sticky` then pins
+   it while scrolling). */
+.agent-composer {
+  margin-top: auto;
 }
 
 .agent-composer {
@@ -3464,20 +3389,64 @@ body {
   font-size: 10px;
 }
 
-.agent-provider > summary {
-  display: flex;
+.agent-provider-chip {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 52%;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  transition: border-color var(--motion-fast) ease;
 }
 
-.agent-provider > summary code {
-  margin-left: auto;
+.agent-provider-chip:hover {
+  border-color: var(--accent);
+}
+
+.agent-provider-chip code {
   overflow: hidden;
   color: var(--text-muted);
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-workspace-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.agent-mode-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.agent-evidence {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.agent-evidence__thumb {
+  width: 38px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  object-fit: cover;
 }
 
 .agent-control {
@@ -3552,11 +3521,26 @@ body {
   padding-bottom: 4px;
 }
 
+/* Dim and block the workspace behind an expanded panel. Without this the editor
+   around the 18px inset stayed visible and clickable. */
+body.agent-workspace-open::before,
+body.audit-workspace-open::before {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: var(--scrim);
+  content: "";
+  animation: panel-in 160ms var(--ease-out) both;
+}
+
 /* Agent workspace and streaming ---------------------------------------- */
 .agent--workspace {
   position: fixed;
   inset: 18px;
   z-index: 120;
+  /* `height: 100%` from `.agent` would resolve against the viewport and fight
+     `inset`, so the expanded overlay states its own sizing. */
+  height: auto;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -3695,6 +3679,7 @@ body {
   position: fixed;
   inset: 18px;
   z-index: 124;
+  height: auto;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -3876,4 +3861,149 @@ body {
   .audit-workspace__grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Agent configuration dialog -------------------------------------------- */
+/* Configuration is a modal task: in a docked drawer the panel is only ~160px
+   tall, so the form used to cover the conversation and the composer. The dialog
+   gets the whole window instead, and the transcript column keeps only the goal,
+   the per-turn controls and the result. */
+.agent-settings {
+  width: min(780px, calc(100vw - 32px));
+}
+
+.agent-settings__body {
+  gap: 16px;
+}
+
+.agent-settings__section {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-settings__heading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agent-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.agent-settings__grid .field {
+  margin: 0;
+}
+
+.agent-settings__status {
+  margin-right: auto;
+}
+
+.agent-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-preset-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.agent-preset-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.agent-credential {
+  display: grid;
+  gap: 4px;
+}
+
+.agent-credential__state {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.agent-credential__state--saved { color: var(--ok); }
+.agent-credential__state--failed { color: var(--error); }
+
+.agent-credential__retry {
+  justify-self: start;
+}
+
+.agent-composition {
+  display: grid;
+  gap: 5px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.agent-composition__list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.agent-composition__note {
+  margin: 0;
+  font-size: 10px;
+}
+
+/* Template rows stack: a 130px name column next to a textarea left no room for
+   either, so the name, the instructions and the action read top to bottom. */
+.agent-template {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 5px;
+}
+
+.agent-template textarea {
+  grid-column: 1 / -1;
+}
+
+/* A built-in row stacks instead: its text is prose, so an `auto` column would
+   squeeze the template name into a vertical sliver. */
+.agent-template--builtin {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 7px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.agent-template__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-template__badge {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.agent-template__instructions {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.btn--danger {
+  border-color: var(--error);
+  color: var(--error);
 }

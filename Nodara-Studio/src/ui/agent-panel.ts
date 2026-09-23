@@ -12,10 +12,11 @@ import {
   AgentMode,
   AgentProviderProfile,
   AgentSettings,
+  allTemplates,
   defaultAgentSettings,
+  findTemplate,
+  isBuiltinTemplate,
   loadAgentSettings,
-  newProfile,
-  newTemplate,
   saveAgentSettings,
 } from "../model/agent-settings";
 import { diffWorkflows, isWorkflowDiffEmpty, WorkflowDiff } from "../model/workflow-diff";
@@ -23,9 +24,11 @@ import {
   AgentSession,
   AgentSessionList,
   ApprovalRequest,
+  ArtifactMeta,
   ValidationReport,
   Workflow,
 } from "../runtime/types";
+import { AgentSettingsDialog } from "./agent-settings";
 
 export type AgentExecutionMode = AgentMode;
 
@@ -69,6 +72,19 @@ export type AgentStreamEvent =
 
 interface TraceLine { type: string; label: string; detail?: string }
 
+/**
+ * What each execution mode actually does.
+ *
+ * A bare "Partial approval" in a dropdown does not tell an operator whether the
+ * turn will run at all, so the row states the consequence underneath it.
+ */
+const MODE_HINT_KEYS: Record<AgentMode, string> = {
+  forbidden: "agent.modeHint.forbidden",
+  manual: "agent.modeHint.manual",
+  partial: "agent.modeHint.partial",
+  all: "agent.modeHint.all",
+};
+
 interface AgentFocusSnapshot {
   field: string;
   start: number | null;
@@ -98,6 +114,11 @@ export interface AgentPanelHandlers {
   onResumeRun: (runId: string) => void;
   onValidatePlan: (workflow: Workflow) => Promise<ValidationReport>;
   onRunPlan: (workflow: Workflow, sessionId: string, mode: AgentExecutionMode) => Promise<void>;
+  /** Capture the screen and bind the run to the session the next turn continues. */
+  onObserveScreen: (sessionId: string, mode: AgentExecutionMode) => Promise<void>;
+  /** Image and non-image artifacts a run produced, for the evidence chip. */
+  listArtifacts: (runId: string) => Promise<ArtifactMeta[]>;
+  artifactUrl: (runId: string, artifactId: string) => string;
 }
 
 export class AgentPanel {
@@ -107,11 +128,12 @@ export class AgentPanel {
   private busy = false;
   private localError = "";
   private settings: AgentSettings = loadAgentSettings();
-  private apiKey = "";
-  private providerOpen = false;
+  private readonly settingsDialog: AgentSettingsDialog;
   private readonly planJsonOpen = new Set<string>();
   private readonly traceOpen = new Set<string>();
   private readonly sessionTraces = new Map<string, unknown[]>();
+  private readonly evidence = new Map<string, ArtifactMeta[]>();
+  private templateId = "";
   private sessionFingerprint = "";
   private sessionFilter = "";
   private streamPhase = "";
@@ -127,8 +149,45 @@ export class AgentPanel {
     private readonly handlers: AgentPanelHandlers,
     private readonly desktopAvailable = true,
   ) {
+    // The expanded workspace covers the viewport, so the escape hatch listens on
+    // the document rather than on a panel that may not currently hold focus.
+    document.addEventListener("keydown", (event) => this.onKeyDown(event));
+    this.settingsDialog = new AgentSettingsDialog(
+      {
+        onChange: () => {
+          this.persist();
+          // Keep the toolbar chip in step with the dialog. The panel's own focus
+          // restore ignores the dialog, so nothing the operator is typing moves.
+          this.render();
+        },
+        onCredentialGet: (profileId) => this.handlers.onCredentialGet(profileId),
+        onCredentialSet: (profileId, secret) => this.handlers.onCredentialSet(profileId, secret),
+        onCredentialDelete: (profileId) => this.handlers.onCredentialDelete(profileId),
+      },
+      this.desktopAvailable,
+    );
     this.render();
-    void this.loadCredential();
+    void this.settingsDialog.refreshCredential(this.settings).then(() => this.render());
+  }
+
+  /** Open the configuration dialog. */
+  openSettings(): void {
+    this.settingsDialog.open(this.settings);
+  }
+
+  /** Expand or collapse the full workspace, persisting the choice. */
+  private setWorkspaceOpen(open: boolean): void {
+    this.workspaceOpen = open;
+    this.persist();
+    this.render();
+  }
+
+  /** Escape leaves the expanded workspace, like every other overlay here. */
+  private onKeyDown(event: KeyboardEvent): void {
+    if (event.key !== "Escape" || !this.workspaceOpen) return;
+    if (document.querySelector("dialog[open]")) return;
+    event.stopPropagation();
+    this.setWorkspaceOpen(false);
   }
 
   /** Replace the session list. Preserves the current selection when possible. */
@@ -180,7 +239,7 @@ export class AgentPanel {
 
   private providerConfig(): AgentProviderConfig {
     const profile = this.activeProfile();
-    return { ...profile, profileId: profile.id, apiKey: this.apiKey };
+    return { ...profile, profileId: profile.id, apiKey: this.settingsDialog.activeApiKey() };
   }
 
   private persist(): void {
@@ -188,14 +247,21 @@ export class AgentPanel {
     saveAgentSettings(this.settings);
   }
 
-  private async loadCredential(): Promise<void> {
-    if (!this.desktopAvailable) return;
+  /**
+   * Load the artifacts the selected session's last run produced.
+   *
+   * Those are exactly the images the next turn will receive, so the panel can
+   * show the observation loop instead of leaving it invisible.
+   */
+  private async loadEvidence(session: AgentSession | undefined): Promise<void> {
+    const runId = session?.run_id;
+    if (!runId || this.evidence.has(runId) || !this.desktopAvailable) return;
     try {
-      this.apiKey = (await this.handlers.onCredentialGet(this.activeProfile().id)) ?? "";
-      this.render();
-    } catch (error) {
-      this.localError = error instanceof Error ? error.message : String(error);
-      this.render();
+      const artifacts = await this.handlers.listArtifacts(runId);
+      this.evidence.set(runId, artifacts);
+      if (session?.id === this.selected) this.render();
+    } catch {
+      // Evidence is an affordance, not a requirement: the turn still works.
     }
   }
 
@@ -251,8 +317,6 @@ export class AgentPanel {
   private render(): void {
     const focus = this.captureFocus();
     const scroll = this.captureScroll();
-    const provider = this.root.querySelector<HTMLDetailsElement>(".agent-provider");
-    if (provider) this.providerOpen = provider.open;
     for (const details of this.root.querySelectorAll<HTMLDetailsElement>(".agent-plan-json")) {
       const sessionId = details.dataset.sessionId;
       if (!sessionId) continue;
@@ -308,36 +372,18 @@ export class AgentPanel {
 
     const main = document.createElement("div");
     main.className = "agent-main";
-    const workspaceHeader = document.createElement("div");
-    workspaceHeader.className = "agent-workspace-header";
-    const workspaceTitle = document.createElement("strong");
-    workspaceTitle.textContent = t("agent.workspace");
-    const workspaceToggle = document.createElement("button");
-    workspaceToggle.type = "button";
-    workspaceToggle.className = "btn btn--small";
-    workspaceToggle.dataset.agentFocus = "workspace-toggle";
-    workspaceToggle.textContent = this.workspaceOpen
-      ? t("agent.collapseWorkspace")
-      : t("agent.expandWorkspace");
-    workspaceToggle.addEventListener("click", () => {
-      this.workspaceOpen = !this.workspaceOpen;
-      this.persist();
-      this.render();
-    });
-    workspaceHeader.append(workspaceTitle, workspaceToggle);
-    main.appendChild(workspaceHeader);
+    main.appendChild(this.renderToolbar());
     if (!this.desktopAvailable) {
       const desktop = document.createElement("p");
       desktop.className = "gate agent-desktop-only";
       desktop.textContent = t("agent.desktopOnly");
       main.appendChild(desktop);
     }
-    main.appendChild(this.renderProviderSettings());
-    main.appendChild(this.renderControls());
+    const session = this.selectedSession();
+    main.appendChild(this.renderControls(session));
     if (this.busy || this.streamText || this.streamTrace.length > 0) {
       main.appendChild(this.renderLiveTurn());
     }
-    const session = this.selectedSession();
     if (session) main.appendChild(this.renderDetail(session));
     if (this.localError) {
       const error = document.createElement("p");
@@ -350,6 +396,46 @@ export class AgentPanel {
     this.root.appendChild(shell);
     this.restoreScroll(scroll);
     this.restoreFocus(focus);
+    // The evidence chip needs the run's artifacts, fetched once per run.
+    void this.loadEvidence(session);
+  }
+
+  /** Provider summary, settings entry point and the workspace toggle. */
+  private renderToolbar(): HTMLElement {
+    const toolbar = document.createElement("div");
+    toolbar.className = "agent-workspace-header";
+    const profile = this.activeProfile();
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "agent-provider-chip";
+    chip.dataset.agentFocus = "provider-summary";
+    chip.title = t("agent.providerSettings");
+    const chipName = document.createElement("strong");
+    chipName.textContent = profile.name;
+    const chipModel = document.createElement("code");
+    chipModel.textContent = profile.model;
+    chip.append(chipName, chipModel);
+    chip.addEventListener("click", () => this.openSettings());
+
+    const actions = document.createElement("div");
+    actions.className = "agent-workspace-header__actions";
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.className = "btn btn--small";
+    settings.dataset.agentFocus = "open-settings";
+    settings.textContent = t("agent.openSettings");
+    settings.addEventListener("click", () => this.openSettings());
+    const workspaceToggle = document.createElement("button");
+    workspaceToggle.type = "button";
+    workspaceToggle.className = "btn btn--small";
+    workspaceToggle.dataset.agentFocus = "workspace-toggle";
+    workspaceToggle.textContent = this.workspaceOpen
+      ? t("agent.collapseWorkspace")
+      : t("agent.expandWorkspace");
+    workspaceToggle.addEventListener("click", () => this.setWorkspaceOpen(!this.workspaceOpen));
+    actions.append(settings, workspaceToggle);
+    toolbar.append(chip, actions);
+    return toolbar;
   }
 
   private renderSessionItems(list: HTMLElement): void {
@@ -388,191 +474,23 @@ export class AgentPanel {
     }
   }
 
-  private renderProviderSettings(): HTMLElement {
-    const details = document.createElement("details");
-    details.className = "agent-provider";
-    details.open = this.providerOpen;
-    details.addEventListener("toggle", () => { this.providerOpen = details.open; });
-    const summary = document.createElement("summary");
-    summary.dataset.agentFocus = "provider-summary";
-    const summaryTitle = document.createElement("span");
-    summaryTitle.textContent = t("agent.providerSettings");
-    const summaryModel = document.createElement("code");
-    summaryModel.textContent = `${this.activeProfile().name} · ${this.activeProfile().model}`;
-    summary.append(summaryTitle, summaryModel);
-    details.appendChild(summary);
-
-    const grid = document.createElement("div");
-    grid.className = "agent-provider__grid";
-    const profile = this.activeProfile();
-    const profileRow = document.createElement("div");
-    profileRow.className = "agent-profile-row";
-    const profileSelect = document.createElement("select");
-    profileSelect.className = "input input--small";
-    profileSelect.dataset.agentFocus = "provider-profile";
-    for (const item of this.settings.profiles) {
-      const option = document.createElement("option");
-      option.value = item.id;
-      option.textContent = item.name;
-      profileSelect.appendChild(option);
-    }
-    profileSelect.value = profile.id;
-    profileSelect.addEventListener("change", () => {
-      this.settings.activeProfileId = profileSelect.value;
-      this.apiKey = "";
-      this.persist();
-      void this.loadCredential();
-    });
-    const addProfile = document.createElement("button");
-    addProfile.type = "button";
-    addProfile.className = "btn btn--small";
-    addProfile.textContent = t("agent.addProfile");
-    addProfile.addEventListener("click", () => {
-      const next = newProfile(this.settings.profiles.length + 1);
-      this.settings.profiles.push(next);
-      this.settings.activeProfileId = next.id;
-      this.apiKey = "";
-      this.persist();
-      this.render();
-    });
-    const removeProfile = document.createElement("button");
-    removeProfile.type = "button";
-    removeProfile.className = "btn btn--small";
-    removeProfile.textContent = t("agent.removeProfile");
-    removeProfile.disabled = this.settings.profiles.length <= 1;
-    removeProfile.addEventListener("click", () => {
-      const removed = profile.id;
-      this.settings.profiles = this.settings.profiles.filter((item) => item.id !== removed);
-      this.settings.activeProfileId = this.settings.profiles[0].id;
-      this.apiKey = "";
-      this.persist();
-      void this.handlers.onCredentialDelete(removed).catch(() => undefined);
-      this.render();
-    });
-    profileRow.append(profileSelect, addProfile, removeProfile);
-    grid.appendChild(profileRow);
-
-    const fields: Array<[keyof AgentProviderProfile, string, string, string]> = [
-      ["name", "agent.profileName", "text", profile.name],
-      ["endpoint", "agent.endpoint", "text", profile.endpoint],
-      ["model", "agent.model", "text", profile.model],
-      ["timeoutMs", "agent.timeout", "number", String(profile.timeoutMs)],
-    ];
-    for (const [key, labelKey, type, value] of fields) {
-      const label = document.createElement("label");
-      label.className = "field";
-      const title = document.createElement("span");
-      title.className = "field__label";
-      title.textContent = t(labelKey);
-      const input = document.createElement("input");
-      input.className = "input";
-      input.type = type;
-      input.value = value;
-      input.dataset.agentFocus = `provider.${key}`;
-      input.addEventListener("input", () => {
-        const target = this.settings.profiles.find((item) => item.id === this.settings.activeProfileId);
-        if (!target) return;
-        if (key === "timeoutMs") target.timeoutMs = Number(input.value) || 300_000;
-        else if (key === "name" || key === "endpoint" || key === "model") target[key] = input.value;
-        this.persist();
-      });
-      label.append(title, input);
-      grid.appendChild(label);
-    }
-
-    const keyLabel = document.createElement("label");
-    keyLabel.className = "field";
-    const keyTitle = document.createElement("span");
-    keyTitle.className = "field__label";
-    keyTitle.textContent = t("agent.apiKey");
-    const keyInput = document.createElement("input");
-    keyInput.className = "input";
-    keyInput.type = "password";
-    keyInput.value = this.apiKey;
-    keyInput.autocomplete = "off";
-    keyInput.dataset.agentFocus = "provider.apiKey";
-    keyInput.addEventListener("change", () => {
-      this.apiKey = keyInput.value;
-      void this.handlers.onCredentialSet(profile.id, keyInput.value).catch((error) => {
-        this.localError = error instanceof Error ? error.message : String(error);
-        this.render();
-      });
-    });
-    keyLabel.append(keyTitle, keyInput);
-    grid.appendChild(keyLabel);
-
-    const hint = document.createElement("p");
-    hint.className = "field__hint";
-    hint.textContent = t("agent.apiKeyHint");
-    const visionHint = document.createElement("p");
-    visionHint.className = "field__hint";
-    visionHint.textContent = t("agent.visionRuntimeHint");
-    grid.append(hint, visionHint, this.renderPromptTemplates());
-    details.appendChild(grid);
-    return details;
-  }
-
-  private renderPromptTemplates(): HTMLElement {
-    const wrapper = document.createElement("div");
-    wrapper.className = "agent-templates";
-    const heading = document.createElement("div");
-    heading.className = "agent-templates__heading";
-    const title = document.createElement("strong");
-    title.textContent = t("agent.promptTemplates");
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "btn btn--small";
-    add.textContent = t("agent.addTemplate");
-    add.addEventListener("click", () => {
-      this.settings.templates.push(newTemplate(this.settings.templates.length + 1));
-      this.persist();
-      this.render();
-    });
-    heading.append(title, add);
-    wrapper.appendChild(heading);
-    if (this.settings.templates.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = t("agent.noTemplates");
-      wrapper.appendChild(empty);
-      return wrapper;
-    }
-    for (const template of this.settings.templates) {
-      const row = document.createElement("div");
-      row.className = "agent-template";
-      const name = document.createElement("input");
-      name.className = "input input--small";
-      name.value = template.name;
-      name.dataset.agentFocus = `template.name.${template.id}`;
-      name.addEventListener("change", () => { template.name = name.value; this.persist(); });
-      const instructions = document.createElement("textarea");
-      instructions.className = "input input--code";
-      instructions.rows = 2;
-      instructions.placeholder = t("agent.templateInstructions");
-      instructions.value = template.instructions;
-      instructions.dataset.agentFocus = `template.instructions.${template.id}`;
-      instructions.addEventListener("change", () => {
-        template.instructions = instructions.value;
-        this.persist();
-      });
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "btn btn--small";
-      remove.textContent = t("actions.delete");
-      remove.addEventListener("click", () => {
-        this.settings.templates = this.settings.templates.filter((item) => item.id !== template.id);
-        this.persist();
-        this.render();
-      });
-      row.append(name, instructions, remove);
-      wrapper.appendChild(row);
-    }
-    return wrapper;
-  }
-
-  private renderControls(): HTMLElement {
+  /**
+   * Per-turn controls: execution mode, baseline, prompt template and the
+   * observation entry point.
+   *
+   * Configuration lives in the settings dialog, so this row stays short enough
+   * to sit above the composer even in a docked drawer, and the primary task —
+   * describing a goal — is never pushed off screen by a form.
+   */
+  private renderControls(session: AgentSession | undefined): HTMLElement {
     const controls = document.createElement("div");
     controls.className = "agent-controls";
+
+    const hint = document.createElement("p");
+    hint.className = "agent-mode-hint";
+    hint.dataset.agentFocus = "mode-hint";
+    hint.textContent = this.modeHint(session);
+
     const mode = document.createElement("select");
     mode.className = "input input--small";
     mode.dataset.agentFocus = "execution-mode";
@@ -591,15 +509,14 @@ export class AgentPanel {
     mode.addEventListener("change", () => {
       this.settings.mode = mode.value as AgentExecutionMode;
       this.persist();
+      hint.textContent = this.modeHint(this.selectedSession());
     });
-    const modeLabel = document.createElement("label");
-    modeLabel.className = "agent-control";
-    const modeText = document.createElement("span");
-    modeText.textContent = t("agent.modeLabel");
-    modeLabel.append(modeText, mode);
+    controls.appendChild(this.labeledControl("agent.modeLabel", mode));
+
     const base = document.createElement("select");
     base.className = "input input--small";
     base.dataset.agentFocus = "baseline-mode";
+    base.setAttribute("aria-label", t("agent.baseLabel"));
     for (const [value, key] of [
       ["current", "agent.baseCurrent"],
       ["last_plan", "agent.baseLastPlan"],
@@ -610,29 +527,124 @@ export class AgentPanel {
       base.appendChild(option);
     }
     base.value = this.settings.baseMode;
-    base.disabled = !this.selectedSession()?.plan;
+    // A disabled select explains itself instead of just refusing to open.
+    base.disabled = !session?.plan;
+    base.title = session?.plan ? "" : t("agent.lastPlanUnavailable");
     base.addEventListener("change", () => {
       this.settings.baseMode = base.value as AgentBaseMode;
       this.persist();
     });
-    const baseLabel = document.createElement("label");
-    baseLabel.className = "agent-control";
-    const baseText = document.createElement("span");
-    baseText.textContent = t("agent.baseLabel");
-    baseLabel.append(baseText, base);
-    controls.append(modeLabel, baseLabel);
-    const extra = document.createElement("textarea");
-    extra.className = "input input--code agent-extra-instructions";
-    extra.rows = 2;
-    extra.placeholder = t("agent.extraInstructions");
-    extra.value = this.settings.extraInstructions;
-    extra.dataset.agentFocus = "extra-instructions";
-    extra.addEventListener("change", () => {
-      this.settings.extraInstructions = extra.value;
-      this.persist();
+    controls.appendChild(this.labeledControl("agent.baseLabel", base));
+
+    const template = document.createElement("select");
+    template.className = "input input--small";
+    template.dataset.agentFocus = "prompt-template";
+    template.setAttribute("aria-label", t("agent.templateLabel"));
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = t("agent.noTemplate");
+    template.appendChild(none);
+    for (const item of allTemplates(this.settings.templates)) {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = isBuiltinTemplate(item.id)
+        ? `${item.name} · ${t("agent.builtinTemplate")}`
+        : item.name;
+      template.appendChild(option);
+    }
+    // A template that no longer exists must not stay selected and silently send
+    // nothing.
+    if (!findTemplate(this.templateId, this.settings.templates)) this.templateId = "";
+    template.value = this.templateId;
+    template.addEventListener("change", () => {
+      this.templateId = template.value;
+      hint.textContent = this.modeHint(this.selectedSession());
     });
-    controls.appendChild(extra);
+    controls.appendChild(this.labeledControl("agent.templateLabel", template));
+
+    const observe = document.createElement("button");
+    observe.type = "button";
+    observe.className = "btn btn--small";
+    observe.dataset.agentFocus = "observe-screen";
+    observe.textContent = t("agent.observeScreen");
+    // Observing *is* an execution: a plan-only mode must not run it, and the
+    // button says why instead of doing nothing.
+    const planOnly = this.settings.mode === "forbidden";
+    observe.title = planOnly ? t("agent.runForbidden") : t("agent.observeHint");
+    observe.disabled = !this.desktopAvailable || !session || planOnly;
+    observe.addEventListener("click", () => {
+      const current = this.selectedSession();
+      if (current) void this.handlers.onObserveScreen(current.id, this.settings.mode);
+    });
+    controls.appendChild(observe);
+
+    controls.appendChild(hint);
+    const evidence = this.renderEvidence(session);
+    if (evidence) controls.appendChild(evidence);
     return controls;
+  }
+
+  /** What the chosen execution mode will actually do, plus this turn's input. */
+  private modeHint(session: AgentSession | undefined): string {
+    const mode = t(MODE_HINT_KEYS[this.settings.mode]);
+    const constraints = t("agent.constraintCount", { count: this.constraintCount() });
+    return session
+      ? `${mode} · ${constraints}`
+      : `${mode} · ${constraints} · ${t("agent.observeFirstHint")}`;
+  }
+
+  /** How many operator constraints the next turn will carry. */
+  private constraintCount(): number {
+    const template = findTemplate(this.templateId, this.settings.templates);
+    return (this.settings.extraInstructions.trim() ? 1 : 0)
+      + (template?.instructions.trim() ? 1 : 0);
+  }
+
+  private labeledControl(labelKey: string, control: HTMLElement): HTMLElement {
+    const label = document.createElement("label");
+    label.className = "agent-control";
+    const text = document.createElement("span");
+    text.textContent = t(labelKey);
+    label.append(text, control);
+    return label;
+  }
+
+  /**
+   * The observation loop, made visible.
+   *
+   * A continued session receives the previous run's screenshots as native image
+   * inputs, so the artifacts of the last run are exactly what the next turn will
+   * see. Showing them turns "ask, look, then act" from tribal knowledge into
+   * something the panel demonstrates.
+   */
+  private renderEvidence(session: AgentSession | undefined): HTMLElement | null {
+    const runId = session?.run_id;
+    if (!runId) return null;
+    const artifacts = this.evidence.get(runId) ?? [];
+    const images = artifacts.filter((artifact) => artifact.content_type.startsWith("image/"));
+    const chip = document.createElement("div");
+    chip.className = "agent-evidence";
+    chip.dataset.agentFocus = "evidence";
+    const label = document.createElement("span");
+    label.className = "agent-evidence__label";
+    if (images.length === 0) {
+      chip.classList.add("agent-evidence--empty");
+      label.textContent = t("agent.evidenceNone");
+      chip.appendChild(label);
+      return chip;
+    }
+    label.textContent = t("agent.evidenceChip", { images: images.length });
+    chip.appendChild(label);
+    for (const image of images.slice(0, 4)) {
+      const thumb = document.createElement("img");
+      thumb.className = "agent-evidence__thumb";
+      thumb.src = this.handlers.artifactUrl(runId, image.id);
+      thumb.alt = image.name;
+      thumb.title = image.name;
+      thumb.loading = "lazy";
+      chip.appendChild(thumb);
+    }
+    return chip;
   }
 
   private renderComposer(draft: string): HTMLElement {
@@ -656,19 +668,9 @@ export class AgentPanel {
     const status = document.createElement("span");
     status.className = "muted";
     status.textContent = this.busy ? t("agent.running") : t("agent.ready");
-    const template = document.createElement("select");
-    template.className = "input input--small";
-    template.dataset.agentFocus = "prompt-template";
-    const none = document.createElement("option");
-    none.value = "";
-    none.textContent = t("agent.noTemplate");
-    template.appendChild(none);
-    for (const item of this.settings.templates) {
-      const option = document.createElement("option");
-      option.value = item.id;
-      option.textContent = item.name;
-      template.appendChild(option);
-    }
+    const hint = document.createElement("span");
+    hint.className = "agent-composer__hint";
+    hint.textContent = t("agent.ctrlEnterHint");
     const stop = document.createElement("button");
     stop.type = "button";
     stop.className = "btn";
@@ -681,11 +683,11 @@ export class AgentPanel {
     submit.dataset.agentFocus = "send";
     submit.disabled = !this.desktopAvailable || this.busy || draft.trim() === "";
     submit.textContent = this.busy ? t("agent.running") : t("agent.send");
-    row.append(status, template, stop, submit);
+    row.append(status, hint, stop, submit);
     form.append(input, row);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void this.submit(input.value, template.value);
+      void this.submit(input.value);
     });
     return form;
   }
@@ -777,7 +779,7 @@ export class AgentPanel {
     return card;
   }
 
-  private async submit(goal: string, templateId: string): Promise<void> {
+  private async submit(goal: string): Promise<void> {
     const trimmed = goal.trim();
     if (!trimmed || this.busy) return;
     this.busy = true;
@@ -787,7 +789,10 @@ export class AgentPanel {
     this.streamTrace = [];
     this.streamWorkflow = null;
     this.activeTurnId = globalThis.crypto?.randomUUID?.() ?? `turn-${Date.now().toString(36)}`;
-    const selectedTemplate = this.settings.templates.find((item) => item.id === templateId);
+    const templateId = this.templateId;
+    // Built-in templates are resolved here, so "observe first" reaches the model
+    // exactly like a template the operator wrote.
+    const selectedTemplate = findTemplate(templateId, this.settings.templates);
     this.render();
     try {
       await this.handlers.onSubmit(
@@ -798,7 +803,7 @@ export class AgentPanel {
           provider: this.providerConfig(),
           sessionId: this.selected ?? undefined,
           extraInstructions: this.settings.extraInstructions,
-          promptTemplateId: templateId || undefined,
+          promptTemplateId: selectedTemplate?.id,
           promptTemplateInstructions: selectedTemplate?.instructions,
         },
         this.activeTurnId,
@@ -1043,7 +1048,7 @@ export class AgentPanel {
     retry.type = "button";
     retry.className = "btn btn--small";
     retry.textContent = t("agent.retry");
-    retry.addEventListener("click", () => void this.submit(session.goal, ""));
+    retry.addEventListener("click", () => void this.submit(session.goal));
     actions.append(validate, load, run, retry);
     card.appendChild(actions);
     return card;

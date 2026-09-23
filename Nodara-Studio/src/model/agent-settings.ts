@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 export type AgentMode = "forbidden" | "manual" | "partial" | "all";
 export type AgentBaseMode = "current" | "last_plan";
 
@@ -13,6 +15,111 @@ export interface AgentPromptTemplate {
   id: string;
   name: string;
   instructions: string;
+}
+
+/** Endpoint + model pair an operator can apply with one click. */
+export interface AgentProviderPreset {
+  id: string;
+  labelKey: string;
+  endpoint: string;
+  model: string;
+}
+
+/**
+ * Known OpenAI-compatible services.
+ *
+ * Presets only fill the endpoint and model of the active profile; they never
+ * create a profile or touch a credential.
+ */
+export const PROVIDER_PRESETS: ReadonlyArray<AgentProviderPreset> = [
+  {
+    id: "deepseek",
+    labelKey: "agent.preset.deepseek",
+    endpoint: "https://api.deepseek.com/v1/chat/completions",
+    model: "deepseek-chat",
+  },
+  {
+    id: "openai",
+    labelKey: "agent.preset.openai",
+    endpoint: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+  },
+  {
+    id: "ollama",
+    labelKey: "agent.preset.ollama",
+    endpoint: "http://localhost:11434/v1/chat/completions",
+    model: "llama3.1",
+  },
+  {
+    id: "lmstudio",
+    labelKey: "agent.preset.lmstudio",
+    endpoint: "http://localhost:1234/v1/chat/completions",
+    model: "local-model",
+  },
+];
+
+/** Built-in templates are addressed by a reserved id prefix. */
+export const BUILTIN_TEMPLATE_PREFIX = "builtin.";
+
+/**
+ * Prompt templates every Studio ships with.
+ *
+ * They are virtual: nothing is written to localStorage, so they follow the
+ * active language, cannot be deleted by accident, and never need a migration.
+ * Their text is sent to the model as an operator constraint, exactly like a
+ * template the operator wrote.
+ */
+const BUILTIN_TEMPLATES: ReadonlyArray<{ id: string; nameKey: string; instructionsKey: string }> = [
+  {
+    id: `${BUILTIN_TEMPLATE_PREFIX}observe-first`,
+    nameKey: "agent.template.observeFirst.name",
+    instructionsKey: "agent.template.observeFirst.instructions",
+  },
+  {
+    id: `${BUILTIN_TEMPLATE_PREFIX}minimal-change`,
+    nameKey: "agent.template.minimalChange.name",
+    instructionsKey: "agent.template.minimalChange.instructions",
+  },
+  {
+    id: `${BUILTIN_TEMPLATE_PREFIX}robust-ui`,
+    nameKey: "agent.template.robustUi.name",
+    instructionsKey: "agent.template.robustUi.instructions",
+  },
+  {
+    id: `${BUILTIN_TEMPLATE_PREFIX}verifiable`,
+    nameKey: "agent.template.verifiable.name",
+    instructionsKey: "agent.template.verifiable.instructions",
+  },
+];
+
+/** True when `id` addresses a template the Studio provides. */
+export function isBuiltinTemplate(id: string): boolean {
+  return id.startsWith(BUILTIN_TEMPLATE_PREFIX);
+}
+
+/** Localized built-in templates, in display order. */
+export function builtinTemplates(): AgentPromptTemplate[] {
+  return BUILTIN_TEMPLATES.map(({ id, nameKey, instructionsKey }) => ({
+    id,
+    name: t(nameKey),
+    instructions: t(instructionsKey),
+  }));
+}
+
+/** Built-in templates followed by the operator's own, in display order. */
+export function allTemplates(userTemplates: AgentPromptTemplate[]): AgentPromptTemplate[] {
+  return [...builtinTemplates(), ...userTemplates];
+}
+
+/** Resolve a template id against the built-ins and the operator's templates. */
+export function findTemplate(
+  id: string | undefined,
+  userTemplates: AgentPromptTemplate[],
+  builtins: AgentPromptTemplate[] = builtinTemplates(),
+): AgentPromptTemplate | undefined {
+  if (!id) return undefined;
+  return builtins.find((template) => template.id === id)
+    ?? userTemplates.find((template) => template.id === id);
 }
 
 export interface AgentSettings {

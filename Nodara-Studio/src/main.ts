@@ -27,6 +27,7 @@ import {
 } from "./model/visuals";
 import {
   applyWorkflow,
+  emptyWorkflow,
   localProblems,
   starterWorkflow,
   nodeTypeAdmission,
@@ -207,6 +208,9 @@ class Studio {
       onValidatePlan: (workflow) => this.client.validate(workflow),
       onRunPlan: (workflow, sessionId, mode) =>
         this.runAgentPlan(workflow, sessionId, mode),
+      onObserveScreen: (sessionId, mode) => this.observeScreen(sessionId, mode),
+      listArtifacts: (runId) => this.client.listArtifacts(runId),
+      artifactUrl: (runId, artifactId) => this.client.artifactUrl(runId, artifactId),
     }, isTauri());
     this.audit = new AuditPanel(element("audit"));
     this.runsPanel = new RunPanel(element("runs"), {
@@ -380,7 +384,7 @@ class Studio {
     for (const theme of THEME_PRESETS) {
       const option = document.createElement("option");
       option.value = theme.id;
-      option.textContent = theme.label;
+      option.textContent = t(theme.labelKey);
       themeSelect.appendChild(option);
     }
     themeSelect.value = storedTheme();
@@ -1155,6 +1159,56 @@ class Studio {
       const snapshot = await this.client.resume(runId);
       this.setStatus(snapshot.status);
       await this.pollAgentSessions();
+    } catch (error) {
+      this.reportError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Capture the screen and bind the run to an Agent session.
+   *
+   * A continued session receives the previous run's screenshots as native image
+   * inputs, so this is how an operator lets the model *look* before it plans a
+   * click. The capture is a real node execution, so it goes through the same
+   * permission and approval path as any other gated capability: in manual and
+   * partial modes the run parks until the operator approves it.
+   */
+  private async observeScreen(
+    sessionId: string,
+    mode: "forbidden" | "manual" | "partial" | "all",
+  ): Promise<void> {
+    if (mode === "forbidden") throw new Error(t("agent.runForbidden"));
+    const workflow = emptyWorkflow();
+    workflow.id = `workflow.observe-${Date.now().toString(36)}`;
+    workflow.metadata.name = t("agent.observeWorkflowName");
+    workflow.nodes = [
+      { id: "start", type: "core.Start", label: "Start", config: {}, position: { x: 80, y: 160 } },
+      {
+        id: "capture",
+        type: "windows.Desktop.Capture",
+        label: t("agent.observeScreen"),
+        config: { output_var: "screenshot" },
+        position: { x: 400, y: 160 },
+      },
+      { id: "end", type: "core.End", label: "End", config: { code: 0 }, position: { x: 720, y: 160 } },
+    ];
+    workflow.edges = [
+      { id: "start-capture", kind: "control", source: "start", target: "capture" },
+      { id: "capture-end", kind: "control", source: "capture", target: "end" },
+    ];
+    try {
+      const report = await this.client.validate(workflow);
+      if (report.diagnostics.some((item) => item.severity === "error")) {
+        // The usual cause is a runtime that loaded no plugins, so name it.
+        throw new Error(t("agent.observeUnavailable"));
+      }
+      const snapshot = await this.client.createRun(workflow, {}, mode === "manual", {
+        sessionId,
+        approval: mode === "all" ? "auto" : "session",
+      });
+      await this.openRun(snapshot.id);
+      this.pushLocal(t("status.observeStarted", { id: snapshot.id.slice(0, 8) }));
     } catch (error) {
       this.reportError(error);
       throw error;
