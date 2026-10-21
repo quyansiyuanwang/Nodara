@@ -69,12 +69,28 @@ jobs:
 
       - name: Build release artefacts
         working-directory: Nodara-Core
-        run: cargo build --release
+        shell: pwsh
+        run: |
+          # The workspace's default member is the CLI, so a bare `cargo build`
+          # produces nodara-cli.exe alone; the runtime and both plugins would be
+          # missing from the artefact below.
+          cargo build --workspace --release
+          $expected = @(
+            "nodara-cli.exe",
+            "nodara-runtime.exe",
+            "nodara-platform-plugin.exe",
+            "nodara-vision-plugin.exe"
+          )
+          $missing = $expected | Where-Object { -not (Test-Path "target/release/$_") }
+          if ($missing) {
+            Write-Error ("the release build did not produce: " + ($missing -join ", "))
+          }
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: nodara-windows
+          if-no-files-found: error
           path: |
             Nodara-Core/target/release/nodara-cli.exe
             Nodara-Core/target/release/nodara-runtime.exe
