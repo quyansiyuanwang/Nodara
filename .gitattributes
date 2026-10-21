@@ -1,0 +1,9 @@
+# Keep every text file on LF, in the repository and in every working tree.
+#
+# The windows-latest runner defaults to `core.autocrlf=true`, so checkouts get
+# CRLF. A step that regenerates a file with LF then makes `git status` report a
+# modification even though the bytes are semantically identical — that is how
+# `nodara-cli schema --out schema` kept flagging `schema/` as stale on CI while
+# the same check was clean locally. Declaring `eol=lf` here overrides
+# `core.autocrlf` for everything tracked, so a checkout and its generator agree.
+* text=auto eol=lf

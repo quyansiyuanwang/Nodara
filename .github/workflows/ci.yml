@@ -50,6 +50,9 @@ jobs:
           cargo run -q -p nodara-cli -- schema --out schema
           $drift = git status --porcelain schema
           if ($drift) {
+            $drift
+            git --no-pager diff --stat -- schema
+            git --no-pager diff -- schema
             Write-Error "schema/ is stale; run 'cargo run -p nodara-cli -- schema --out schema'"
           }
 

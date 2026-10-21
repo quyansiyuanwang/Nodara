@@ -394,7 +394,12 @@ fn catalogue_descriptors() -> Vec<nodara_schema::NodeDescriptor> {
         ("windows.Input.Keyboard", "Keyboard", "Input", true),
         // A runtime that can look at the screen: without these, a plan that
         // observes before it clicks cannot even be validated.
-        ("windows.Desktop.Capture", "Capture Desktop", "Desktop", true),
+        (
+            "windows.Desktop.Capture",
+            "Capture Desktop",
+            "Desktop",
+            true,
+        ),
         ("windows.Input.Mouse", "Mouse", "Input", true),
         ("vision.TemplateMatch", "Template Match", "Vision", true),
     ]

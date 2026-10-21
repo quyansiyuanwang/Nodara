@@ -479,13 +479,15 @@ enum StudioStreamEvent {
         attempt: u32,
     },
     PlanReady {
-        workflow: nodara_schema::Workflow,
+        // Boxed so the event stays small: the JSON on the wire is unchanged.
+        workflow: Box<nodara_schema::Workflow>,
     },
     RunFinished {
         run: serde_json::Value,
     },
     Completed {
-        response: StudioResponse,
+        // Boxed for the same reason as `PlanReady`.
+        response: Box<StudioResponse>,
     },
     Failed {
         message: String,
@@ -523,7 +525,9 @@ impl PlanObserver for JsonlObserver {
                 Self::emit(StudioStreamEvent::RepairStarted { attempt });
             }
             PlanEvent::PlanReady { workflow } => {
-                Self::emit(StudioStreamEvent::PlanReady { workflow });
+                Self::emit(StudioStreamEvent::PlanReady {
+                    workflow: Box::new(*workflow),
+                });
             }
         }
     }
@@ -597,7 +601,9 @@ fn run_studio_transport(default_runtime: &str, stream: bool) -> AgentResult<()> 
         if let Some(run) = &response.run {
             JsonlObserver::emit(StudioStreamEvent::RunFinished { run: run.clone() });
         }
-        JsonlObserver::emit(StudioStreamEvent::Completed { response });
+        JsonlObserver::emit(StudioStreamEvent::Completed {
+            response: Box::new(response),
+        });
     } else {
         println!("{}", serde_json::to_string(&response)?);
     }

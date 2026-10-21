@@ -30,7 +30,11 @@ pub enum PlanEvent {
     /// A repair round is requesting a corrected draft.
     RepairStarted { attempt: u32 },
     /// A valid workflow is ready for review.
-    PlanReady { workflow: Workflow },
+    ///
+    /// Boxed: a `Workflow` is an order of magnitude larger than every other
+    /// variant, and the events travel through a channel where the enum's size,
+    /// not the number of live plans, sets the per-message cost.
+    PlanReady { workflow: Box<Workflow> },
 }
 
 /// Receives planner progress without coupling the planner to a transport.
@@ -194,7 +198,7 @@ impl<'a> Planner<'a> {
             if report.is_valid() {
                 if let Some(workflow) = &workflow {
                     observer.on_event(PlanEvent::PlanReady {
-                        workflow: workflow.clone(),
+                        workflow: Box::new(workflow.clone()),
                     });
                 }
                 return Ok(PlanOutcome {

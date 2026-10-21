@@ -39,7 +39,8 @@ fn config(base: &str) -> AgentConfig {
 }
 
 #[test]
-fn plans_publishes_and_runs_end_to_end() {    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
+fn plans_publishes_and_runs_end_to_end() {
+    let runtime = FakeRuntime::start(vec![RunScript::Immediate {
         status: "completed".to_string(),
         code: None,
     }]);
@@ -515,7 +516,13 @@ fn asks_once_for_positions_the_workflow_never_produces() {
 
     // Two planning rounds, one published plan, one run.
     assert_eq!(outcome.report.attempts, 2);
-    assert_eq!(outcome.workflow.as_ref().map(|workflow| workflow.id.as_str()), Some("wf.informed"));
+    assert_eq!(
+        outcome
+            .workflow
+            .as_ref()
+            .map(|workflow| workflow.id.as_str()),
+        Some("wf.informed")
+    );
     let recorded = runtime.recorded();
     assert_eq!(recorded.plans_published, 1);
     assert_eq!(recorded.runs_started, 1);

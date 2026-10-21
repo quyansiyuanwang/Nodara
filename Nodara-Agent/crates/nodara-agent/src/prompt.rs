@@ -247,7 +247,9 @@ mod tests {
         assert!(prompt.contains("plan the observation first"));
         assert!(prompt.contains("windows.Desktop.Capture"));
         assert!(prompt.contains("vision.TemplateMatch"));
-        assert!(prompt.contains("Never declare a\n    variable whose value the workflow itself is supposed to discover"));
+        assert!(prompt.contains(
+            "Never declare a\n    variable whose value the workflow itself is supposed to discover"
+        ));
         assert!(prompt.contains("windows.Window.Wait` / `windows.Window.Focus"));
         assert!(prompt.contains("it cannot tell you where on the screen something is"));
     }
