@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.1.0] — schema-driven content hints - 2026-11-17
+
 ### Highlights
 
 - Workflow `schema_version` 2.1 with explicit `control` and `data` edges.

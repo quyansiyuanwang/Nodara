@@ -1,7 +1,7 @@
 {
   "id": "nodara.windows.platform",
   "name": "Nodara Windows Platform",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "protocol_version": "1",
   "executable": "nodara-platform-plugin.exe",
   "description": "Official host automation: keyboard, mouse, windows, screen capture, clipboard and process execution.",

@@ -11,8 +11,8 @@ Windows 10/11 x64，不需要安装 Rust、Node.js 或 Visual Studio。
 
 ```powershell
 Set-Location .\artifacts\release
-Expand-Archive .\Nodara-2.0.0-windows-x86_64.zip -DestinationPath .\test-release
-Set-Location .\test-release\Nodara-2.0.0-windows-x86_64
+Expand-Archive .\Nodara-2.1.0-windows-x86_64.zip -DestinationPath .\test-release
+Set-Location .\test-release\Nodara-2.1.0-windows-x86_64
 ```
 
 先检查文件完整性。目录内已经包含 `SHA256SUMS.txt`：
@@ -22,7 +22,7 @@ Get-FileHash .\nodara-cli.exe -Algorithm SHA256
 .\nodara-cli.exe --version
 ```
 
-预期版本为 `nodara-cli 2.0.0`。
+预期版本为 `nodara-cli 2.1.0`。
 
 > release 包面向验收；debug 包包含 PDB 调试符号，体积更大，适合复现问题。
 > 两者的目录结构和启动命令相同。

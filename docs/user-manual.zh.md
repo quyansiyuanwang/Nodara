@@ -2,7 +2,7 @@
 
 > English: [user-manual.md](user-manual.md)
 
-本文说明如何使用预编译的 Nodara 2.0.0 Windows x64 产物完成日常操作、接口调用、
+本文说明如何使用预编译的 Nodara 2.1.0 Windows x64 产物完成日常操作、接口调用、
 权限控制和故障排查。开发与打包流程见根目录 `README.md`、`QUICKSTART.zh.md` 和
 `scripts/build-artifacts.ps1`。
 

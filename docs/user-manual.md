@@ -2,7 +2,7 @@
 
 > Chinese: [user-manual.zh.md](user-manual.zh.md)
 
-This manual covers the prebuilt Nodara 2.0.0 Windows x64 package. For source
+This manual covers the prebuilt Nodara 2.1.0 Windows x64 package. For source
 development and packaging, see `README.md`, `QUICKSTART.md`, and
 `scripts/build-artifacts.ps1`.
 

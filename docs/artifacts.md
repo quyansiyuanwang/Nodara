@@ -7,13 +7,13 @@
 ```text
 artifacts/
 ├── debug/
-│   ├── Nodara-2.0.0-windows-x86_64-debug/
-│   ├── Nodara-2.0.0-windows-x86_64-debug.zip
-│   └── Nodara-2.0.0-windows-x86_64-debug.zip.sha256
+│   ├── Nodara-2.1.0-windows-x86_64-debug/
+│   ├── Nodara-2.1.0-windows-x86_64-debug.zip
+│   └── Nodara-2.1.0-windows-x86_64-debug.zip.sha256
 └── release/
-    ├── Nodara-2.0.0-windows-x86_64/
-    ├── Nodara-2.0.0-windows-x86_64.zip
-    └── Nodara-2.0.0-windows-x86_64.zip.sha256
+    ├── Nodara-2.1.0-windows-x86_64/
+    ├── Nodara-2.1.0-windows-x86_64.zip
+    └── Nodara-2.1.0-windows-x86_64.zip.sha256
 ```
 
 Each runnable package contains the CLI, standalone runtime, Agent, Studio desktop
@@ -42,16 +42,16 @@ recovery paths are documented in [releasing.md](releasing.md).
 To fetch and verify a published package:
 
 ```powershell
-gh release download v2.0.0 -D .\artifacts\release
+gh release download v2.1.0 -D .\artifacts\release
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
-  -Version 2.0.0
+  -ZipPath .\artifacts\release\Nodara-2.1.0-windows-x86_64.zip `
+  -Version 2.1.0
 ```
 
 Verify a package with:
 
 ```powershell
-$zip = ".\artifacts\release\Nodara-2.0.0-windows-x86_64.zip"
+$zip = ".\artifacts\release\Nodara-2.1.0-windows-x86_64.zip"
 (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 Get-Content "$zip.sha256"
 ```

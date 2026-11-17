@@ -2,7 +2,7 @@
 
 > English: [artifacts.md](artifacts.md)
 
-本文说明 2.0.0 Windows x64 产物的布局、调试与发布差异、校验方法及重建方式。
+本文说明 2.1.0 Windows x64 产物的布局、调试与发布差异、校验方法及重建方式。
 
 ## 1. 产物位置
 
@@ -17,13 +17,13 @@
 ```text
 artifacts/
 ├── debug/
-│   ├── Nodara-2.0.0-windows-x86_64-debug/
-│   ├── Nodara-2.0.0-windows-x86_64-debug.zip
-│   └── Nodara-2.0.0-windows-x86_64-debug.zip.sha256
+│   ├── Nodara-2.1.0-windows-x86_64-debug/
+│   ├── Nodara-2.1.0-windows-x86_64-debug.zip
+│   └── Nodara-2.1.0-windows-x86_64-debug.zip.sha256
 └── release/
-    ├── Nodara-2.0.0-windows-x86_64/
-    ├── Nodara-2.0.0-windows-x86_64.zip
-    └── Nodara-2.0.0-windows-x86_64.zip.sha256
+    ├── Nodara-2.1.0-windows-x86_64/
+    ├── Nodara-2.1.0-windows-x86_64.zip
+    └── Nodara-2.1.0-windows-x86_64.zip.sha256
 ```
 
 `artifacts/` 是本地生成目录，不提交到 Git。脚本支持：
@@ -41,7 +41,7 @@ artifacts/
 两套包使用同一布局：
 
 ```text
-Nodara-2.0.0-windows-x86_64[-debug]/
+Nodara-2.1.0-windows-x86_64[-debug]/
 ├── nodara-cli.exe
 ├── nodara-runtime.exe
 ├── nodara-agent.exe
@@ -72,8 +72,8 @@ Nodara-2.0.0-windows-x86_64[-debug]/
 │   ├── artifacts.zh.md
 │   └── releasing.zh.md
 └── installers/                  # 仅 release
-    ├── Nodara-Studio-2.0.0-x64-setup.exe
-    └── Nodara-Studio-2.0.0-x64.msi
+    ├── Nodara-Studio-2.1.0-x64-setup.exe
+    └── Nodara-Studio-2.1.0-x64.msi
 ```
 
 debug 额外包含：
@@ -112,7 +112,7 @@ release PDB 缺失判断构建失败。
 ZIP 级校验：
 
 ```powershell
-$zip = ".\artifacts\release\Nodara-2.0.0-windows-x86_64.zip"
+$zip = ".\artifacts\release\Nodara-2.1.0-windows-x86_64.zip"
 $expected = (Get-Content "$zip.sha256").Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 $expected -eq $actual
@@ -121,7 +121,7 @@ $expected -eq $actual
 解压后的文件级校验：
 
 ```powershell
-Set-Location .\artifacts\release\Nodara-2.0.0-windows-x86_64
+Set-Location .\artifacts\release\Nodara-2.1.0-windows-x86_64
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -135,7 +135,7 @@ Get-Content .\SHA256SUMS.txt
 ```json
 {
   "product": "Nodara",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "configuration": "Release",
   "target": "x86_64-pc-windows-msvc",
   "built_at_utc": "2026-09-14T00:00:00.0000000Z",
@@ -221,10 +221,10 @@ Releases。完整流程与恢复方式见 [releasing.zh.md](releasing.zh.md)。
 下载并验收已发布的包：
 
 ```powershell
-gh release download v2.0.0 -D .\artifacts\release
+gh release download v2.1.0 -D .\artifacts\release
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
-  -Version 2.0.0
+  -ZipPath .\artifacts\release\Nodara-2.1.0-windows-x86_64.zip `
+  -Version 2.1.0
 ```
 
 ## 9. 信任边界

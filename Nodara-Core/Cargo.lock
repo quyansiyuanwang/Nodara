@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-cli"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "clap",
  "nodara-core",
@@ -665,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-core"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "crossbeam-channel",
  "nodara-schema",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-platform"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "image",
  "nodara-core",
@@ -695,7 +695,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-plugin"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "base64",
  "crossbeam-channel",
@@ -712,7 +712,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-runtime"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "axum",
  "futures-util",
@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-schema"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "pretty_assertions",
  "schemars",
@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-testkit"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "nodara-core",
  "nodara-plugin",
@@ -755,7 +755,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-vision"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "image",
  "nodara-core",
