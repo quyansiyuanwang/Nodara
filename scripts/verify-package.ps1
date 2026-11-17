@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param(
+    # Portable archive: .zip on Windows, .tar.gz on macOS and Linux.
+    [Alias("ArchivePath")]
     [Parameter(Mandatory)][string]$ZipPath,
     [Parameter(Mandatory)][string]$Version,
     # Optional full commit SHA; build-info.json must start with it.
@@ -10,6 +12,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$ExecutableSuffix = if ($IsWindows) { ".exe" } else { "" }
+$Platform = if ($IsWindows) { "windows" } elseif ($IsMacOS) { "macos" } else { "linux" }
 
 function Assert-True {
     param(
@@ -48,33 +53,57 @@ function Invoke-Cli {
     Write-Host ("ok    cli {0}" -f $Label)
 }
 
-$ZipPath = [System.IO.Path]::GetFullPath($ZipPath)
-Assert-True (Test-Path -LiteralPath $ZipPath -PathType Leaf) "missing package: $ZipPath"
+function Stop-ProcessTree {
+    param([System.Diagnostics.Process]$Process)
 
-$packageName = "Nodara-$Version-windows-x86_64"
+    if ($null -eq $Process -or $Process.HasExited) {
+        return
+    }
+    if ($IsWindows) {
+        & taskkill.exe /PID $Process.Id /T /F 2>$null | Out-Null
+    }
+    else {
+        & pkill -P $Process.Id 2>$null | Out-Null
+        Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 500
+    if (-not $Process.HasExited) {
+        Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    }
+}
+
+$ArchivePath = [System.IO.Path]::GetFullPath($ZipPath)
+Assert-True (Test-Path -LiteralPath $ArchivePath -PathType Leaf) "missing package: $ArchivePath"
+
+$archiveName = [System.IO.Path]::GetFileName($ArchivePath)
+$isTar = $archiveName.EndsWith(".tar.gz") -or $archiveName.EndsWith(".tgz")
 $tempRoot = Join-Path $RepoRoot ("artifacts/tmp/verify-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 $runtime = $null
 $previousPort = $env:NODARA_RUNTIME_PORT
 
 try {
     # --- checksum ---------------------------------------------------------
-    $checksumPath = "$ZipPath.sha256"
+    $checksumPath = "$ArchivePath.sha256"
     Assert-True (Test-Path -LiteralPath $checksumPath -PathType Leaf) "missing checksum file: $checksumPath"
     $checksumLine = (Get-Content -LiteralPath $checksumPath -Raw).Trim()
     $expectedHash = ($checksumLine -split '\s+')[0].ToLowerInvariant()
-    $actualHash = (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-True ($actualHash -eq $expectedHash) "ZIP hash mismatch: $actualHash != $expectedHash"
-    Write-Host ("ok    zip sha256 {0}" -f $actualHash)
+    $actualHash = (Get-FileHash -LiteralPath $ArchivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-True ($actualHash -eq $expectedHash) "archive hash mismatch: $actualHash != $expectedHash"
+    Write-Host ("ok    archive sha256 {0}" -f $actualHash)
 
     # --- extract ----------------------------------------------------------
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
-    Expand-Archive -LiteralPath $ZipPath -DestinationPath $tempRoot -Force
-    $packageDir = Join-Path $tempRoot $packageName
-    if (-not (Test-Path -LiteralPath $packageDir -PathType Container)) {
-        $candidates = @(Get-ChildItem -LiteralPath $tempRoot -Directory)
-        Assert-True ($candidates.Count -eq 1) "expected a single '$packageName' directory in the archive"
-        $packageDir = $candidates[0].FullName
+    if ($isTar) {
+        & tar -xzf $ArchivePath -C $tempRoot
+        Assert-True ($LASTEXITCODE -eq 0) "tar failed with exit code $LASTEXITCODE"
     }
+    else {
+        Expand-Archive -LiteralPath $ArchivePath -DestinationPath $tempRoot -Force
+    }
+    $packageDir = $null
+    $candidates = @(Get-ChildItem -LiteralPath $tempRoot -Directory)
+    Assert-True ($candidates.Count -eq 1) "expected a single package directory in the archive"
+    $packageDir = $candidates[0].FullName
 
     # --- staged files -----------------------------------------------------
     $sumsPath = Join-Path $packageDir "SHA256SUMS.txt"
@@ -102,42 +131,46 @@ try {
     Write-Host ("ok    SHA256SUMS.txt covers {0} file(s)" -f @(Get-Content -LiteralPath $sumsPath | Where-Object { $_.Trim() }).Count)
 
     $required = @(
-        "nodara-cli.exe",
-        "nodara-runtime.exe",
-        "nodara-agent.exe",
-        "nodara-studio.exe",
+        "nodara-cli$ExecutableSuffix",
+        "nodara-runtime$ExecutableSuffix",
+        "nodara-agent$ExecutableSuffix",
+        "nodara-studio$ExecutableSuffix",
         "studio-web/index.html",
         "build-info.json",
         "SHA256SUMS.txt",
         "plugins/nodara-platform/manifest.json",
-        "plugins/nodara-platform/nodara-platform-plugin.exe",
+        "plugins/nodara-platform/nodara-platform-plugin$ExecutableSuffix",
         "plugins/nodara-vision/manifest.json",
-        "plugins/nodara-vision/nodara-vision-plugin.exe",
+        "plugins/nodara-vision/nodara-vision-plugin$ExecutableSuffix",
         "schema/workflow.schema.json",
         "examples/hello-world.json",
         "docs/testing.md",
         "docs/artifacts.md",
-        "docs/user-manual.md",
-        "installers/Nodara-Studio-$Version-x64-setup.exe",
-        "installers/Nodara-Studio-$Version-x64.msi"
+        "docs/user-manual.md"
     )
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $packageDir $_)) })
     Assert-True ($missing.Count -eq 0) ("package is missing: " + ($missing -join ", "))
-    Write-Host "ok    required entrypoints and installers are present"
+    Write-Host "ok    required entrypoints are present"
 
     # --- build metadata ---------------------------------------------------
     $info = (Get-Content -LiteralPath (Join-Path $packageDir "build-info.json") -Raw) | ConvertFrom-Json
     Assert-True ($info.product -eq "Nodara") "build-info.json names '$($info.product)', expected Nodara"
     Assert-True ($info.version -eq $Version) "build-info.json names version '$($info.version)', expected $Version"
     Assert-True ($info.configuration -eq "Release") "build-info.json configuration is '$($info.configuration)', expected Release"
+    Assert-True ($info.platform -eq $Platform) "build-info.json platform is '$($info.platform)', expected $Platform"
     if ($Commit) {
         Assert-True ($Commit.StartsWith([string]$info.source_commit, [System.StringComparison]::OrdinalIgnoreCase)) `
             "build-info.json commit '$($info.source_commit)' does not match $Commit"
     }
-    Write-Host ("ok    build-info.json {0} / {1} / {2}" -f $info.version, $info.configuration, $info.source_commit)
+    $installers = @($info.installers | Where-Object { $_ })
+    foreach ($installer in $installers) {
+        Assert-True (Test-Path -LiteralPath (Join-Path $packageDir "installers/$installer")) `
+            "build-info.json lists a missing installer: $installer"
+    }
+    Write-Host ("ok    build-info.json {0} / {1} / {2} / {3} / {4}" -f $info.version, $info.configuration, $info.platform, $info.arch, $info.source_commit)
 
     # --- CLI --------------------------------------------------------------
-    $cli = Join-Path $packageDir "nodara-cli.exe"
+    $cli = Join-Path $packageDir "nodara-cli$ExecutableSuffix"
     $versionOutput = (& $cli --version 2>&1 | Out-String).Trim()
     Assert-True ($LASTEXITCODE -eq 0) "nodara-cli --version failed"
     Assert-True ($versionOutput -match [regex]::Escape($Version)) "nodara-cli reports '$versionOutput', expected $Version"
@@ -162,9 +195,17 @@ try {
         $env:NODARA_RUNTIME_PORT = [string]$port
         $stdoutPath = Join-Path $tempRoot "runtime.stdout.log"
         $stderrPath = Join-Path $tempRoot "runtime.stderr.log"
-        $runtime = Start-Process -FilePath (Join-Path $packageDir "nodara-runtime.exe") `
-            -WorkingDirectory $packageDir -PassThru -WindowStyle Hidden `
-            -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $startArguments = @{
+            FilePath               = Join-Path $packageDir "nodara-runtime$ExecutableSuffix"
+            WorkingDirectory       = $packageDir
+            PassThru               = $true
+            RedirectStandardOutput = $stdoutPath
+            RedirectStandardError  = $stderrPath
+        }
+        if ($IsWindows) {
+            $startArguments.WindowStyle = "Hidden"
+        }
+        $runtime = Start-Process @startArguments
 
         $base = "http://127.0.0.1:$port/api/v1"
         $deadline = (Get-Date).AddSeconds(90)
@@ -209,19 +250,11 @@ try {
     }
 
     Write-Host ""
-    Write-Host ("package verified: {0}" -f $packageName) -ForegroundColor Green
+    Write-Host ("package verified: {0}" -f $archiveName) -ForegroundColor Green
 }
 finally {
     if ($null -ne $runtime) {
-        try {
-            if (-not $runtime.HasExited) {
-                & taskkill.exe /PID $runtime.Id /T /F 2>$null | Out-Null
-                Start-Sleep -Milliseconds 500
-            }
-        }
-        catch {
-            # The runtime is already gone; nothing to clean up.
-        }
+        Stop-ProcessTree -Process $runtime
     }
 
     if ($null -ne $previousPort) {

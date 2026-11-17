@@ -30,7 +30,10 @@ Set-Location .\test-release\Nodara-2.1.0-windows-x86_64
 `nodara-studio.exe` 会自动启动或复用同目录的 `nodara-runtime.exe`，自动启动的
 runtime 会随 Studio 一起退出。需要手工控制服务时再单独运行 `.\nodara-runtime.exe`。
 
-从源码运行时需要 Rust 1.75+；Studio 还需要 Node.js 20+：
+支持 Windows、macOS 与 Linux。macOS 的输入/窗口焦点需要“辅助功能”权限，截图需要
+“屏幕录制”权限；Linux 的窗口与截图能力依赖 X11 或 XWayland，原生 Wayland 暂不支持。
+
+从源码运行时需要 Rust 1.88+；Studio 还需要 Node.js 20+：
 
 ```powershell
 Set-Location .\Nodara-Core
@@ -58,14 +61,15 @@ npm run dev
 
 ## 构建产物
 
-Windows x64 的 debug 和 release 包可通过以下命令一次生成：
+当前宿主的 debug 和 release 包可通过以下命令一次生成：
 
 ```powershell
 .\scripts\build-artifacts.ps1 -Configuration All
 ```
 
 脚本执行 Core、Agent、Studio 测试，构建两组 Rust 二进制，生成 Tauri 桌面程序和
-NSIS/MSI 安装包，并输出 ZIP、SHA-256 和构建元数据。生成位置：
+对应平台的安装包（Windows 为 NSIS/MSI，Linux 为 DEB/AppImage，macOS 为 DMG），
+并输出 ZIP 或 `tar.gz`、SHA-256 和构建元数据。生成位置：
 
 ```text
 artifacts\debug\

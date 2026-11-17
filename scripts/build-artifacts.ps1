@@ -17,6 +17,19 @@ $StudioRoot = Join-Path $RepoRoot "Nodara-Studio"
 $ArtifactsRoot = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot "artifacts"))
 $TestsRan = $false
 
+$IsWindowsHost = $IsWindows
+$IsMacHost = $IsMacOS
+$Platform = if ($IsWindowsHost) { "windows" } elseif ($IsMacHost) { "macos" } else { "linux" }
+$Architecture = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()) {
+    "X64" { "x86_64" }
+    "Arm64" { "aarch64" }
+    "X86" { "i686" }
+    default { "armv7" }
+}
+$ExecutableSuffix = if ($IsWindowsHost) { ".exe" } else { "" }
+$Tauri = if ($IsWindowsHost) { ".\node_modules\.bin\tauri.cmd" } else { "./node_modules/.bin/tauri" }
+$Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 function Invoke-InDirectory {
     param(
         [Parameter(Mandatory)] [string]$Path,
@@ -86,11 +99,79 @@ function Write-Checksums {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $relative"
         }
-    [System.IO.File]::WriteAllLines(
+    [System.IO.File]::WriteAllText(
         (Join-Path $Root "SHA256SUMS.txt"),
-        $lines,
-        [System.Text.UTF8Encoding]::new($false)
+        (($lines -join "`n") + "`n"),
+        $Utf8NoBom
     )
+}
+
+function Copy-Installers {
+    param(
+        [Parameter(Mandatory)] [ValidateSet("Debug", "Release")] [string]$Mode,
+        [Parameter(Mandatory)] [string]$Stage,
+        [Parameter(Mandatory)] [string]$Version
+    )
+
+    if ($Mode -eq "Debug") {
+        return @()
+    }
+
+    $bundle = Join-Path $StudioRoot "src-tauri/target/$($Mode.ToLowerInvariant())/bundle"
+    $destination = Join-Path $Stage "installers"
+    New-Item -ItemType Directory -Force -Path $destination | Out-Null
+    $copied = @()
+
+    function Copy-InstallerFile {
+        param([string]$Source, [string]$Name)
+        Copy-Item -LiteralPath $Source -Destination (Join-Path $destination $Name) -Force
+        $script:copiedInstallers += $Name
+    }
+
+    if ($IsWindowsHost) {
+        $nsis = Get-ChildItem -LiteralPath (Join-Path $bundle "nsis") -Filter "*setup.exe" -File -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($nsis) {
+            Copy-InstallerFile $nsis.FullName "Nodara-Studio-$Version-x64-setup.exe"
+        }
+        $msi = Get-ChildItem -LiteralPath (Join-Path $bundle "msi") -Filter "*.msi" -File -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($msi) {
+            Copy-InstallerFile $msi.FullName "Nodara-Studio-$Version-x64.msi"
+        }
+        $missing = @("Nodara-Studio-$Version-x64-setup.exe", "Nodara-Studio-$Version-x64.msi") |
+            Where-Object { -not (Test-Path -LiteralPath (Join-Path $destination $_)) }
+        if ($missing) {
+            throw ("the Windows bundle did not produce: " + ($missing -join ", "))
+        }
+    }
+    elseif ($IsMacHost) {
+        $dmg = Get-ChildItem -LiteralPath (Join-Path $bundle "dmg") -Filter "*.dmg" -File -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($dmg) {
+            Copy-InstallerFile $dmg.FullName "Nodara-Studio-$Version-$Architecture.dmg"
+        }
+        else {
+            Write-Warning "the macOS bundle did not produce a DMG; the portable archive is still complete"
+        }
+    }
+    else {
+        $deb = Get-ChildItem -LiteralPath (Join-Path $bundle "deb") -Filter "*.deb" -File -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($deb) {
+            Copy-InstallerFile $deb.FullName "Nodara-Studio-$Version-$Architecture.deb"
+        }
+        $appimage = Get-ChildItem -LiteralPath (Join-Path $bundle "appimage") -Filter "*.AppImage" -File -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($appimage) {
+            Copy-InstallerFile $appimage.FullName "Nodara-Studio-$Version-$Architecture.AppImage"
+        }
+        if (-not $deb -and -not $appimage) {
+            Write-Warning "the Linux bundle produced neither a DEB nor an AppImage; the portable archive is still complete"
+        }
+    }
+
+    return $script:copiedInstallers
 }
 
 function New-Package {
@@ -101,41 +182,41 @@ function New-Package {
 
     $lower = $Mode.ToLowerInvariant()
     $suffix = if ($Mode -eq "Debug") { "-debug" } else { "" }
-    $packageName = "Nodara-$Version-windows-x86_64$suffix"
+    $packageName = "Nodara-$Version-$Platform-$Architecture$suffix"
     $modeRoot = Join-Path $ArtifactsRoot $lower
     $stage = New-StageDirectory (Join-Path $modeRoot $packageName)
-    $coreTarget = Join-Path $CoreRoot "target\$lower"
-    $agentTarget = Join-Path $AgentRoot "target\$lower"
-    $studioTarget = Join-Path $StudioRoot "src-tauri\target\$lower"
+    $coreTarget = Join-Path $CoreRoot "target/$lower"
+    $agentTarget = Join-Path $AgentRoot "target/$lower"
+    $studioTarget = Join-Path $StudioRoot "src-tauri/target/$lower"
 
-    foreach ($name in @("nodara-cli.exe", "nodara-runtime.exe", "nodara-platform-plugin.exe", "nodara-vision-plugin.exe")) {
-        Copy-Required (Join-Path $coreTarget $name) (Join-Path $stage $name)
+    foreach ($name in @("nodara-cli", "nodara-runtime", "nodara-platform-plugin", "nodara-vision-plugin")) {
+        Copy-Required (Join-Path $coreTarget "$name$ExecutableSuffix") (Join-Path $stage "$name$ExecutableSuffix")
     }
-    Copy-Required (Join-Path $agentTarget "nodara-agent.exe") (Join-Path $stage "nodara-agent.exe")
-    Copy-Required (Join-Path $studioTarget "nodara-studio.exe") (Join-Path $stage "nodara-studio.exe")
+    Copy-Required (Join-Path $agentTarget "nodara-agent$ExecutableSuffix") (Join-Path $stage "nodara-agent$ExecutableSuffix")
+    Copy-Required (Join-Path $studioTarget "nodara-studio$ExecutableSuffix") (Join-Path $stage "nodara-studio$ExecutableSuffix")
 
-    if ($Mode -eq "Debug") {
+    if ($Mode -eq "Debug" -and $IsWindowsHost) {
         foreach ($name in @(
             "nodara_cli.pdb",
             "nodara_runtime.pdb",
             "nodara_platform_plugin.pdb",
             "nodara_vision_plugin.pdb"
         )) {
-            Copy-Required (Join-Path $coreTarget $name) (Join-Path $stage "symbols\$name")
+            Copy-Required (Join-Path $coreTarget $name) (Join-Path $stage "symbols/$name")
         }
-        Copy-Required (Join-Path $agentTarget "nodara_agent.pdb") (Join-Path $stage "symbols\nodara_agent.pdb")
-        Copy-Required (Join-Path $studioTarget "nodara_studio.pdb") (Join-Path $stage "symbols\nodara_studio.pdb")
+        Copy-Required (Join-Path $agentTarget "nodara_agent.pdb") (Join-Path $stage "symbols/nodara_agent.pdb")
+        Copy-Required (Join-Path $studioTarget "nodara_studio.pdb") (Join-Path $stage "symbols/nodara_studio.pdb")
     }
 
     $pluginDefinitions = @(
-        @{ Id = "nodara-platform"; Binary = "nodara-platform-plugin.exe" },
-        @{ Id = "nodara-vision"; Binary = "nodara-vision-plugin.exe" }
+        @{ Id = "nodara-platform"; Binary = "nodara-platform-plugin" },
+        @{ Id = "nodara-vision"; Binary = "nodara-vision-plugin" }
     )
     foreach ($plugin in $pluginDefinitions) {
-        $destination = Join-Path $stage "plugins\$($plugin.Id)"
+        $destination = Join-Path $stage "plugins/$($plugin.Id)"
         New-Item -ItemType Directory -Force -Path $destination | Out-Null
-        Copy-Item -LiteralPath (Join-Path $CoreRoot "plugins\$($plugin.Id)\manifest.json") -Destination $destination -Force
-        Copy-Required (Join-Path $coreTarget $plugin.Binary) (Join-Path $destination $plugin.Binary)
+        Copy-Item -LiteralPath (Join-Path $CoreRoot "plugins/$($plugin.Id)/manifest.json") -Destination $destination -Force
+        Copy-Required (Join-Path $coreTarget "$($plugin.Binary)$ExecutableSuffix") (Join-Path $destination "$($plugin.Binary)$ExecutableSuffix")
     }
 
     Copy-Item -LiteralPath (Join-Path $StudioRoot "dist") -Destination (Join-Path $stage "studio-web") -Recurse -Force
@@ -146,11 +227,12 @@ function New-Package {
     Get-ChildItem -LiteralPath (Join-Path $RepoRoot "examples") -Filter "*.json" -File |
         Copy-Item -Destination $examplesDestination -Force
 
-    foreach ($doc in @("README.zh.md", "QUICKSTART.zh.md")) {
+    foreach ($doc in @("README.md", "README.zh.md", "QUICKSTART.md", "QUICKSTART.zh.md")) {
         if (Test-Path -LiteralPath (Join-Path $RepoRoot $doc)) {
             Copy-Item -LiteralPath (Join-Path $RepoRoot $doc) -Destination $stage -Force
         }
     }
+
     # The destination must exist first: without it Copy-Item writes a *file*
     # named `docs`, which is how 2.0.0 shipped no documentation directory.
     $docsDestination = Join-Path $stage "docs"
@@ -165,7 +247,7 @@ function New-Package {
         "artifacts.md",
         "releasing.md"
     )) {
-        $source = Join-Path $RepoRoot "docs\$doc"
+        $source = Join-Path $RepoRoot "docs/$doc"
         if (Test-Path -LiteralPath $source) {
             Copy-Item -LiteralPath $source -Destination $docsDestination -Force
         }
@@ -175,57 +257,64 @@ function New-Package {
     New-Item -ItemType Directory -Force -Path $referenceCore | Out-Null
     Copy-Item -LiteralPath (Join-Path $CoreRoot "docs") -Destination (Join-Path $referenceCore "docs") -Recurse -Force
     Copy-Item -LiteralPath (Join-Path $CoreRoot "protocol") -Destination (Join-Path $referenceCore "protocol") -Recurse -Force
-    Copy-Item -LiteralPath (Join-Path $CoreRoot "plugins\README.md") -Destination $referenceCore -Force
+    Copy-Item -LiteralPath (Join-Path $CoreRoot "plugins/README.md") -Destination $referenceCore -Force
     Copy-Item -LiteralPath (Join-Path $AgentRoot "README.md") -Destination (Join-Path $stage "Nodara-Agent-README.md") -Force
     Copy-Item -LiteralPath (Join-Path $StudioRoot "README.md") -Destination (Join-Path $stage "Nodara-Studio-README.md") -Force
 
-    if ($Mode -eq "Release") {
-        $installerDestination = Join-Path $stage "installers"
-        New-Item -ItemType Directory -Force -Path $installerDestination | Out-Null
-        Copy-Required (Join-Path $studioTarget "bundle\nsis\Nodara Studio_$Version`_x64-setup.exe") (Join-Path $installerDestination "Nodara-Studio-$Version-x64-setup.exe")
-        Copy-Required (Join-Path $studioTarget "bundle\msi\Nodara Studio_$Version`_x64_en-US.msi") (Join-Path $installerDestination "Nodara-Studio-$Version-x64.msi")
-    }
+    $script:copiedInstallers = @()
+    $installers = @(Copy-Installers -Mode $Mode -Stage $stage -Version $Version)
 
     $commit = (& git -C $RepoRoot rev-parse --short HEAD).Trim()
     $rustVersion = (& rustc --version).Trim()
     $nodeVersion = (& node --version).Trim()
     $info = [ordered]@{
-        product          = "Nodara"
-        version          = $Version
-        configuration    = $Mode
-        target           = "x86_64-pc-windows-msvc"
-        built_at_utc     = [DateTime]::UtcNow.ToString("o")
-        source_commit    = $commit
-        rust             = $rustVersion
-        node             = $nodeVersion
-        tests_run        = $TestsRan
-        entrypoints      = @(
-            "nodara-cli.exe",
-            "nodara-runtime.exe",
-            "nodara-agent.exe",
-            "nodara-studio.exe",
-            "studio-web\index.html"
+        product       = "Nodara"
+        version       = $Version
+        configuration = $Mode
+        platform      = $Platform
+        arch          = $Architecture
+        target        = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
+        built_at_utc  = [DateTime]::UtcNow.ToString("o")
+        source_commit = $commit
+        rust          = $rustVersion
+        node          = $nodeVersion
+        tests_run     = $TestsRan
+        entrypoints   = @(
+            "nodara-cli$ExecutableSuffix",
+            "nodara-runtime$ExecutableSuffix",
+            "nodara-agent$ExecutableSuffix",
+            "nodara-studio$ExecutableSuffix",
+            "studio-web/index.html"
         )
+        installers    = $installers
     }
     $infoJson = $info | ConvertTo-Json -Depth 4
-    [System.IO.File]::WriteAllText((Join-Path $stage "build-info.json"), $infoJson, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $stage "build-info.json"), $infoJson, $Utf8NoBom)
     Write-Checksums $stage
 
-    $zipPath = Join-Path $modeRoot "$packageName.zip"
-    if (Test-Path -LiteralPath $zipPath) {
-        Remove-Item -LiteralPath $zipPath -Force
+    $extension = if ($IsWindowsHost) { ".zip" } else { ".tar.gz" }
+    $archivePath = Join-Path $modeRoot "$packageName$extension"
+    if (Test-Path -LiteralPath $archivePath) {
+        Remove-Item -LiteralPath $archivePath -Force
     }
-    Compress-Archive -LiteralPath $stage -DestinationPath $zipPath -CompressionLevel Optimal
+    if ($IsWindowsHost) {
+        Compress-Archive -LiteralPath $stage -DestinationPath $archivePath -CompressionLevel Optimal
+    }
+    else {
+        & tar -czf $archivePath -C $modeRoot $packageName
+        if ($LASTEXITCODE -ne 0) {
+            throw "tar failed with exit code $LASTEXITCODE"
+        }
+    }
 
-    $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
     [System.IO.File]::WriteAllText(
-        (Join-Path $modeRoot "$packageName.zip.sha256"),
-        "$zipHash  $([System.IO.Path]::GetFileName($zipPath))
-",
-        [System.Text.UTF8Encoding]::new($false)
+        (Join-Path $modeRoot "$packageName$extension.sha256"),
+        "$archiveHash  $([System.IO.Path]::GetFileName($archivePath))`n",
+        $Utf8NoBom
     )
 
-    Write-Host "packaged: $zipPath" -ForegroundColor Green
+    Write-Host "packaged: $archivePath" -ForegroundColor Green
 }
 
 if (-not $SkipBuild) {
@@ -236,21 +325,19 @@ if (-not $SkipBuild) {
         Invoke-InDirectory $StudioRoot "npm" @("test")
     }
 
-    # Build only the flavours that were asked for. `-Configuration Release`
-    # used to build debug first, which doubled the work for a release and
-    # contradicted docs/artifacts.md.
+    # Build only the flavours that were asked for.
     if ($Configuration -in @("Debug", "All")) {
         Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace")
         Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace")
         Invoke-InDirectory $StudioRoot "npm" @("run", "build")
-        Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--debug", "--no-bundle", "--ci")
+        Invoke-InDirectory $StudioRoot $Tauri @("build", "--debug", "--no-bundle", "--ci")
     }
 
     if ($Configuration -in @("Release", "All")) {
         Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $StudioRoot "npm" @("run", "build")
-        Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--bundles", "nsis", "msi", "--ci", "--config", "src-tauri/tauri.release.conf.json")
+        Invoke-InDirectory $StudioRoot $Tauri @("build", "--ci")
     }
 }
 

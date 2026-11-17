@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- macOS and Linux capability backends. `nodara-platform` now compiles three native modules behind the same node surface: Win32 on Windows, `enigo`/`arboard` plus `xcap` on macOS, and `enigo`/`arboard` plus `x11rb` on Linux. Keyboard, text, mouse, clipboard, screen capture, window listing and focus work on all three; `set_text` and true background window-targeted input remain Windows-only and report `Unsupported` elsewhere.
+- Three-platform release pipeline. The `Release` workflow builds Windows x64, Linux x64, macOS Apple Silicon and macOS Intel packages on their native runners, verifies each archive with the same CLI/runtime acceptance script, and publishes all of them with per-platform installers (NSIS/MSI, DEB/AppImage, DMG) to one GitHub Release.
+- `build-artifacts.ps1` and `verify-package.ps1` are now host-aware: they emit and validate `.zip` on Windows and `.tar.gz` on macOS/Linux, use the platform executable suffix, and record `platform`, `arch` and installer names in `build-info.json`.
+- The Studio shell is portable. The credential store uses the platform keychain/Secret Service, sibling binaries and plugins are found in `Contents/Resources` and `../lib/nodara-studio` bundle layouts, `open` is used on macOS, and `NODARA_RESOURCE_DIR` overrides custom layouts.
+- CI adds a portability matrix that runs the Core, Agent and Studio suites on Ubuntu and macOS in addition to the existing Windows jobs.
+- The declared minimum Rust version is now 1.88, required by the current keyring and input backends.
+
+### Changed
+
+- The `windows.*` node names are kept for workflow compatibility, but they now describe host automation rather than a Windows-only implementation. Linux targets X11/XWayland; native Wayland window capture is not supported. macOS input and capture need Accessibility and Screen Recording permission.
+- `tauri.release.conf.json` is replaced by Tauri's platform config files (`tauri.windows.conf.json`, `tauri.linux.conf.json`, `tauri.macos.conf.json`), so resources and bundle targets follow the host.
+
 ## [2.1.0] — schema-driven content hints - 2026-11-17
 
 ### Highlights

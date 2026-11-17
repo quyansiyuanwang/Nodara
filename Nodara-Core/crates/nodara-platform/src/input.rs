@@ -639,11 +639,8 @@ impl NodeExecutor for TextExecutor {
                 "wm_char" => {
                     for character in text.chars() {
                         context.check_cancelled()?;
-                        let mut units = [0u16; 2];
-                        for unit in character.encode_utf16(&mut units) {
-                            native::send_text(target.window, *unit)
-                                .map_err(|error| NodeError::Execution(error.to_string()))?;
-                        }
+                        native::send_text(target.window, character)
+                            .map_err(|error| NodeError::Execution(error.to_string()))?;
                         wait_interruptible(context, interval)?;
                     }
                 }

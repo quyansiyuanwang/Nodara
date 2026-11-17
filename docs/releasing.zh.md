@@ -71,7 +71,16 @@
 
 `.github/workflows/release.yml` 在任何 `v*` tag 上运行，包含两个 job。
 
-### `build`（windows-latest）
+### `build`（矩阵）
+
+| Runner | 包 | 安装器 |
+|---|---|---|
+| `windows-latest` | `Nodara-<version>-windows-x86_64.zip` | NSIS + MSI |
+| `ubuntu-latest` | `Nodara-<version>-linux-x86_64.tar.gz` | DEB + AppImage |
+| `macos-15` | `Nodara-<version>-macos-aarch64.tar.gz` | DMG |
+| `macos-15-intel` | `Nodara-<version>-macos-x86_64.tar.gz` | DMG |
+
+每个矩阵 job 跑同样的门禁：
 
 | 步骤 | 门禁 |
 |---|---|
@@ -80,50 +89,54 @@
 | Lint | 两个 workspace 的 `cargo clippy --workspace --all-targets -- -D warnings` |
 | Schema | 重新生成 `Nodara-Core/schema`，有 diff 即失败 |
 | 测试 | 通过 `build-artifacts.ps1` 跑 Core、Agent、Studio 测试 |
-| 构建 | release 二进制、Tauri NSIS + MSI、便携 ZIP |
+| 构建 | release 二进制、Tauri bundle、便携归档 |
 | 产物验收 | `verify-package.ps1` 检查哈希、入口、CLI 冒烟与 runtime API |
-| 上传 | `release-assets` workflow artifact，保留 7 天 |
+| 上传 | `release-assets-<platform>-<arch>`，保留 7 天 |
 
-`verify-package.ps1` 解压 ZIP 并检查：
+`verify-package.ps1` 解压归档并检查：
 
-- ZIP 哈希与 `.sha256` 一致，`SHA256SUMS.txt` 每一行一致；
+- 归档哈希与 `.sha256` 一致，`SHA256SUMS.txt` 每一行一致；
 - CLI、runtime、Agent、Studio、两个插件、`studio-web/`、`schema/`、`examples/`、
-  `docs/` 与两个安装器都存在；
-- `build-info.json` 的版本、`Release`、commit 与 tag 一致；
+  `docs/` 都存在，`build-info.json` 列出的安装器也都在；
+- `build-info.json` 的版本、`Release`、平台、commit 与 tag 一致；
 - `nodara-cli --version`、`validate`、`simulate`、`run`、`inspect`、
   `extensions --json` 均成功；
-- `nodara-runtime.exe` 的 `/api/v1/health` 返回 2 个插件、19 个节点类型，
+- `nodara-runtime` 的 `/api/v1/health` 返回 2 个插件、19 个节点类型，
   `/api/v1/plugins` 无 failure，`/api/v1/extensions` 非空，
   `/api/v1/schema/workflow` 返回 schema。
 
 ### `publish`（windows-latest，仅 tag）
 
-从 CHANGELOG 小节生成带文档链接的发布说明，用
-`--verify-tag --latest` 创建 GitHub Release（带 `-后缀` 的版本用
-`--prerelease`），上传资产后再读取一次 Release，断言资产列表与标志。
+下载全部矩阵产物，生成一份资产级 `SHA256SUMS.txt` 和基于 CHANGELOG 的发布说明，
+用 `--verify-tag --latest` 创建 GitHub Release（带 `-后缀` 的版本用
+`--prerelease`），再读取一次 Release，断言三平台资产列表与标志。
 
 发布资产：
 
 | 资产 | 内容 |
 |---|---|
-| `Nodara-<version>-windows-x86_64.zip` | 便携包 |
-| `Nodara-<version>-windows-x86_64.zip.sha256` | ZIP 校验和 |
-| `Nodara-Studio-<version>-x64-setup.exe` | NSIS 安装器 |
-| `Nodara-Studio-<version>-x64.msi` | MSI 安装器 |
-| `Nodara-<version>-build-info.json` | 构建信息 |
-| `SHA256SUMS.txt` | 上述资产的校验和 |
+| `Nodara-<version>-windows-x86_64.zip` | Windows 便携包 |
+| `Nodara-<version>-linux-x86_64.tar.gz` | Linux 便携包 |
+| `Nodara-<version>-macos-aarch64.tar.gz` | macOS Apple Silicon 包 |
+| `Nodara-<version>-macos-x86_64.tar.gz` | macOS Intel 包 |
+| `Nodara-Studio-<version>-x64-setup.exe` / `.msi` | Windows 安装器 |
+| `Nodara-Studio-<version>-<arch>.deb` / `.AppImage` | Linux 安装器 |
+| `Nodara-Studio-<version>-<arch>.dmg` | macOS 磁盘镜像 |
+| `Nodara-<version>-<platform>-<arch>-build-info.json` | 构建信息 |
+| `SHA256SUMS.txt` | 全部资产的校验和 |
 
 ## 手动与 dry run
 
 手动运行 Release 工作流（`workflow_dispatch`，输入 `version`）会跑同样的门禁
-并上传 `release-assets`，但不会创建 Release。适合在打 tag 前验证流水线改动。
+并上传 `release-assets-*`，但不会创建 Release。适合在打 tag 前验证流水线改动。
 
-本地也能产出同样的包：
+本地也能产出同样的包；`build-artifacts.ps1` 会自动识别宿主平台，Windows 输出
+ZIP，macOS/Linux 输出 `tar.gz`：
 
 ```powershell
 .\scripts\build-artifacts.ps1 -Configuration Release
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-<version>-windows-x86_64.zip `
+  -ZipPath .\artifacts\release\Nodara-<version>-<platform>-<arch>.zip `
   -Version <version>
 ```
 
@@ -139,12 +152,8 @@ gh release download v<version> -D .\artifacts\tmp\release-verify
   -Version <version>
 ```
 
-发布说明里也给出了用户需要的两条命令：
-
-```powershell
-(Get-FileHash .\Nodara-<version>-windows-x86_64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
-Get-Content .\Nodara-<version>-windows-x86_64.zip.sha256
-```
+发布说明会给出 PowerShell、`shasum` 与 `sha256sum` 三种校验方式；每个归档都有
+同名 `.sha256` 文件。
 
 ## 故障恢复
 
@@ -167,7 +176,8 @@ Get-Content .\Nodara-<version>-windows-x86_64.zip.sha256
 
 ## 安全说明
 
-- 产物**未签名**。首次启动可能触发 SmartScreen，发布说明要求用户先校验哈希。
+- 产物**未签名**。Windows SmartScreen 与 macOS Gatekeeper 可能在首次启动时拦截；
+  发布说明要求用户先校验哈希，并说明如何打开应用。Linux 包同样未签名。
 - publish job 使用仓库的 `GITHUB_TOKEN`（`contents: write`），仓库中不保存长期
   个人 token。
 - 目前没有签名密钥、公证或自动更新源。增加这些能力意味着新增 workflow 步骤和

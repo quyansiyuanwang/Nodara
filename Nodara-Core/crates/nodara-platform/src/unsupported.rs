@@ -1,53 +1,11 @@
-//! Fallback used when building on a non-Windows host.
+//! Fallback used when building on a host without a native backend.
 //!
 //! Every operation reports [`PlatformError::Unsupported`] so the crate, and
 //! therefore the workspace, still builds and its pure logic still tests.
 
 use crate::error::{PlatformError, PlatformResult};
 
-/// Opaque window handle.
-pub type WindowId = isize;
-
-/// Screen rectangle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rect {
-    /// Left edge.
-    pub x: i32,
-    /// Top edge.
-    pub y: i32,
-    /// Width in pixels.
-    pub width: u32,
-    /// Height in pixels.
-    pub height: u32,
-}
-
-/// Description of a top-level window.
-#[derive(Debug, Clone)]
-pub struct WindowRecord {
-    /// Opaque handle.
-    pub id: WindowId,
-    /// Window title.
-    pub title: String,
-    /// Window class.
-    pub class_name: String,
-    /// Executable file name that owns the window.
-    pub process_name: String,
-    /// Screen geometry.
-    pub rect: Rect,
-    /// Whether the window is visible.
-    pub visible: bool,
-}
-
-/// Mouse buttons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MouseButton {
-    /// Primary button.
-    Left,
-    /// Secondary button.
-    Right,
-    /// Middle button.
-    Middle,
-}
+pub use crate::platform_types::{MouseButton, Rect, WindowId, WindowRecord};
 
 fn unsupported() -> PlatformError {
     PlatformError::Unsupported(std::env::consts::OS.to_string())
@@ -72,7 +30,7 @@ pub fn send_key(_window: WindowId, _virtual_key: u8, _down: bool) -> PlatformRes
 }
 
 /// Unsupported on this host.
-pub fn send_text(_window: WindowId, _code_unit: u16) -> PlatformResult<()> {
+pub fn send_text(_window: WindowId, _character: char) -> PlatformResult<()> {
     Err(unsupported())
 }
 

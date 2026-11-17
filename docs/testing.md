@@ -2,7 +2,8 @@
 
 > Chinese: [testing.zh.md](testing.zh.md)
 
-This guide validates the prebuilt Windows x64 debug and release packages.
+This guide validates the prebuilt packages on Windows, macOS and Linux. Commands
+show the Windows `.exe` form; on macOS/Linux drop the suffix (`./nodara-cli`).
 
 ## Acceptance checklist
 
@@ -17,8 +18,16 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A07 | Agent mock | A canned workflow plans and runs without an API key |
 | A08 | Events/audit | Events and policy decisions are visible |
 | A09 | Debug | Matching PDB files are present and executables run |
-| A10 | Release | NSIS and MSI are present and the optimized app runs |
+| A10 | Release | The platform's installers are present (NSIS/MSI, DEB/AppImage or DMG) and the optimized app runs |
 | A11 | Studio debugging UX | Step works from idle and advances one node at a time; node breakpoints pause before execution and survive Export; the region picker writes X/Y/width/height; screenshot and Log image previews render |
+
+## Platform coverage
+
+| Platform | Automated in this repository | Manual |
+|---|---|---|
+| Windows x64 | A01–A05, A09–A10 | A06–A08, A11 |
+| macOS (Intel/Apple Silicon) | A01–A05, A10 (DMG) | A06–A08, A11; grant Accessibility and Screen Recording |
+| Linux x64 (X11/XWayland) | A01–A05, A10 (DEB/AppImage) | A06–A08, A11; native Wayland window capture is unsupported |
 
 ## Automated package check
 

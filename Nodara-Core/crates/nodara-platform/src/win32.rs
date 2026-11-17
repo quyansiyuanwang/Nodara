@@ -34,55 +34,13 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 
 use crate::error::{PlatformError, PlatformResult};
 
+pub use crate::platform_types::{MouseButton, Rect, WindowId, WindowRecord};
+
 /// Clipboard format identifier for UTF-16 text (`CF_UNICODETEXT`).
 ///
 /// Spelled out here because `windows-sys` publishes it under a feature this
 /// crate does not otherwise need; the value is fixed by the Win32 ABI.
 const CF_UNICODETEXT: u32 = 13;
-
-/// A native window handle, kept opaque to callers.
-pub type WindowId = isize;
-
-/// Geometry of a window in screen coordinates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rect {
-    /// Left edge.
-    pub x: i32,
-    /// Top edge.
-    pub y: i32,
-    /// Width in pixels.
-    pub width: u32,
-    /// Height in pixels.
-    pub height: u32,
-}
-
-/// Description of one top-level window.
-#[derive(Debug, Clone)]
-pub struct WindowRecord {
-    /// Opaque handle.
-    pub id: WindowId,
-    /// Window title.
-    pub title: String,
-    /// Window class name.
-    pub class_name: String,
-    /// Executable file name that owns the window, when it can be queried.
-    pub process_name: String,
-    /// Screen geometry.
-    pub rect: Rect,
-    /// Whether the window is visible.
-    pub visible: bool,
-}
-
-/// Mouse buttons supported by the plugin.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MouseButton {
-    /// Primary button.
-    Left,
-    /// Secondary button.
-    Right,
-    /// Middle button.
-    Middle,
-}
 
 fn last_error(operation: &'static str) -> PlatformError {
     PlatformError::Win32 {
@@ -158,27 +116,31 @@ pub fn send_key(window: WindowId, virtual_key: u8, down: bool) -> PlatformResult
     }
 }
 
-/// Send one UTF-16 code unit as `WM_CHAR` to a specific window.
-pub fn send_text(window: WindowId, code_unit: u16) -> PlatformResult<()> {
-    // SAFETY: the destination handle is system-owned and the result pointer is
-    // valid for the synchronous call.
-    let mut result = 0usize;
-    let ok = unsafe {
-        SendMessageTimeoutW(
-            window,
-            WM_CHAR,
-            usize::from(code_unit),
-            0,
-            SMTO_ABORTIFHUNG,
-            1_000,
-            &mut result,
-        )
-    };
-    if ok == 0 {
-        Err(last_error("SendMessageTimeoutW(WM_CHAR)"))
-    } else {
-        Ok(())
+/// Send one character as `WM_CHAR` to a specific window.
+///
+/// Characters outside the BMP are sent as their two UTF-16 surrogate units.
+pub fn send_text(window: WindowId, character: char) -> PlatformResult<()> {
+    let mut units = [0u16; 2];
+    for unit in character.encode_utf16(&mut units) {
+        // SAFETY: the destination handle is system-owned and the result pointer
+        // is valid for the synchronous call.
+        let mut result = 0usize;
+        let ok = unsafe {
+            SendMessageTimeoutW(
+                window,
+                WM_CHAR,
+                usize::from(*unit),
+                0,
+                SMTO_ABORTIFHUNG,
+                1_000,
+                &mut result,
+            )
+        };
+        if ok == 0 {
+            return Err(last_error("SendMessageTimeoutW(WM_CHAR)"));
+        }
     }
+    Ok(())
 }
 
 /// Replace a window's text directly. Intended as a fallback for controls that

@@ -3,7 +3,7 @@ name = "nodara-studio"
 version = "2.1.0"
 description = "Desktop shell for Nodara Studio"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.88"
 license = "MIT"
 
 [build-dependencies]
@@ -13,9 +13,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Keychain on macOS, Credential Manager on Windows and Secret Service on Linux.
+keyring = "4.2"
 
 [target.'cfg(windows)'.dependencies]
-keyring = "4.2"
 # Taking F5 back from WebView2's browser accelerator keys needs the raw
 # controller interface; both versions match the ones tauri already builds.
 webview2-com = "0.38"

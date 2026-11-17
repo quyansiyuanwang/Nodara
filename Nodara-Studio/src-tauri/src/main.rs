@@ -7,7 +7,8 @@
 //! The shell loads the same web bundle as the browser build. It also owns the
 //! lifecycle of a sibling runtime process so a packaged Studio is a one-click
 //! experience: if port 8710 is already served, that runtime is reused; if not,
-//! `nodara-runtime.exe` is started from the package and stopped with Studio.
+//! the sibling `nodara-runtime` executable is started from the package and
+//! stopped with Studio.
 
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
@@ -121,10 +122,7 @@ fn run_agent_turn(request: serde_json::Value) -> Result<serde_json::Value, Strin
         .get("runtime_url")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("http://127.0.0.1:8710");
-    let executable = find_agent_binary().ok_or_else(|| {
-        "nodara-agent.exe was not found; set NODARA_AGENT_BIN or install the desktop bundle"
-            .to_string()
-    })?;
+    let executable = find_agent_binary().ok_or_else(agent_not_found)?;
     let mut child = Command::new(&executable)
         .arg("--runtime")
         .arg(runtime)
@@ -191,10 +189,7 @@ fn run_agent_turn_stream_inner(
         .get("runtime_url")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("http://127.0.0.1:8710");
-    let executable = find_agent_binary().ok_or_else(|| {
-        "nodara-agent.exe was not found; set NODARA_AGENT_BIN or install the desktop bundle"
-            .to_string()
-    })?;
+    let executable = find_agent_binary().ok_or_else(agent_not_found)?;
     let mut child = Command::new(&executable)
         .arg("--runtime")
         .arg(runtime)
@@ -356,7 +351,13 @@ fn open_artifact_url(url: String) -> Result<(), String> {
         command.args(["url.dll,FileProtocolHandler", &url]);
         command
     };
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = Command::new("open");
+        command.arg(&url);
+        command
+    };
+    #[cfg(all(unix, not(target_os = "macos")))]
     let mut command = {
         let mut command = Command::new("xdg-open");
         command.arg(&url);
@@ -386,11 +387,50 @@ fn is_loopback_artifact_url(url: &str) -> bool {
     false
 }
 
+fn agent_not_found() -> String {
+    format!(
+        "nodara-agent{} was not found; set NODARA_AGENT_BIN or install the desktop bundle",
+        std::env::consts::EXE_SUFFIX
+    )
+}
+
+/// Locations an installer bundle may use for the sibling binaries and plugins.
+///
+/// macOS places bundle resources in `Contents/Resources`; Linux installers use
+/// `../lib/<product>/`. `NODARA_RESOURCE_DIR` overrides both for custom layouts.
+fn resource_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(configured) = std::env::var("NODARA_RESOURCE_DIR") {
+        roots.push(PathBuf::from(configured));
+    }
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(directory) = current.parent() {
+            #[cfg(windows)]
+            let _ = directory;
+            #[cfg(target_os = "macos")]
+            roots.push(directory.join("..").join("Resources"));
+            #[cfg(all(unix, not(target_os = "macos")))]
+            {
+                roots.push(directory.join("..").join("lib").join("nodara-studio"));
+                roots.push(directory.join("..").join("lib").join("Nodara Studio"));
+            }
+        }
+    }
+    roots
+}
+
 fn find_agent_binary() -> Option<PathBuf> {
+    let filename = format!("nodara-agent{}", std::env::consts::EXE_SUFFIX);
     if let Ok(path) = std::env::var("NODARA_AGENT_BIN") {
         let path = PathBuf::from(path);
         if path.is_file() {
             return Some(path);
+        }
+    }
+    for root in resource_roots() {
+        let candidate = root.join(&filename);
+        if candidate.is_file() {
+            return Some(candidate);
         }
     }
     let current = std::env::current_exe().ok()?;
@@ -400,13 +440,13 @@ fn find_agent_binary() -> Option<PathBuf> {
                 .join("Nodara-Agent")
                 .join("target")
                 .join(profile)
-                .join("nodara-agent.exe");
+                .join(&filename);
             if candidate.is_file() {
                 return Some(candidate);
             }
         }
     }
-    let sibling = current.parent()?.join("nodara-agent.exe");
+    let sibling = current.parent()?.join(&filename);
     sibling.is_file().then_some(sibling)
 }
 
@@ -430,7 +470,8 @@ impl RuntimeProcess {
 
         let Some(executable) = find_runtime_binary() else {
             eprintln!(
-                "Nodara Studio: nodara-runtime.exe was not found; start it manually or set NODARA_RUNTIME_BIN"
+                "Nodara Studio: nodara-runtime{} was not found; start it manually or set NODARA_RUNTIME_BIN",
+                std::env::consts::EXE_SUFFIX
             );
             return Self::without_child();
         };
@@ -603,6 +644,15 @@ fn workspace_plugin_roots() -> Vec<PathBuf> {
     }
 
     let mut roots: Vec<PathBuf> = Vec::new();
+    for root in resource_roots() {
+        let candidate = root.join("plugins");
+        if candidate.is_dir() {
+            let resolved = candidate.canonicalize().unwrap_or(candidate);
+            if !roots.contains(&resolved) {
+                roots.push(resolved);
+            }
+        }
+    }
     for start in starts {
         collect_plugin_roots(&start, &mut roots);
     }
@@ -611,13 +661,19 @@ fn workspace_plugin_roots() -> Vec<PathBuf> {
 
 fn collect_plugin_roots(start: &Path, roots: &mut Vec<PathBuf>) {
     for ancestor in start.ancestors().take(7) {
-        let candidate = ancestor.join("Nodara-Core").join("plugins");
-        if !candidate.is_dir() {
-            continue;
-        }
-        let resolved = candidate.canonicalize().unwrap_or(candidate);
-        if !roots.contains(&resolved) {
-            roots.push(resolved);
+        // The source tree keeps manifests in `Nodara-Core/plugins`; a portable
+        // package keeps them beside the executables in `plugins/`.
+        for candidate in [
+            ancestor.join("Nodara-Core").join("plugins"),
+            ancestor.join("plugins"),
+        ] {
+            if !candidate.is_dir() {
+                continue;
+            }
+            let resolved = candidate.canonicalize().unwrap_or(candidate);
+            if !roots.contains(&resolved) {
+                roots.push(resolved);
+            }
         }
     }
 }
@@ -628,6 +684,9 @@ fn find_runtime_binary() -> Option<PathBuf> {
 
     if let Some(configured) = std::env::var_os("NODARA_RUNTIME_BIN") {
         candidates.push(PathBuf::from(configured));
+    }
+    for root in resource_roots() {
+        candidates.push(root.join(&filename));
     }
 
     if let Ok(current_exe) = std::env::current_exe() {

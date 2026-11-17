@@ -135,6 +135,9 @@ fn executes_a_command_through_the_plugin_boundary() {
     client.shutdown().expect("shutdown succeeds");
 }
 
+// The non-Windows backends need a live display and, on macOS, Accessibility
+// permission; the plugin boundary itself is covered by the other tests.
+#[cfg(windows)]
 #[test]
 fn mouse_relative_zero_move_reports_cursor_metadata() {
     let manifest = manifest();

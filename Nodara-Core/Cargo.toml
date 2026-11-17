@@ -17,7 +17,7 @@ version = "2.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Nodara Contributors"]
-rust-version = "1.75"
+rust-version = "1.88"
 repository = "https://github.com/your-org/Nodara-Core"
 
 [workspace.dependencies]

@@ -2,9 +2,12 @@
 
 > English: [user-manual.md](user-manual.md)
 
-本文说明如何使用预编译的 Nodara 2.1.0 Windows x64 产物完成日常操作、接口调用、
-权限控制和故障排查。开发与打包流程见根目录 `README.md`、`QUICKSTART.zh.md` 和
-`scripts/build-artifacts.ps1`。
+本文说明如何使用预编译的 Nodara 2.1.0 Windows、macOS 与 Linux 产物完成日常操作、
+接口调用、权限控制和故障排查。开发与打包流程见根目录 `README.md`、
+`QUICKSTART.zh.md` 和 `scripts/build-artifacts.ps1`。
+
+下文表格中的可执行文件名带 Windows 的 `.exe` 后缀；macOS/Linux 上同名文件没有
+后缀（`nodara-cli`、`nodara-runtime` 等）。
 
 ## 1. 组件与运行关系
 
@@ -17,6 +20,17 @@
 | Agent | `nodara-agent.exe` | 将自然语言目标规划为工作流，并通过 runtime 观察执行 |
 | Studio 桌面版 | `nodara-studio.exe` | 图形化工作流编辑、运行观察、审批和审计 |
 | Studio Web | `studio-web\` | 相同前端的生产构建，需要反向代理 `/api` |
+
+## 1.1 平台要求
+
+| 平台 | 要求 | 宿主自动化 |
+|---|---|---|
+| Windows 10/11 x64 | WebView2 运行时 | 完整 Win32 后端，包括后台窗口输入与 `set_text` |
+| macOS 12+（Intel 或 Apple Silicon） | 辅助功能、屏幕录制权限 | 全局输入、剪贴板、截图与窗口列表；不支持 `set_text` 与后台窗口输入 |
+| Linux x64 | X11 或 XWayland；Studio 需要 WebKitGTK 4.1 | 通过 X11 提供全局输入、剪贴板、截图与窗口列表；原生 Wayland 截图不支持 |
+
+`windows.*` 是历史节点名；在受支持的平台上都通过原生后端工作。依赖后台输入或
+`set_text` 的工作流仍只在 Windows 上可用。
 
 数据流是：
 

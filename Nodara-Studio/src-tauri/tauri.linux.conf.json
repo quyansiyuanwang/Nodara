@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["deb", "appimage"],
+    "resources": {
+      "../../Nodara-Core/target/release/nodara-runtime": "nodara-runtime",
+      "../../Nodara-Agent/target/release/nodara-agent": "nodara-agent",
+      "../../Nodara-Core/target/release/nodara-platform-plugin": "plugins/nodara-platform/nodara-platform-plugin",
+      "../../Nodara-Core/plugins/nodara-platform/manifest.json": "plugins/nodara-platform/manifest.json",
+      "../../Nodara-Core/target/release/nodara-vision-plugin": "plugins/nodara-vision/nodara-vision-plugin",
+      "../../Nodara-Core/plugins/nodara-vision/manifest.json": "plugins/nodara-vision/manifest.json"
+    }
+  }
+}

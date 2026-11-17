@@ -13,6 +13,10 @@ pub enum PlatformError {
     #[error("platform is not supported: {0}")]
     Unsupported(String),
 
+    /// A native backend call failed.
+    #[error("platform backend error: {0}")]
+    Backend(String),
+
     /// A Win32 call failed.
     #[error("{operation} failed (win32 error {code})")]
     Win32 {

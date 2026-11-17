@@ -160,7 +160,7 @@ fn run_command(
     timeout: Option<Duration>,
 ) -> NodeResult<NodeOutput> {
     let result = run_process(config, control, timeout)?;
-    let success = result.exit_code.map_or(true, |code| code == 0);
+    let success = result.exit_code.is_none_or(|code| code == 0);
 
     if config.check_exit_code && result.exit_code.is_some_and(|code| code != 0) {
         let stderr = result.stderr.trim();

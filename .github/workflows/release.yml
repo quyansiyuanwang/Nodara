@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to build (must match the manifests), e.g. 2.1.0"
+        description: "Version to build (must match the manifests), e.g. 2.2.0"
         required: true
         type: string
 
@@ -23,9 +23,25 @@ env:
 
 jobs:
   build:
-    name: Build and verify Windows x64
-    runs-on: windows-latest
+    name: Build ${{ matrix.platform }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+          - os: macos-15-intel
+            platform: macos
+            arch: x86_64
+          - os: macos-15
+            platform: macos
+            arch: aarch64
 
     steps:
       - name: Checkout
@@ -53,9 +69,24 @@ jobs:
             ~/.cargo/git
             Nodara-Core/target
             Nodara-Agent/target
-          key: ${{ runner.os }}-release-${{ hashFiles('Nodara-Core/Cargo.lock', 'Nodara-Agent/Cargo.lock', 'Nodara-Studio/src-tauri/Cargo.lock') }}
+            Nodara-Studio/src-tauri/target
+          key: ${{ runner.os }}-${{ matrix.arch }}-release-${{ hashFiles('Nodara-Core/Cargo.lock', 'Nodara-Agent/Cargo.lock', 'Nodara-Studio/src-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-release-
+            ${{ runner.os }}-${{ matrix.arch }}-release-
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libdbus-1-dev \
+            libssl-dev \
+            patchelf \
+            pkg-config
 
       - name: Resolve version
         id: version
@@ -69,7 +100,7 @@ jobs:
           }
           if (-not $version) { throw "Could not resolve a release version" }
           "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "building Nodara $version"
+          Write-Host "building Nodara $version for ${{ matrix.platform }} ${{ matrix.arch }}"
 
       - name: Verify version manifests
         shell: pwsh
@@ -122,41 +153,48 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          $packageName = "Nodara-$version-windows-x86_64"
-          $packageDir = "artifacts/release/$packageName"
-          if (-not (Test-Path -LiteralPath $packageDir)) {
-            throw "missing package directory: $packageDir"
-          }
+          $platform = "${{ matrix.platform }}"
+          $arch = "${{ matrix.arch }}"
+          $base = "artifacts/release"
+          $archive = Get-ChildItem -LiteralPath $base -File |
+            Where-Object { $_.Name -like "Nodara-$version-$platform-$arch.*" -and $_.Name -notlike "*.sha256" } |
+            Select-Object -First 1
+          if (-not $archive) { throw "no package archive was produced for $platform $arch" }
 
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-          Copy-Item "artifacts/release/$packageName.zip" release-assets/
-          Copy-Item "artifacts/release/$packageName.zip.sha256" release-assets/
-          Copy-Item "$packageDir/installers/*" release-assets/
-          Copy-Item "$packageDir/build-info.json" "release-assets/Nodara-$version-build-info.json"
-
-          $lines = Get-ChildItem release-assets -File | Sort-Object Name | ForEach-Object {
-            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)"
+          Copy-Item $archive.FullName release-assets/
+          Copy-Item "$($archive.FullName).sha256" release-assets/
+          $packageDir = Join-Path $base ([System.IO.Path]::GetFileNameWithoutExtension($archive.Name))
+          if (-not (Test-Path -LiteralPath $packageDir)) {
+            $packageDir = Get-ChildItem -LiteralPath $base -Directory |
+              Where-Object { $_.Name -like "Nodara-$version-$platform-$arch*" } |
+              Select-Object -First 1 -ExpandProperty FullName
           }
-          [System.IO.File]::WriteAllText(
-            (Join-Path (Get-Location) "release-assets/SHA256SUMS.txt"),
-            (($lines -join "`n") + "`n"),
-            [System.Text.UTF8Encoding]::new($false)
-          )
+          if ($packageDir -and (Test-Path -LiteralPath (Join-Path $packageDir "installers"))) {
+            Get-ChildItem -LiteralPath (Join-Path $packageDir "installers") -File |
+              ForEach-Object { Copy-Item $_.FullName release-assets/ }
+          }
+          if ($packageDir -and (Test-Path -LiteralPath (Join-Path $packageDir "build-info.json"))) {
+            Copy-Item (Join-Path $packageDir "build-info.json") "release-assets/Nodara-$version-$platform-$arch-build-info.json"
+          }
           Get-ChildItem release-assets | Select-Object Name, Length
 
       - name: Verify packaged release
         shell: pwsh
         run: |
-          ./scripts/verify-package.ps1 `
-            -ZipPath "artifacts/release/Nodara-${{ steps.version.outputs.version }}-windows-x86_64.zip" `
-            -Version "${{ steps.version.outputs.version }}" `
-            -Commit "$env:GITHUB_SHA"
+          $version = "${{ steps.version.outputs.version }}"
+          $platform = "${{ matrix.platform }}"
+          $arch = "${{ matrix.arch }}"
+          $archive = Get-ChildItem -LiteralPath "artifacts/release" -File |
+            Where-Object { $_.Name -like "Nodara-$version-$platform-$arch.*" -and $_.Name -notlike "*.sha256" } |
+            Select-Object -First 1
+          if (-not $archive) { throw "no package archive was produced for $platform $arch" }
+          ./scripts/verify-package.ps1 -ZipPath $archive.FullName -Version $version -Commit "$env:GITHUB_SHA"
 
       - name: Upload release assets
         uses: actions/upload-artifact@v4
         with:
-          name: release-assets
+          name: release-assets-${{ matrix.platform }}-${{ matrix.arch }}
           path: release-assets/*
           if-no-files-found: error
           retention-days: 7
@@ -166,10 +204,9 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.version }}"
           (@(
-            "## Nodara $version build",
+            "## Nodara $version — ${{ matrix.platform }} ${{ matrix.arch }}",
             "",
             "- commit: ``$env:GITHUB_SHA``",
-            "- assets: ZIP, SHA-256, NSIS, MSI, build-info, SHA256SUMS.txt",
             "- package verification: passed"
           ) -join "`n") >> $env:GITHUB_STEP_SUMMARY
 
@@ -188,7 +225,8 @@ jobs:
       - name: Download release assets
         uses: actions/download-artifact@v4
         with:
-          name: release-assets
+          pattern: release-assets-*
+          merge-multiple: true
           path: dist
 
       - name: Resolve version
@@ -198,9 +236,25 @@ jobs:
           $version = $env:GITHUB_REF_NAME -replace "^v", ""
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem dist -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" -and $_.Name -ne "release-notes.md" } |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              "$hash  $($_.Name)"
+            }
+          [System.IO.File]::WriteAllText(
+            (Join-Path (Get-Location) "dist/SHA256SUMS.txt"),
+            (($lines -join "`n") + "`n"),
+            [System.Text.UTF8Encoding]::new($false)
+          )
+
       - name: Generate release notes
         shell: pwsh
-        run: ./scripts/release-notes.ps1 -Version "${{ steps.version.outputs.version }}" -OutputPath dist/release-notes.md
+        run: ./scripts/release-notes.ps1 -Version "${{ steps.version.outputs.version }}" -AssetsPath dist -OutputPath dist/release-notes.md
 
       - name: Check for an existing release
         shell: pwsh
@@ -252,7 +306,12 @@ jobs:
             "Nodara-$version-windows-x86_64.zip.sha256",
             "Nodara-Studio-$version-x64-setup.exe",
             "Nodara-Studio-$version-x64.msi",
-            "Nodara-$version-build-info.json",
+            "Nodara-$version-linux-x86_64.tar.gz",
+            "Nodara-$version-linux-x86_64.tar.gz.sha256",
+            "Nodara-$version-macos-aarch64.tar.gz",
+            "Nodara-$version-macos-aarch64.tar.gz.sha256",
+            "Nodara-$version-macos-x86_64.tar.gz",
+            "Nodara-$version-macos-x86_64.tar.gz.sha256",
             "SHA256SUMS.txt"
           )
           $missing = @($expected | Where-Object { $names -notcontains $_ })

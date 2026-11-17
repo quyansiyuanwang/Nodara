@@ -21,15 +21,28 @@ pub mod input;
 pub mod keys;
 pub mod window;
 
+mod platform_types;
+
+#[cfg(unix)]
+mod unix_common;
+
+#[cfg(all(unix, not(target_os = "macos")))]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(not(any(windows, unix)))]
+mod unsupported;
 #[cfg(windows)]
 mod win32;
-#[cfg(not(windows))]
-mod win32_stub;
 
+#[cfg(all(unix, not(target_os = "macos")))]
+use linux as native;
+#[cfg(target_os = "macos")]
+use macos as native;
+#[cfg(not(any(windows, unix)))]
+use unsupported as native;
 #[cfg(windows)]
 use win32 as native;
-#[cfg(not(windows))]
-use win32_stub as native;
 
 pub use error::{PlatformError, PlatformResult};
 
@@ -88,5 +101,5 @@ pub fn register_platform(registry: &mut CapabilityRegistry) {
 
 /// True when the host operating system is supported by this build.
 pub const fn is_supported() -> bool {
-    cfg!(windows)
+    cfg!(any(windows, unix))
 }

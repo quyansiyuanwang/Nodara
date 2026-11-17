@@ -2,9 +2,12 @@
 
 > Chinese: [user-manual.zh.md](user-manual.zh.md)
 
-This manual covers the prebuilt Nodara 2.1.0 Windows x64 package. For source
-development and packaging, see `README.md`, `QUICKSTART.md`, and
-`scripts/build-artifacts.ps1`.
+This manual covers the prebuilt Nodara 2.1.0 packages for Windows, macOS and
+Linux. For source development and packaging, see `README.md`, `QUICKSTART.md`,
+and `scripts/build-artifacts.ps1`.
+
+Executable names use the Windows `.exe` suffix in the tables below; on macOS and
+Linux the same binaries have no suffix (`nodara-cli`, `nodara-runtime`, ...).
 
 ## Components
 
@@ -20,6 +23,18 @@ development and packaging, see `README.md`, `QUICKSTART.md`, and
 
 CLI, Studio, and Agent all reach capabilities through the runtime. They do not
 execute plugin nodes themselves.
+
+## Platform requirements
+
+| Platform | Requirements | Host automation |
+|---|---|---|
+| Windows 10/11 x64 | WebView2 runtime | Full Win32 backend, including background window-targeted input and `set_text` |
+| macOS 12+ (Intel or Apple Silicon) | Accessibility and Screen Recording permissions | Global input, clipboard, capture and window list; `set_text` and background input are unavailable |
+| Linux x64 | X11 or XWayland; WebKitGTK 4.1 for Studio | Global input, clipboard, capture and window list through X11; native Wayland capture is unsupported |
+
+The `windows.*` node names are historical; they work on every supported platform
+through the native backend. Workflows that rely on background input or `set_text`
+remain Windows-only.
 
 ## First run
 

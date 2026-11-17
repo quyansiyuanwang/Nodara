@@ -50,6 +50,16 @@ else, so it physically cannot execute a capability without the runtime's policy
 layer seeing the call. "Permission must not depend on the prompt" is enforced by
 the dependency graph rather than by convention.
 
+## Platform backends
+
+`nodara-platform` is the only crate with host-specific code. It compiles exactly
+one backend: `win32.rs` (Win32 APIs), `macos.rs` (`xcap` for windows and capture,
+`enigo`/`arboard` for input and clipboard) or `linux.rs` (`x11rb` for windows and
+capture, `enigo`/`arboard` for input and clipboard). `platform_types.rs` holds the
+window, rectangle and mouse types those backends share. The node layer above it
+never names an operating-system API, which is why the same `windows.*` descriptors
+run on all three hosts.
+
 ## Contracts
 
 Three independent versions, never inferred from one another:

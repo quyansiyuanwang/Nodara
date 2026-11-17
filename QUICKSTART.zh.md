@@ -3,16 +3,30 @@
 > English: [QUICKSTART.md](QUICKSTART.md)
 
 本文面向拿到预编译包、希望尽快验证 Nodara 的测试人员。整个流程只需要
-Windows 10/11 x64，不需要安装 Rust、Node.js 或 Visual Studio。
+Windows 10/11 x64、macOS 12+ 或 Linux x64，不需要安装 Rust、Node.js 或 Visual Studio。
+
+> 下文以 Windows 的 `.\nodara-cli.exe` 为例；macOS/Linux 没有 `.exe` 后缀，使用
+> `./nodara-cli`。Linux 的窗口与截图能力需要 X11 或 XWayland；macOS 首次使用输入/
+> 截图能力时需要在“系统设置 → 隐私与安全性”中授予辅助功能和屏幕录制权限。
 
 ## 1. 解压发布包
 
-建议先测试 release 包：
+建议先测试 release 包。
+
+Windows：
 
 ```powershell
 Set-Location .\artifacts\release
 Expand-Archive .\Nodara-2.1.0-windows-x86_64.zip -DestinationPath .\test-release
 Set-Location .\test-release\Nodara-2.1.0-windows-x86_64
+```
+
+macOS / Linux：
+
+```bash
+cd artifacts/release
+tar -xzf Nodara-2.1.0-macos-aarch64.tar.gz   # 或 linux-x86_64 / macos-x86_64
+cd Nodara-2.1.0-macos-aarch64
 ```
 
 先检查文件完整性。目录内已经包含 `SHA256SUMS.txt`：
@@ -22,9 +36,12 @@ Get-FileHash .\nodara-cli.exe -Algorithm SHA256
 .\nodara-cli.exe --version
 ```
 
+macOS/Linux 使用 `shasum -a 256 -c Nodara-*.tar.gz.sha256` 或
+`sha256sum -c Nodara-*.tar.gz.sha256`，然后运行 `./nodara-cli --version`。
+
 预期版本为 `nodara-cli 2.1.0`。
 
-> release 包面向验收；debug 包包含 PDB 调试符号，体积更大，适合复现问题。
+> release 包面向验收；Windows debug 包包含 PDB 调试符号，体积更大，适合复现问题。
 > 两者的目录结构和启动命令相同。
 
 ## 2. 运行第一个工作流

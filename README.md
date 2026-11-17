@@ -34,9 +34,17 @@ the editor without rebuilding it.
 contract crate, so it cannot execute anything without the runtime's policy layer
 seeing the call. Every capability decision is written to an audit log.
 
+## Platforms
+
+| Platform | Runtime, CLI, Agent | Studio | Host automation |
+|---|---|---|---|
+| Windows 10/11 x64 | yes | yes (WebView2) | full Win32 backend |
+| macOS 12+ (Intel or Apple Silicon) | yes | yes (WKWebView) | input, clipboard, capture, window list; needs Accessibility and Screen Recording permission |
+| Linux x64 (X11 or XWayland) | yes | yes (WebKitGTK 4.1) | input, clipboard, capture, window list; native Wayland capture is not supported |
+
 ## Quick start
 
-Requires Rust 1.75+ (and Node 20+ for the Studio).
+Requires Rust 1.88+ (and Node 20+ for the Studio).
 
 ```bash
 cd Nodara-Core
@@ -129,6 +137,11 @@ with descriptions, defaults and enums — regenerate it with
 | `nodara.windows.platform` | `windows.Input.Keyboard/Mouse/Text`, `windows.Window.Find/Focus/Capture`, `windows.Desktop.Capture`, `system.Clipboard`, `system.Command` | `input.control`, `window.control`, `screen.capture`, `clipboard`, `process.execute` |
 | `nodara.vision` | `vision.TemplateMatch`, `vision.Ocr` | `vision.analyze` |
 
+`nodara.windows.platform` is the host-automation plugin: the `windows.*` names are
+kept for workflow compatibility, and macOS/Linux run the same nodes through their
+native backend. On macOS, grant Accessibility (input, focus) and Screen Recording
+(capture); on Linux, run the target under X11 or XWayland.
+
 Nodes that declare permissions are gated: policy is consulted before every
 execution, and the decision appears in the event stream and the audit log.
 
@@ -163,11 +176,15 @@ cd ../Nodara-Agent; cargo test --workspace
 cd ../Nodara-Studio; npm test; npm run build
 ```
 
-Build both runnable Windows x64 flavors, including NSIS/MSI and SHA-256 files:
+Build the runnable packages for the host platform, including installers and
+SHA-256 files:
 
 ```powershell
 .\scripts\build-artifacts.ps1 -Configuration All
 ```
+
+Windows produces a ZIP plus NSIS/MSI installers, Linux a `tar.gz` plus DEB and
+AppImage, and macOS a `tar.gz` plus DMG.
 
 Results are written to the ignored `artifacts\debug\` and `artifacts\release\`
 directories. See [docs/artifacts.md](docs/artifacts.md) for the layout.

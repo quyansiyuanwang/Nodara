@@ -25,15 +25,27 @@ fn manifest_with(executable: &str) -> PluginManifest {
     .expect("manifest parses")
 }
 
-/// Absolute path to `cmd.exe`.
+/// The host shell plus the arguments that run `script` in it.
 ///
 /// A bare name would be resolved by the plugin loader relative to the plugin
 /// directory first, which is exactly the behaviour under test elsewhere; here we
 /// want the real shell, deterministically.
-#[cfg(windows)]
-fn cmd_exe() -> PathBuf {
-    let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
-    PathBuf::from(root).join("System32").join("cmd.exe")
+fn shell_argv(script: &str) -> (PathBuf, Vec<String>) {
+    #[cfg(windows)]
+    {
+        let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+        (
+            PathBuf::from(root).join("System32").join("cmd.exe"),
+            vec!["/c".to_string(), script.to_string()],
+        )
+    }
+    #[cfg(not(windows))]
+    {
+        (
+            PathBuf::from("/bin/sh"),
+            vec!["-c".to_string(), script.to_string()],
+        )
+    }
 }
 
 #[test]
@@ -50,11 +62,11 @@ fn a_missing_executable_is_reported_not_ignored() {
 /// A process that exits without ever speaking the protocol.
 ///
 /// The handshake must fail promptly rather than block until the control timeout.
-#[cfg(windows)]
 #[test]
 fn a_crash_before_the_handshake_does_not_hang() {
-    let mut manifest = manifest_with(&cmd_exe().display().to_string());
-    manifest.args = vec!["/c".to_string(), "exit".to_string()];
+    let (shell, args) = shell_argv("exit 0");
+    let mut manifest = manifest_with(&shell.display().to_string());
+    manifest.args = args;
 
     let started = std::time::Instant::now();
     let error = PluginClient::connect(&manifest, Path::new("."))
@@ -73,13 +85,17 @@ fn a_crash_before_the_handshake_does_not_hang() {
 }
 
 /// A process that stays alive but never answers.
-#[cfg(windows)]
 #[test]
 fn a_silent_plugin_times_out_instead_of_blocking_forever() {
+    #[cfg(windows)]
+    let script = "ping -n 10 127.0.0.1 >nul";
+    #[cfg(not(windows))]
+    let script = "sleep 10";
+    let (shell, args) = shell_argv(script);
     let transport = StdioTransport::launch(
         "nodara.test.silent",
-        &cmd_exe(),
-        &["/c".to_string(), "ping -n 10 127.0.0.1 >nul".to_string()],
+        &shell,
+        &args,
         std::sync::Arc::new(nodara_plugin::NullNotificationSink),
     )
     .expect("the helper process launches");
@@ -104,19 +120,20 @@ fn a_silent_plugin_times_out_instead_of_blocking_forever() {
 fn platform_binary() -> Option<PathBuf> {
     // Resolved by Cargo for the platform crate's own tests; here we look for the
     // sibling build output so the plugin suite is self-contained.
+    let filename = format!("nodara-platform-plugin{}", std::env::consts::EXE_SUFFIX);
     let candidates = [
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
             .join("target")
             .join("debug")
-            .join("nodara-platform-plugin.exe"),
+            .join(&filename),
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
             .join("target")
             .join("release")
-            .join("nodara-platform-plugin.exe"),
+            .join(&filename),
     ];
     candidates.into_iter().find(|path| path.exists())
 }

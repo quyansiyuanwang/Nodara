@@ -78,7 +78,16 @@ purpose; they are illustrations, not the product version.
 
 `.github/workflows/release.yml` runs on any `v*` tag and has two jobs.
 
-### `build` (windows-latest)
+### `build` (matrix)
+
+| Runner | Package | Installers |
+|---|---|---|
+| `windows-latest` | `Nodara-<version>-windows-x86_64.zip` | NSIS + MSI |
+| `ubuntu-latest` | `Nodara-<version>-linux-x86_64.tar.gz` | DEB + AppImage |
+| `macos-15` | `Nodara-<version>-macos-aarch64.tar.gz` | DMG |
+| `macos-15-intel` | `Nodara-<version>-macos-x86_64.tar.gz` | DMG |
+
+Every matrix job runs the same gates:
 
 | Step | Gate |
 |---|---|
@@ -87,52 +96,57 @@ purpose; they are illustrations, not the product version.
 | Linting | `cargo clippy --workspace --all-targets -- -D warnings` in both |
 | Schemas | Regenerates `Nodara-Core/schema` and fails on any diff |
 | Tests | Core, Agent and Studio suites via `build-artifacts.ps1` |
-| Build | Release binaries, Tauri bundle (NSIS + MSI), portable ZIP |
+| Build | Release binaries, Tauri bundle, portable archive |
 | Package verification | `verify-package.ps1` checks hashes, entrypoints, CLI smoke and the runtime API |
-| Upload | `release-assets` workflow artifact, kept for seven days |
+| Upload | `release-assets-<platform>-<arch>`, kept for seven days |
 
-`verify-package.ps1` expands the ZIP and checks that:
+`verify-package.ps1` expands the archive and checks that:
 
-- the ZIP hash matches its `.sha256`, and every line of `SHA256SUMS.txt` matches;
-- CLI, runtime, Agent, Studio, both plugins, `studio-web/`, `schema/`, `examples/`,
-  `docs/` and both installers exist;
-- `build-info.json` names the release version, `Release`, and the tagged commit;
+- the archive hash matches its `.sha256`, and every line of `SHA256SUMS.txt` matches;
+- CLI, runtime, Agent, Studio, both plugins, `studio-web/`, `schema/`, `examples/`
+  and `docs/` exist, and every installer listed in `build-info.json` is present;
+- `build-info.json` names the release version, `Release`, the platform and the
+  tagged commit;
 - `nodara-cli --version`, `validate`, `simulate`, `run`, `inspect` and
   `extensions --json` succeed;
-- `nodara-runtime.exe` answers `/api/v1/health` with 2 plugins and 19 node types,
+- `nodara-runtime` answers `/api/v1/health` with 2 plugins and 19 node types,
   `/api/v1/plugins` has no failures, `/api/v1/extensions` is non-empty, and
   `/api/v1/schema/workflow` returns a schema.
 
 ### `publish` (windows-latest, tags only)
 
-Generates `docs`-linked release notes from the CHANGELOG section, creates the
-GitHub Release with `--verify-tag --latest` (or `--prerelease` for a version with
-a `-suffix`), uploads the assets, and then re-reads the release to assert the
-asset list and flags.
+Downloads every matrix artifact, generates one asset-level `SHA256SUMS.txt` and
+the release notes from the CHANGELOG section, creates the GitHub Release with
+`--verify-tag --latest` (or `--prerelease` for a version with a `-suffix`), then
+re-reads the release to assert the per-platform asset list and flags.
 
 Release assets:
 
 | Asset | Contents |
 |---|---|
-| `Nodara-<version>-windows-x86_64.zip` | Portable package |
-| `Nodara-<version>-windows-x86_64.zip.sha256` | ZIP checksum |
-| `Nodara-Studio-<version>-x64-setup.exe` | NSIS installer |
-| `Nodara-Studio-<version>-x64.msi` | MSI installer |
-| `Nodara-<version>-build-info.json` | Build metadata |
-| `SHA256SUMS.txt` | Checksums of the assets above |
+| `Nodara-<version>-windows-x86_64.zip` | Windows portable package |
+| `Nodara-<version>-linux-x86_64.tar.gz` | Linux portable package |
+| `Nodara-<version>-macos-aarch64.tar.gz` | macOS Apple Silicon package |
+| `Nodara-<version>-macos-x86_64.tar.gz` | macOS Intel package |
+| `Nodara-Studio-<version>-x64-setup.exe` / `.msi` | Windows installers |
+| `Nodara-Studio-<version>-<arch>.deb` / `.AppImage` | Linux installers |
+| `Nodara-Studio-<version>-<arch>.dmg` | macOS disk image |
+| `Nodara-<version>-<platform>-<arch>-build-info.json` | Build metadata |
+| `SHA256SUMS.txt` | Checksums of every asset |
 
 ## Manual and dry-run builds
 
 A manual run of the Release workflow (`workflow_dispatch`, input `version`) runs
-the same gates and uploads `release-assets`, but never creates a release. Use it
+the same gates and uploads `release-assets-*`, but never creates a release. Use it
 to test a pipeline change before tagging.
 
-The same packaging can be produced locally:
+The same packaging can be produced locally; `build-artifacts.ps1` detects the host
+platform and writes a ZIP on Windows or a `tar.gz` on macOS and Linux:
 
 ```powershell
 .\scripts\build-artifacts.ps1 -Configuration Release
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-<version>-windows-x86_64.zip `
+  -ZipPath .\artifacts\release\Nodara-<version>-<platform>-<arch>.zip `
   -Version <version>
 ```
 
@@ -149,12 +163,8 @@ gh release download v<version> -D .\artifacts\tmp\release-verify
   -Version <version>
 ```
 
-The release notes also print the two commands a user needs:
-
-```powershell
-(Get-FileHash .\Nodara-<version>-windows-x86_64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
-Get-Content .\Nodara-<version>-windows-x86_64.zip.sha256
-```
+The release notes print the verification commands for PowerShell, `shasum` and
+`sha256sum`; every archive has a matching `.sha256` file.
 
 ## Recovery
 
@@ -180,8 +190,9 @@ cannot silently republish over a released version.
 
 ## Security notes
 
-- The packages are **not code-signed**. SmartScreen may warn on first launch;
-  the release notes tell users to verify the checksum first.
+- The packages are **not code-signed**. Windows SmartScreen and macOS Gatekeeper
+  may warn on first launch; the release notes tell users to verify the checksum
+  first and how to open the app. Linux packages are unsigned too.
 - The publish job uses the repository `GITHUB_TOKEN` with `contents: write`; no
   long-lived personal token is stored in the repository.
 - No signing key, notarisation or auto-update feed exists yet. Adding one means

@@ -17,6 +17,11 @@ package and run from its root:
 .\nodara-cli.exe run .\examples\hello-world.json
 ```
 
+Windows packages are `.zip`; macOS and Linux packages are `.tar.gz` and their
+binaries have no `.exe` suffix (`./nodara-cli`). Linux window and capture nodes
+need X11 or XWayland; macOS asks for Accessibility and Screen Recording
+permission the first time input or capture runs.
+
 See [docs/artifacts.md](docs/artifacts.md) for the package layout and integrity
 checks.
 
