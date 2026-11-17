@@ -290,11 +290,14 @@ fn build_command(config: &CommandConfig) -> Command {
         }
         #[cfg(not(windows))]
         {
-            let rendered = std::iter::once(config.program.as_str())
-                .chain(config.args.iter().map(String::as_str))
-                .map(shell_quote)
-                .collect::<Vec<_>>()
-                .join(" ");
+            // `program` is already a shell command line, exactly as `cmd /C`
+            // receives it on Windows. Quoting it would turn `exit 3` into a
+            // command named `exit 3`; only the extra arguments are quoted.
+            let mut rendered = config.program.clone();
+            for argument in &config.args {
+                rendered.push(' ');
+                rendered.push_str(&shell_quote(argument));
+            }
             let mut command = Command::new("sh");
             command.arg("-c").arg(rendered);
             command

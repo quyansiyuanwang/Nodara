@@ -248,7 +248,7 @@ pub fn capture(x: i32, y: i32, width: u32, height: u32) -> PlatformResult<Vec<u8
         .map_err(backend_error)?;
 
     let mut bgra = Vec::with_capacity((width as usize) * (height as usize) * 4);
-    for pixel in reply.data.chunks_exact(4) {
+    for pixel in reply.data.as_chunks::<4>().0 {
         if cfg!(target_endian = "little") {
             bgra.extend_from_slice(&[pixel[0], pixel[1], pixel[2], 0xFF]);
         } else {

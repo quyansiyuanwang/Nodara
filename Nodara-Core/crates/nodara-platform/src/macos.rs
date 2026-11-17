@@ -130,7 +130,7 @@ pub fn capture(x: i32, y: i32, width: u32, height: u32) -> PlatformResult<Vec<u8
         .map_err(backend_error)?;
     let rgba = image.into_raw();
     let mut bgra = Vec::with_capacity(rgba.len());
-    for pixel in rgba.chunks_exact(4) {
+    for pixel in rgba.as_chunks::<4>().0 {
         bgra.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 0xFF]);
     }
     Ok(bgra)

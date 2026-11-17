@@ -32,7 +32,7 @@ pub fn encode_png(bgra: &[u8], width: u32, height: u32) -> NodeResult<Vec<u8>> {
         )));
     }
     let mut rgba = Vec::with_capacity(expected);
-    for pixel in bgra[..expected].chunks_exact(4) {
+    for pixel in bgra[..expected].as_chunks::<4>().0 {
         rgba.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 0xFF]);
     }
     let buffer = image::RgbaImage::from_raw(width, height, rgba)
