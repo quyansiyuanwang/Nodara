@@ -169,9 +169,23 @@ impl StdioTransport {
     fn write_frame(&self, value: &Value) -> PluginResult<()> {
         let line = serde_json::to_string(value)?;
         let mut stdin = self.stdin.lock();
-        stdin.write_all(line.as_bytes())?;
-        stdin.write_all(b"\n")?;
-        stdin.flush()?;
+        let written = (|| -> std::io::Result<()> {
+            stdin.write_all(line.as_bytes())?;
+            stdin.write_all(b"\n")?;
+            stdin.flush()
+        })();
+        if let Err(source) = written {
+            // A process that exited before reading the request produces EPIPE on
+            // Unix and a failed write on Windows. Either way the channel is
+            // gone, not temporarily broken.
+            self.alive.store(false, Ordering::SeqCst);
+            self.pending.lock().clear();
+            return Err(if source.kind() == std::io::ErrorKind::BrokenPipe {
+                PluginError::Disconnected
+            } else {
+                PluginError::Io(source)
+            });
+        }
         Ok(())
     }
 }
