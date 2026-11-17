@@ -212,6 +212,10 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             throw "GitHub release $tag already exists; delete it before re-running"
           }
+          # `gh` exits 1 when the release does not exist, and `pwsh -Command`
+          # would propagate that as this step's exit code. The absence of a
+          # release is the expected state here.
+          exit 0
 
       - name: Create release
         shell: pwsh
