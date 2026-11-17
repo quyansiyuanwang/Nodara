@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.2.0] — three-platform support - 2026-11-17
+
 ### Added
 
 - macOS and Linux capability backends. `nodara-platform` now compiles three native modules behind the same node surface: Win32 on Windows, `enigo`/`arboard` plus `xcap` on macOS, and `enigo`/`arboard` plus `x11rb` on Linux. Keyboard, text, mouse, clipboard, screen capture, window listing and focus work on all three; `set_text` and true background window-targeted input remain Windows-only and report `Unsupported` elsewhere.
