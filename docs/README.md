@@ -24,6 +24,7 @@ examples. When a document changes, change both.
 | [user-manual.md](user-manual.md) · [中文](user-manual.zh.md) | Operating the packaged product: CLI, runtime, Studio, Agent, API, security and troubleshooting |
 | [testing.md](testing.md) · [中文](testing.zh.md) | Debug/release acceptance checklist, integrity checks and regression procedure |
 | [artifacts.md](artifacts.md) · [中文](artifacts.zh.md) | Artifact layout, checksums, debug/release differences and reproducible packaging |
+| [releasing.md](releasing.md) · [中文](releasing.zh.md) | Version model, one-command release, CI gates, published assets and recovery |
 | [schema.md](schema.md) · [中文](schema.zh.md) | Every JSON Schema document, field by field, and how the workflow schema produces editor content hints |
 | [nodes.md](nodes.md) · [中文](nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
 

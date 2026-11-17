@@ -1,5 +1,12 @@
 # Changelog
-## Unreleased
+
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Highlights
 
 - Workflow `schema_version` 2.1 with explicit `control` and `data` edges.
 - Legacy 2.0 documents now fail with `WF118` until migrated; migration removes ambiguous data-port mappings and reports those that must be recreated.
@@ -29,12 +36,9 @@
 - The agent no longer fills a click with a coordinate nothing measured. Its system prompt now states that it has no observation channel of its own, forbids inventing values only a run can produce, requires a capture plus `vision.TemplateMatch`/`vision.Ocr` for on-screen targets, and reserves `variables` for operator-supplied inputs. A new review in the agent loop sends a plan back to the planner once — before it is published or run — when an input position reads a variable that no node in the workflow writes, and records the review in the decision trace. Studio surfaces the same loop: a run's screenshots are shown as "attached to the next turn", and **Observe screen** captures the desktop into a session-bound run so the following turn receives a real image. Capturing remains a gated capability and waits for approval in manual and partial modes.
 - CI is unblocked. The *Published schemas are up to date* job no longer reports a false drift: `windows-latest` checks files out with `core.autocrlf=true`, so regenerating `schema/` with LF made `git status` call unchanged documents stale; the new `.gitattributes` pins every text file to LF and the step now prints the diff when the drift is real. The agent sources were reformatted to satisfy `cargo fmt --check`, and the `clippy::large_enum_variant` hits that stop the `-D warnings` build under current stable are gone — `PlanEvent::PlanReady` and the Studio stream events keep their `Workflow`/`StudioResponse` payload in a `Box`, which does not change the JSON on the wire.
 - The CI artefact is complete. `Nodara-Core`'s workspace defaults to the CLI, so `cargo build --release` produced `nodara-cli.exe` alone and the `nodara-windows` download shipped one of its four promised binaries while `actions/upload-artifact` only warned. The job now builds `--workspace --release`, fails when a listed binary is absent, and the upload treats missing files as an error.
-
-All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased] — schema-driven content hints
+- A tag-driven **Release** workflow now builds the Windows x64 package on `windows-latest`, verifies the version manifests, the CHANGELOG section, formatting, clippy, the published schemas and the packaged CLI/runtime, and publishes a GitHub Release with the portable ZIP, its SHA-256, the NSIS and MSI installers, `build-info.json` and an asset-level `SHA256SUMS.txt`. `workflow_dispatch` builds the same assets without publishing.
+- `scripts/release.ps1` cuts a release in one step: it syncs every version manifest and lock file, finalizes the CHANGELOG, commits, tags and pushes. `check-version.ps1`, `release-notes.ps1` and `verify-package.ps1` make each step independently runnable, and `-TagOnly -Force` re-tags after a failed build without rewriting history.
+- `build-artifacts.ps1 -Configuration Release` now builds only the release flavour instead of building debug first. The packaged `docs/` directory is actually created: 2.0.0 shipped a *file* named `docs` because the destination directory was never created before `Copy-Item`.
 
 ### Added
 

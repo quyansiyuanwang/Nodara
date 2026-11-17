@@ -69,7 +69,8 @@ Nodara-2.0.0-windows-x86_64[-debug]/
 ├── docs/
 │   ├── user-manual.zh.md
 │   ├── testing.zh.md
-│   └── artifacts.zh.md
+│   ├── artifacts.zh.md
+│   └── releasing.zh.md
 └── installers/                  # 仅 release
     ├── Nodara-Studio-2.0.0-x64-setup.exe
     └── Nodara-Studio-2.0.0-x64.msi
@@ -210,7 +211,23 @@ npm run build
 `Cargo.lock` 和 `package-lock.json` 已提交。生成正式验收包时不得手改版本、lockfile 或
 产物内容；版本应来自工作区版本号，提交号应写入 `build-info.json`。
 
-## 8. 信任边界
+## 8. GitHub Releases 发布
+
+推送 `v*` tag 会触发 `.github/workflows/release.yml`：在 `windows-latest` 上构建
+release 包，用 `scripts/verify-package.ps1` 验收，然后把便携 ZIP、ZIP 的 SHA-256、
+NSIS/MSI 安装器、`build-info.json` 与资产级 `SHA256SUMS.txt` 发布到 GitHub
+Releases。完整流程与恢复方式见 [releasing.zh.md](releasing.zh.md)。
+
+下载并验收已发布的包：
+
+```powershell
+gh release download v2.0.0 -D .\artifacts\release
+.\scripts\verify-package.ps1 `
+  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
+  -Version 2.0.0
+```
+
+## 9. 信任边界
 
 产物不包含代码签名证书。Windows SmartScreen 可能显示未知发布者警告。当前没有
 Apple/Linux 产物，也没有 portable-to-installed 迁移机制。若后续加入代码签名，

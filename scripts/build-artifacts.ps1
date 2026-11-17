@@ -151,10 +151,23 @@ function New-Package {
             Copy-Item -LiteralPath (Join-Path $RepoRoot $doc) -Destination $stage -Force
         }
     }
-    foreach ($doc in @("user-manual.zh.md", "testing.zh.md", "artifacts.zh.md", "user-manual.md", "testing.md", "artifacts.md")) {
+    # The destination must exist first: without it Copy-Item writes a *file*
+    # named `docs`, which is how 2.0.0 shipped no documentation directory.
+    $docsDestination = Join-Path $stage "docs"
+    New-Item -ItemType Directory -Force -Path $docsDestination | Out-Null
+    foreach ($doc in @(
+        "user-manual.zh.md",
+        "testing.zh.md",
+        "artifacts.zh.md",
+        "releasing.zh.md",
+        "user-manual.md",
+        "testing.md",
+        "artifacts.md",
+        "releasing.md"
+    )) {
         $source = Join-Path $RepoRoot "docs\$doc"
         if (Test-Path -LiteralPath $source) {
-            Copy-Item -LiteralPath $source -Destination (Join-Path $stage "docs") -Force
+            Copy-Item -LiteralPath $source -Destination $docsDestination -Force
         }
     }
 
@@ -223,14 +236,20 @@ if (-not $SkipBuild) {
         Invoke-InDirectory $StudioRoot "npm" @("test")
     }
 
-    Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace")
-    Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace")
-    Invoke-InDirectory $StudioRoot "npm" @("run", "build")
-    Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--debug", "--no-bundle", "--ci")
+    # Build only the flavours that were asked for. `-Configuration Release`
+    # used to build debug first, which doubled the work for a release and
+    # contradicted docs/artifacts.md.
+    if ($Configuration -in @("Debug", "All")) {
+        Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace")
+        Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace")
+        Invoke-InDirectory $StudioRoot "npm" @("run", "build")
+        Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--debug", "--no-bundle", "--ci")
+    }
 
     if ($Configuration -in @("Release", "All")) {
         Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace", "--release")
+        Invoke-InDirectory $StudioRoot "npm" @("run", "build")
         Invoke-InDirectory $StudioRoot ".\node_modules\.bin\tauri.cmd" @("build", "--bundles", "nsis", "msi", "--ci", "--config", "src-tauri/tauri.release.conf.json")
     }
 }

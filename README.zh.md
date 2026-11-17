@@ -51,6 +51,7 @@ npm run dev
 | [docs/user-manual.zh.md](docs/user-manual.zh.md) | CLI、runtime、Studio、Agent、API 和安全 |
 | [docs/testing.zh.md](docs/testing.zh.md) | debug/release 验收与回归清单 |
 | [docs/artifacts.zh.md](docs/artifacts.zh.md) | 目录结构、校验、构建和交付差异 |
+| [docs/releasing.zh.md](docs/releasing.zh.md) | 版本管理、tag 驱动的发布流水线与故障恢复 |
 | [docs/README.zh.md](docs/README.zh.md) | 完整中文文档索引 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 仓库边界与依赖方向 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本历史 |
@@ -70,6 +71,10 @@ NSIS/MSI 安装包，并输出 ZIP、SHA-256 和构建元数据。生成位置�
 artifacts\debug\
 artifacts\release\
 ```
+
+预编译包发布在 [Releases](https://github.com/quyansiyuanwang/Nodara/releases)
+页面；推送 `v*` tag 会自动构建、验收并发布，流程见
+[docs/releasing.zh.md](docs/releasing.zh.md)。
 
 ## 核心契约
 

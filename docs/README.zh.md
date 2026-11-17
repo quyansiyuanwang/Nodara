@@ -23,6 +23,7 @@
 | [user-manual.zh.md](user-manual.zh.md) · [English](user-manual.md) | 预编译产物使用手册：CLI、runtime、Studio、Agent、API、安全与排障 |
 | [testing.zh.md](testing.zh.md) · [English](testing.md) | debug/release 验收、完整性检查与回归流程 |
 | [artifacts.zh.md](artifacts.zh.md) · [English](artifacts.md) | 产物目录、校验、debug/release 差异与可复现打包 |
+| [releasing.zh.md](releasing.zh.md) · [English](releasing.md) | 版本模型、一条命令发布、CI 门禁、发布资产与故障恢复 |
 | [schema.zh.md](schema.zh.md) · [English](schema.md) | 逐个 JSON Schema 文档的逐字段说明，以及工作流 schema 如何产生编辑器内容提示 |
 | [nodes.zh.md](nodes.zh.md) · [English](nodes.md) | 节点目录：端口、权限与全部配置项 |
 

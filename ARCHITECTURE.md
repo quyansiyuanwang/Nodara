@@ -8,6 +8,8 @@ Nodara-Core/         core: schema, engine, plugin protocol, runtime, CLI
 Nodara-Studio/  editor: Tauri shell + web front end
 Nodara-Agent/   autonomy: planner and operator
 examples/                    workflow documents in the current format
+scripts/                     build, release and package-verification scripts
+.github/workflows/           CI and the tag-driven release pipeline
 ```
 
 ## Dependency direction

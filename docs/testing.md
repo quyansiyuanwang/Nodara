@@ -20,6 +20,22 @@ This guide validates the prebuilt Windows x64 debug and release packages.
 | A10 | Release | NSIS and MSI are present and the optimized app runs |
 | A11 | Studio debugging UX | Step works from idle and advances one node at a time; node breakpoints pause before execution and survive Export; the region picker writes X/Y/width/height; screenshot and Log image previews render |
 
+## Automated package check
+
+`scripts/verify-package.ps1` performs A01–A05 against a package and is the same
+check the Release workflow runs before publishing:
+
+```powershell
+.\scripts\verify-package.ps1 `
+  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
+  -Version 2.0.0
+```
+
+It expands the archive into `artifacts\tmp\`, verifies the ZIP hash and every
+`SHA256SUMS.txt` line, checks the required entrypoints, runs the CLI smoke
+commands, and starts the packaged runtime to assert 2 plugins and 19 node types.
+`-SkipRuntime` skips only the last step.
+
 ## Integrity
 
 ```powershell

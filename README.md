@@ -140,6 +140,7 @@ execution, and the decision appears in the event stream and the audit log.
 | [docs/user-manual.md](docs/user-manual.md) · [中文](docs/user-manual.zh.md) | Packaged-product operations, API usage, security and troubleshooting |
 | [docs/testing.md](docs/testing.md) · [中文](docs/testing.zh.md) | Debug/release acceptance checks and regression procedure |
 | [docs/artifacts.md](docs/artifacts.md) · [中文](docs/artifacts.zh.md) | Artifact layout, checksums and reproducible packaging |
+| [docs/releasing.md](docs/releasing.md) · [中文](docs/releasing.zh.md) | Versioning, the tag-driven release pipeline, published assets and recovery |
 | [docs/project.md](docs/project.md) · [中文](docs/project.zh.md) | Detailed project guide: architecture, execution model, plugins, security, extension points |
 | [docs/schema.md](docs/schema.md) · [中文](docs/schema.zh.md) | Every JSON Schema document field by field, and how `$schema` produces editor content hints |
 | [docs/nodes.md](docs/nodes.md) · [中文](docs/nodes.zh.md) | Node catalogue: ports, permissions and every configuration key |
@@ -170,6 +171,10 @@ Build both runnable Windows x64 flavors, including NSIS/MSI and SHA-256 files:
 
 Results are written to the ignored `artifacts\debug\` and `artifacts\release\`
 directories. See [docs/artifacts.md](docs/artifacts.md) for the layout.
+
+Prebuilt packages are published on the [Releases](https://github.com/quyansiyuanwang/Nodara/releases)
+page. A `v*` tag builds, verifies and publishes them automatically; the process is
+documented in [docs/releasing.md](docs/releasing.md).
 
 ## License
 

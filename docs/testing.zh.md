@@ -28,6 +28,20 @@
 
 任一 A 级检查失败，应保留日志并停止发布验收；恢复后从失败步骤重新执行。
 
+### 自动化验收
+
+`scripts/verify-package.ps1` 覆盖 A01–A05，Release 工作流发布前运行的就是这套检查：
+
+```powershell
+.\scripts\verify-package.ps1 `
+  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
+  -Version 2.0.0
+```
+
+脚本把包解压到 `artifacts\tmp\`，校验 ZIP 哈希与 `SHA256SUMS.txt` 每一行，
+检查必需入口，执行 CLI 冒烟命令，并启动包内 runtime 断言 2 个插件、19 个节点类型。
+`-SkipRuntime` 只跳过最后一步。
+
 ## 2. 环境记录
 
 开始前记录：

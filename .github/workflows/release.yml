@@ -1,0 +1,258 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (must match the manifests), e.g. 2.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build and verify Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Nodara-Studio/package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Nodara-Core/target
+            Nodara-Agent/target
+          key: ${{ runner.os }}-release-${{ hashFiles('Nodara-Core/Cargo.lock', 'Nodara-Agent/Cargo.lock', 'Nodara-Studio/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-release-
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $version = $env:GITHUB_REF_NAME -replace "^v", ""
+          }
+          else {
+            $version = "${{ inputs.version }}"
+          }
+          if (-not $version) { throw "Could not resolve a release version" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "building Nodara $version"
+
+      - name: Verify version manifests
+        shell: pwsh
+        run: |
+          $arguments = @{ Version = "${{ steps.version.outputs.version }}" }
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $arguments.Tag = $env:GITHUB_REF_NAME
+            $arguments.RequireChangelog = $true
+          }
+          ./scripts/check-version.ps1 @arguments
+
+      - name: Install frontend dependencies
+        working-directory: Nodara-Studio
+        run: npm ci
+
+      - name: Core formatting
+        working-directory: Nodara-Core
+        run: cargo fmt --all -- --check
+
+      - name: Agent formatting
+        working-directory: Nodara-Agent
+        run: cargo fmt --all -- --check
+
+      - name: Core clippy
+        working-directory: Nodara-Core
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Agent clippy
+        working-directory: Nodara-Agent
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Published schemas are up to date
+        working-directory: Nodara-Core
+        shell: pwsh
+        run: |
+          cargo run -q -p nodara-cli -- schema --out schema
+          $drift = git status --porcelain schema
+          if ($drift) {
+            $drift
+            git --no-pager diff --stat -- schema
+            git --no-pager diff -- schema
+            throw "schema/ is stale; run 'cargo run -p nodara-cli -- schema --out schema'"
+          }
+
+      - name: Build and package
+        shell: pwsh
+        run: ./scripts/build-artifacts.ps1 -Configuration Release
+
+      - name: Collect release assets
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $packageName = "Nodara-$version-windows-x86_64"
+          $packageDir = "artifacts/release/$packageName"
+          if (-not (Test-Path -LiteralPath $packageDir)) {
+            throw "missing package directory: $packageDir"
+          }
+
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          Copy-Item "artifacts/release/$packageName.zip" release-assets/
+          Copy-Item "artifacts/release/$packageName.zip.sha256" release-assets/
+          Copy-Item "$packageDir/installers/*" release-assets/
+          Copy-Item "$packageDir/build-info.json" "release-assets/Nodara-$version-build-info.json"
+
+          $lines = Get-ChildItem release-assets -File | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          }
+          [System.IO.File]::WriteAllText(
+            (Join-Path (Get-Location) "release-assets/SHA256SUMS.txt"),
+            (($lines -join "`n") + "`n"),
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          Get-ChildItem release-assets | Select-Object Name, Length
+
+      - name: Verify packaged release
+        shell: pwsh
+        run: |
+          ./scripts/verify-package.ps1 `
+            -ZipPath "artifacts/release/Nodara-${{ steps.version.outputs.version }}-windows-x86_64.zip" `
+            -Version "${{ steps.version.outputs.version }}" `
+            -Commit "$env:GITHUB_SHA"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          (@(
+            "## Nodara $version build",
+            "",
+            "- commit: ``$env:GITHUB_SHA``",
+            "- assets: ZIP, SHA-256, NSIS, MSI, build-info, SHA256SUMS.txt",
+            "- package verification: passed"
+          ) -join "`n") >> $env:GITHUB_STEP_SUMMARY
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: dist
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace "^v", ""
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Generate release notes
+        shell: pwsh
+        run: ./scripts/release-notes.ps1 -Version "${{ steps.version.outputs.version }}" -OutputPath dist/release-notes.md
+
+      - name: Check for an existing release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ steps.version.outputs.version }}"
+          & gh release view $tag --json tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            throw "GitHub release $tag already exists; delete it before re-running"
+          }
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $tag = "v$version"
+          $arguments = @($tag, "--title", "Nodara $version", "--notes-file", "dist/release-notes.md", "--verify-tag")
+          if ($version -match "-") {
+            $arguments += "--prerelease"
+          }
+          else {
+            $arguments += "--latest"
+          }
+          $assets = @(Get-ChildItem dist -File | Where-Object { $_.Name -ne "release-notes.md" } | ForEach-Object { $_.FullName })
+          & gh release create @arguments @assets
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
+
+      - name: Verify published release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $release = & gh release view "v$version" --json tagName,isDraft,isPrerelease,assets,url | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "gh release view failed" }
+          if ($release.isDraft) { throw "release is still a draft" }
+          if ($version -notmatch "-" -and $release.isPrerelease) { throw "release is marked prerelease" }
+
+          $names = @($release.assets | ForEach-Object { $_.name })
+          $expected = @(
+            "Nodara-$version-windows-x86_64.zip",
+            "Nodara-$version-windows-x86_64.zip.sha256",
+            "Nodara-Studio-$version-x64-setup.exe",
+            "Nodara-Studio-$version-x64.msi",
+            "Nodara-$version-build-info.json",
+            "SHA256SUMS.txt"
+          )
+          $missing = @($expected | Where-Object { $names -notcontains $_ })
+          if ($missing.Count -gt 0) { throw "release is missing: $($missing -join ', ')" }
+
+          "release published: $($release.url)" >> $env:GITHUB_STEP_SUMMARY
+          $names | ForEach-Object { "- $_" } >> $env:GITHUB_STEP_SUMMARY

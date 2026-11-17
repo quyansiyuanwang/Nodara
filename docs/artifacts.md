@@ -29,6 +29,24 @@ application.
 The script accepts `-Configuration Debug|Release|All`, `-SkipTests`, and
 `-SkipBuild`. Core, Agent, and Studio tests run before a normal build. Artifact
 creation is local and `artifacts/` is intentionally ignored by Git.
+`-Configuration Release` builds only the release flavour.
+
+## Published releases
+
+A `v*` tag runs `.github/workflows/release.yml`, which builds this release
+package on `windows-latest`, verifies it with `scripts/verify-package.ps1`, and
+publishes the portable ZIP, its SHA-256, both installers, `build-info.json` and
+an asset-level `SHA256SUMS.txt` on the GitHub Releases page. The process and its
+recovery paths are documented in [releasing.md](releasing.md).
+
+To fetch and verify a published package:
+
+```powershell
+gh release download v2.0.0 -D .\artifacts\release
+.\scripts\verify-package.ps1 `
+  -ZipPath .\artifacts\release\Nodara-2.0.0-windows-x86_64.zip `
+  -Version 2.0.0
+```
 
 Verify a package with:
 
