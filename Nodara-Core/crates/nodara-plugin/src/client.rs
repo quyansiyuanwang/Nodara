@@ -227,27 +227,58 @@ impl PluginClient {
 /// message names the path the operator most likely expected.
 pub fn resolve_executable(manifest: &PluginManifest, dir: &Path) -> std::path::PathBuf {
     let installed = manifest.executable_path(dir);
-    if installed.exists() {
-        return installed;
+    let names = executable_names(Path::new(&manifest.executable));
+
+    for name in &names {
+        let candidate = if name.is_absolute() {
+            name.clone()
+        } else {
+            dir.join(name)
+        };
+        if candidate.exists() {
+            return candidate;
+        }
     }
 
-    let name = std::path::Path::new(&manifest.executable);
     if let Ok(current) = std::env::current_exe() {
         if let Some(binary_dir) = current.parent() {
-            let sibling = if name.is_absolute() {
-                name.to_path_buf()
-            } else {
-                binary_dir.join(name)
-            };
-            if sibling.exists() {
-                return sibling;
-            }
-            let staged = binary_dir.join("plugins").join(&manifest.id).join(name);
-            if staged.exists() {
-                return staged;
+            for name in &names {
+                let sibling = if name.is_absolute() {
+                    name.clone()
+                } else {
+                    binary_dir.join(name)
+                };
+                if sibling.exists() {
+                    return sibling;
+                }
+                let staged = binary_dir.join("plugins").join(&manifest.id).join(name);
+                if staged.exists() {
+                    return staged;
+                }
             }
         }
     }
 
     installed
+}
+
+/// The manifest name plus its host-suffixed counterpart.
+///
+/// Manifests are written once for every platform; on Unix a `plugin.exe` entry
+/// must also find `plugin`, and on Windows a `plugin` entry must find
+/// `plugin.exe`.
+fn executable_names(name: &Path) -> Vec<std::path::PathBuf> {
+    let mut names = vec![name.to_path_buf()];
+    let suffix = std::env::consts::EXE_SUFFIX;
+    let Some(file_name) = name.file_name().and_then(|value| value.to_str()) else {
+        return names;
+    };
+    if suffix.is_empty() {
+        if let Some(stem) = file_name.strip_suffix(".exe") {
+            names.push(name.with_file_name(stem));
+        }
+    } else if !file_name.ends_with(suffix) {
+        names.push(name.with_file_name(format!("{file_name}{suffix}")));
+    }
+    names
 }
