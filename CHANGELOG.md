@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.3.0] — Studio workflow experience - 2026-11-19
+
+### Added
+
+- Screenshot inventory and email workflow: enter a goal or dictate it in a supported browser, review the Agent plan, build the canvas and execute the official platform plugin with approval and audit records. Sample data and a local email preview are the defaults; real desktop indexing and SMTP delivery are explicit options.
+- `desktop.ScreenshotIndex` groups screenshot filenames by format; `mail.Digest` produces a downloadable `.eml` preview or submits the inventory to a host-configured SMTP recipient over TLS.
+- Audit results show the email body, download action and actual delivery state, alongside the execution timeline and capability decisions.
+
+### Changed
+
+- Studio uses distinct node icons and colors, animated execution paths, clearer running states and refined event and audit panels, with reduced-motion support.
+- Narrow layouts keep canvas controls accessible, fit the graph when the viewport changes and support touch panning. Manual zoom and pan are preserved.
+- Windows, Linux and macOS CI now verify the same frontend, Core, Agent, desktop shell and real screenshot-mail plugin workflow. Release builds use Node.js 22 and locked Rust dependency checks.
+
+### Fixed
+
+- Agent streaming reliably returns its completion result to the desktop shell and reports cancellation or missing terminal events.
+- Switching runs, filtering or refreshing audit history no longer shows stale artifacts or loses the inspected timeline position.
+
 ## [2.2.0] — three-platform support - 2026-11-17
 
 ### Added

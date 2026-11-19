@@ -1,7 +1,7 @@
 {
   "name": "nodara-studio",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Visual workflow editor for Nodara",
   "type": "module",
   "scripts": {

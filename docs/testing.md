@@ -10,7 +10,7 @@ show the Windows `.exe` form; on macOS/Linux drop the suffix (`./nodara-cli`).
 | ID | Check | Pass condition |
 |---|---|---|
 | A01 | Package integrity | ZIP hash and every entry in `SHA256SUMS.txt` match |
-| A02 | Versions | All components report 2.2.0 and `build-info.json` names the expected commit |
+| A02 | Versions | All components report 2.3.0 and `build-info.json` names the expected commit |
 | A03 | CLI smoke | Validate, simulate, run and `extensions --json` succeed |
 | A04 | Plugins | Runtime reports 2 plugins and 19 node types |
 | A05 | HTTP API | Health, plugins, extensions, node types, and schema endpoints respond |
@@ -36,8 +36,8 @@ check the Release workflow runs before publishing:
 
 ```powershell
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-2.2.0-windows-x86_64.zip `
-  -Version 2.2.0
+  -ZipPath .\artifacts\release\Nodara-2.3.0-windows-x86_64.zip `
+  -Version 2.3.0
 ```
 
 It expands the archive into `artifacts\tmp\`, verifies the ZIP hash and every
@@ -48,13 +48,13 @@ commands, and starts the packaged runtime to assert 2 plugins and 19 node types.
 ## Integrity
 
 ```powershell
-$zip = ".\artifacts\release\Nodara-2.2.0-windows-x86_64.zip"
+$zip = ".\artifacts\release\Nodara-2.3.0-windows-x86_64.zip"
 $expected = (Get-Content "$zip.sha256").Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw "ZIP hash mismatch" }
 
 Expand-Archive $zip -DestinationPath .\verify-release -Force
-Set-Location .\verify-release\Nodara-2.2.0-windows-x86_64
+Set-Location .\verify-release\Nodara-2.3.0-windows-x86_64
 
 $bad = @()
 Get-Content .\SHA256SUMS.txt | ForEach-Object {
@@ -158,7 +158,7 @@ match. Performance measurements must use release.
 ## Record template
 
 ```text
-Build: Nodara 2.2.0 / debug or release / commit
+Build: Nodara 2.3.0 / debug or release / commit
 Environment: Windows, DPI, Defender, WebView2, VC++ version
 Results: A01-A10 pass or fail
 Failed step, expected result, actual result:

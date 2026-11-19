@@ -19,8 +19,8 @@ examples/         可直接运行的示例工作流
 
 ```powershell
 Set-Location .\artifacts\release
-Expand-Archive .\Nodara-2.2.0-windows-x86_64.zip -DestinationPath .\test-release
-Set-Location .\test-release\Nodara-2.2.0-windows-x86_64
+Expand-Archive .\Nodara-2.3.0-windows-x86_64.zip -DestinationPath .\test-release
+Set-Location .\test-release\Nodara-2.3.0-windows-x86_64
 
 .\nodara-cli.exe validate .\examples\hello-world.json
 .\nodara-cli.exe run .\examples\hello-world.json
