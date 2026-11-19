@@ -193,6 +193,16 @@
   "config": { "action": "read", "output_var": "clip" } }
 ```
 
+### `desktop.ScreenshotIndex` — 整理截图清单
+
+`source` 默认为 `sample`；改为 `desktop` 后列出当前桌面目录中的 PNG、JPEG、WebP 截图。`digest` 输出按格式分组的文件名，不打开、移动或附加图片。权限：`desktop.list`。
+
+### `mail.Digest` — 投递截图摘要
+
+将清单文本接到 `digest` 输入。`delivery` 默认为 `preview`，仅生成本地 `.eml` 文件；改为 `smtp` 后通过端口 465 的隐式 TLS 提交邮件。`message` 输出指向邮件文件，`delivery` 输出为 `preview` 或 `smtp_accepted`。后者表示邮件服务器已接受，不代表邮件已到达收件箱。权限：`mail.send`。
+
+在运行时主机上配置 `NODARA_SMTP_HOST`、`NODARA_SMTP_USER`、`NODARA_SMTP_PASSWORD`、`NODARA_MAIL_FROM` 和 `NODARA_MAIL_TO`，不要将凭据写入工作流。见[可运行示例](../examples/screenshot-mail.json)。
+
 ### `system.Command` — Command
 
 启动外部程序或 Shell 命令，等待结束后捕获标准输出、标准错误和退出码。进程执行期间会响应

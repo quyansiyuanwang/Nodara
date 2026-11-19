@@ -1,0 +1,19 @@
+{
+  "$schema": "../Nodara-Core/schema/workflow.schema.json",
+  "schema_version": "2.1",
+  "id": "workflow.screenshot-mail",
+  "metadata": { "name": "Screenshot mail digest", "description": "Group sample screenshot names by format and save a local email preview. No files are moved and no message is sent.", "tags": ["desktop", "mail"] },
+  "nodes": [
+    { "id": "start", "type": "core.Start", "config": {}, "position": { "x": 40, "y": 60 } },
+    { "id": "index", "type": "desktop.ScreenshotIndex", "config": { "source": "sample" }, "delay_after_ms": 900, "position": { "x": 320, "y": 60 } },
+    { "id": "mail", "type": "mail.Digest", "config": { "delivery": "preview" }, "delay_after_ms": 900, "position": { "x": 320, "y": 260 } },
+    { "id": "end", "type": "core.End", "config": { "code": 0 }, "position": { "x": 600, "y": 260 } }
+  ],
+  "edges": [
+    { "id": "start-index", "kind": "control", "source": "start", "target": "index" },
+    { "id": "index-mail", "kind": "control", "source": "index", "target": "mail" },
+    { "id": "inventory", "kind": "data", "source": "index", "source_port": "digest", "target": "mail", "target_port": "digest" },
+    { "id": "mail-end", "kind": "control", "source": "mail", "target": "end" }
+  ],
+  "variables": {}
+}

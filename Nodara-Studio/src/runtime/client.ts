@@ -20,6 +20,7 @@ import {
   MessageRole,
   NodeDescriptor,
   PluginListResponse,
+  PlanPreview,
   RunSnapshot,
   ValidationReport,
   Workflow,
@@ -216,6 +217,10 @@ export class RuntimeClient {
       method: "POST",
       body: JSON.stringify({ goal, provider }),
     });
+  }
+
+  publishAgentPlan(sessionId: string, preview: PlanPreview): Promise<AgentSession> {
+    return this.post(`/agent/sessions/${encodeURIComponent(sessionId)}/plan`, preview);
   }
 
   /** Append a message to an existing agent session. */

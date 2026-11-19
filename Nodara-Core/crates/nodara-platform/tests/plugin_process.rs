@@ -135,6 +135,33 @@ fn executes_a_command_through_the_plugin_boundary() {
     client.shutdown().expect("shutdown succeeds");
 }
 
+#[test]
+fn delivers_a_sample_inventory_to_a_local_email_artifact() {
+    let client = PluginClient::connect(&manifest(), std::path::Path::new(".")).unwrap();
+    let params = |node_type: &str| nodara_plugin::ExecuteParams {
+        run_id: "digest-preview".into(),
+        node_id: node_type.into(),
+        node_type: node_type.into(),
+        config: serde_json::json!({}),
+        inputs: Default::default(),
+        variables: Default::default(),
+        artifacts: vec![],
+        timeout_ms: Some(5000),
+    };
+    let index = client.execute(params("desktop.ScreenshotIndex")).unwrap();
+    let mut mail = params("mail.Digest");
+    assert!(client.execute(mail.clone()).is_err());
+    mail.inputs
+        .insert("digest".into(), index.outputs["digest"].clone());
+    let result = client.execute(mail).unwrap();
+    assert_eq!(result.outputs["delivery"], "preview");
+    assert_eq!(result.artifacts.len(), 1);
+    assert_eq!(result.artifacts[0].meta.content_type, "message/rfc822");
+    assert_eq!(result.outputs["message"]["id"], result.artifacts[0].meta.id);
+    assert!(!result.artifacts[0].data_base64.is_empty());
+    client.shutdown().unwrap();
+}
+
 // The non-Windows backends need a live display and, on macOS, Accessibility
 // permission; the plugin boundary itself is covered by the other tests.
 #[cfg(windows)]

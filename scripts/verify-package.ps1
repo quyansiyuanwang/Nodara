@@ -144,6 +144,7 @@ try {
         "plugins/nodara-vision/nodara-vision-plugin$ExecutableSuffix",
         "schema/workflow.schema.json",
         "examples/hello-world.json",
+        "examples/screenshot-mail.json",
         "docs/testing.md",
         "docs/artifacts.md",
         "docs/user-manual.md"
@@ -181,6 +182,7 @@ try {
         Invoke-Cli $cli @("validate", "examples/hello-world.json") "validate hello-world"
         Invoke-Cli $cli @("simulate", "examples/hello-world.json") "simulate hello-world"
         Invoke-Cli $cli @("run", "examples/delayed-log.json") "run delayed-log"
+        Invoke-Cli $cli @("run", "examples/screenshot-mail.json", "--plugin-dir", "plugins", "--quiet") "run screenshot-mail through platform plugin"
         Invoke-Cli $cli @("validate", "examples/branching.json", "--json") "validate branching --json"
         Invoke-Cli $cli @("inspect", "examples/hello-world.json", "--json") "inspect hello-world --json"
         Invoke-Cli $cli @("extensions", "--json") "extensions --json"
@@ -229,7 +231,7 @@ try {
 
         Assert-True ($health.status -eq "ok") "runtime health status is '$($health.status)'"
         Assert-True ([int]$health.plugins -eq 2) "runtime reports $($health.plugins) plugin(s), expected 2"
-        Assert-True ([int]$health.node_types -eq 19) "runtime reports $($health.node_types) node type(s), expected 19"
+        Assert-True ([int]$health.node_types -eq 21) "runtime reports $($health.node_types) node type(s), expected 21"
         Write-Host ("ok    runtime health: {0} node types, {1} plugins" -f $health.node_types, $health.plugins)
 
         $plugins = Invoke-RestMethod -Uri "$base/plugins" -TimeoutSec 5 -NoProxy

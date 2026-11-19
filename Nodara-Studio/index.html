@@ -44,7 +44,8 @@
         <input id="file-input" type="file" accept="application/json" hidden />
       </header>
 
-      <main class="workspace">
+      <main class="workspace" data-pane="canvas">
+        <nav class="pane-switch" aria-label="Workspace"><button type="button" data-pane="palette" aria-pressed="false" data-i18n="palette.title">Nodes</button><button type="button" data-pane="canvas" aria-pressed="true" data-i18n="canvas.title">Canvas</button><button type="button" data-pane="inspector" aria-pressed="false" data-i18n="properties.title">Properties</button></nav>
         <aside class="panel panel--palette">
           <h2 class="panel__title" data-i18n="palette.title">Nodes</h2>
           <input id="palette-filter" class="input" placeholder="Filter node types…" data-i18n-placeholder="palette.filter" />
@@ -77,6 +78,7 @@
               <path id="pending-edge" class="edge edge--pending is-hidden" />
             </g>
           </svg>
+          <div class="canvas-heading"><span id="canvas-name"></span><button type="button" id="canvas-recipe" class="recipe-link" data-i18n="recipe.title" data-i18n-title="recipe.scope">Screenshot mail</button></div>
           <div class="canvas-tools">
             <button id="canvas-zoom-out" class="canvas-tool" type="button" data-i18n-title="canvas.zoomOut">−</button>
             <button id="canvas-zoom-level" class="canvas-tool canvas-tool--wide" type="button" data-i18n-title="canvas.zoomReset">100%</button>
@@ -84,9 +86,7 @@
             <button id="canvas-fit" class="canvas-tool canvas-tool--wide" type="button" data-i18n="canvas.fit">Fit</button>
             <button id="canvas-layout" class="canvas-tool canvas-tool--wide" type="button" data-i18n="canvas.autoLayout">Auto layout</button>
           </div>
-          <div id="canvas-hint" class="canvas-hint" data-i18n="canvas.hint">
-            Click to add at the centre, or drag a palette item to an exact canvas position. Drag from an output port to an input port to connect. Right-click or press Delete to remove the selected item.
-          </div>
+          <details class="canvas-help"><summary data-i18n-aria-label="canvas.help" data-i18n-title="canvas.help">?</summary><div id="canvas-hint" data-i18n="canvas.hint"></div></details>
         </section>
 
         <div id="resize-right" class="resizer resizer--vertical resizer--right" role="separator" aria-orientation="vertical" aria-label="Resize properties panel" data-i18n-aria-label="resizer.properties" tabindex="0" title="Drag to resize. Double-click to reset." data-i18n-title="resizer.title"></div>
@@ -114,6 +114,7 @@
             <button id="events-clear" class="btn btn--small" type="button" data-i18n="events.clear">Clear</button>
           </div>
           <div id="events" class="events"></div>
+          <div class="events-empty" data-i18n="events.empty">No execution events yet</div>
         </div>
         <div id="panel-runs" class="drawer__panel" hidden>
           <div class="runs-toolbar">
@@ -146,6 +147,7 @@
               <input id="audit-current-run" type="checkbox" /> <span data-i18n="audit.currentRun">this run only</span>
             </label>
             <button id="audit-refresh" class="btn btn--small" data-i18n="actions.refresh">Refresh</button>
+            <button id="audit-approval" class="btn btn--small" hidden></button>
           </div>
           <div id="audit" class="audit"></div>
         </div>

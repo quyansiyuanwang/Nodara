@@ -209,6 +209,16 @@ Reads the clipboard into the run, or replaces its text.
   "config": { "action": "read", "output_var": "clip" } }
 ```
 
+### `desktop.ScreenshotIndex` — Index screenshots
+
+`source` defaults to `sample`. Set it to `desktop` to list regular PNG, JPEG and WebP screenshot files directly on the host desktop. The `digest` output groups filenames by format. Images are never opened, moved or attached. Permission: `desktop.list`.
+
+### `mail.Digest` — Deliver inventory
+
+Connect the inventory text to the `digest` input. Set `delivery` to `preview` (default) to generate a local `.eml` without using the network, or `smtp` to submit the text via implicit TLS on port 465. The `message` output references the email file. The `delivery` output is `preview` or `smtp_accepted`; relay acceptance does not confirm inbox delivery. Permission: `mail.send`.
+
+Set `NODARA_SMTP_HOST`, `NODARA_SMTP_USER`, `NODARA_SMTP_PASSWORD`, `NODARA_MAIL_FROM` and `NODARA_MAIL_TO` on the runtime host, never in the workflow. See [the runnable sample](../examples/screenshot-mail.json).
+
 ### `system.Command` — Command
 
 Launches an external program or shell command and captures stdout, stderr and the

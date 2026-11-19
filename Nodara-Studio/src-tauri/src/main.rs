@@ -168,7 +168,7 @@ async fn run_agent_turn_stream(
     turn_id: String,
     on_event: Channel<serde_json::Value>,
     processes: State<'_, AgentProcesses>,
-) -> Result<(), String> {
+) -> Result<serde_json::Value, String> {
     let children = processes.children.clone();
     let cancelled = processes.cancelled.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -184,7 +184,7 @@ fn run_agent_turn_stream_inner(
     on_event: Channel<serde_json::Value>,
     processes_children: Arc<Mutex<HashMap<String, Arc<Mutex<Child>>>>>,
     processes_cancelled: Arc<Mutex<HashSet<String>>>,
-) -> Result<(), String> {
+) -> Result<serde_json::Value, String> {
     let runtime = request
         .get("runtime_url")
         .and_then(serde_json::Value::as_str)
@@ -231,14 +231,25 @@ fn run_agent_turn_stream_inner(
         })
     });
 
+    let mut terminal = None;
     let stream_result = (|| -> Result<(), String> {
         for line in BufReader::new(stdout).lines() {
             let line = line.map_err(|error| format!("could not read Agent output: {error}"))?;
             if line.trim().is_empty() {
                 continue;
             }
-            let event = serde_json::from_str(&line)
+            let event: serde_json::Value = serde_json::from_str(&line)
                 .map_err(|error| format!("Agent emitted invalid JSONL: {error}: {line}"))?;
+            match event["type"].as_str() {
+                Some("completed") => terminal = event.get("response").cloned().map(Ok),
+                Some("failed") => {
+                    terminal = Some(Err(event["message"]
+                        .as_str()
+                        .unwrap_or("Agent turn failed")
+                        .to_owned()))
+                }
+                _ => {}
+            }
             on_event
                 .send(event)
                 .map_err(|error| format!("could not forward Agent event: {error}"))?;
@@ -266,7 +277,7 @@ fn run_agent_turn_stream_inner(
 
     if cancelled {
         let _ = on_event.send(serde_json::json!({ "type": "cancelled" }));
-        return Ok(());
+        return Err("Agent turn cancelled".into());
     }
     stream_result?;
     if !status.success() {
@@ -276,7 +287,7 @@ fn run_agent_turn_stream_inner(
             stderr_text
         });
     }
-    Ok(())
+    terminal.unwrap_or_else(|| Err("Agent exited without a completion event".into()))
 }
 
 /// Stop only the current model-generation process. Runtime runs are untouched.
@@ -788,7 +799,9 @@ mod tests {
             "http://localhost:8710/api/v1/runs/r1/artifacts/a1"
         ));
         assert!(!is_loopback_artifact_url("https://example.com/artifact"));
-        assert!(!is_loopback_artifact_url("http://127.0.0.1.evil.test/artifact"));
+        assert!(!is_loopback_artifact_url(
+            "http://127.0.0.1.evil.test/artifact"
+        ));
         assert!(!is_loopback_artifact_url("file:///C:/secret.txt"));
     }
 

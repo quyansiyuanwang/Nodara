@@ -16,6 +16,7 @@
 pub mod capture;
 pub mod clipboard;
 pub mod command;
+mod digest;
 pub mod error;
 pub mod input;
 pub mod keys;
@@ -60,6 +61,8 @@ pub const NODE_TYPES: &[&str] = &[
     "windows.Desktop.Capture",
     "system.Clipboard",
     "system.Command",
+    "desktop.ScreenshotIndex",
+    "mail.Digest",
 ];
 
 /// Capability identifiers this plugin advertises.
@@ -73,6 +76,8 @@ pub const CAPABILITIES: &[&str] = &[
     "Clipboard.Read",
     "Clipboard.Write",
     "Process.Execute",
+    "Screenshot.Index",
+    "Mail.Deliver",
 ];
 
 /// Permissions this plugin requires from the host.
@@ -82,6 +87,8 @@ pub const PERMISSIONS: &[&str] = &[
     "screen.capture",
     "clipboard",
     "process.execute",
+    "desktop.list",
+    "mail.send",
 ];
 
 /// Register every platform executor.
@@ -96,7 +103,9 @@ pub fn register_platform(registry: &mut CapabilityRegistry) {
         .register(window::CaptureExecutor)
         .register(capture::DesktopCaptureExecutor)
         .register(clipboard::ClipboardExecutor)
-        .register(command::CommandExecutor);
+        .register(command::CommandExecutor)
+        .register(digest::ScreenshotIndex)
+        .register(digest::DigestMail);
 }
 
 /// True when the host operating system is supported by this build.

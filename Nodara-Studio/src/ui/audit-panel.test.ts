@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { AuditPanel } from "./audit-panel";
+import { setLocale } from "../i18n";
 import { AuditRecord, EventEnvelope, RunSnapshot, Workflow } from "../runtime/types";
 
 function record(overrides: Partial<AuditRecord>): AuditRecord {
@@ -54,15 +55,17 @@ function event(nodeId: string, type: EventEnvelope["event"]["type"]): EventEnvel
 
 describe("graphical audit view", () => {
   let host: HTMLElement;
+  let panel: AuditPanel;
   beforeEach(() => {
     document.body.innerHTML = "";
     host = document.createElement("div");
     document.body.appendChild(host);
+    setLocale("en");
+    panel = new AuditPanel(host, (runId, id) => `/runs/${runId}/artifacts/${id}`);
   });
 
   it("summarizes records and shows a timeline", () => {
-    const panel = new AuditPanel(host);
-    panel.setRecords([
+    panel.setData([
       record({ category: "capability_evaluated", node_id: "log", decision: "allow", message: "allowed" }),
       record({ seq: 1, category: "node_failed", node_id: "log", message: "boom" }),
     ]);
@@ -72,13 +75,11 @@ describe("graphical audit view", () => {
   });
 
   it("renders a workflow graph and highlights traversed edges", () => {
-    const panel = new AuditPanel(host);
-    panel.setContext({
+    panel.setData([record({ category: "node_finished", node_id: "start", message: "done" })], {
       run: run(),
       workflow: workflow(),
       events: [event("start", "node_started"), event("start", "node_finished"), event("start", "edge_activated")],
     });
-    panel.setRecords([record({ category: "node_finished", node_id: "start", message: "done" })]);
     expect(host.querySelectorAll(".audit-node")).toHaveLength(2);
     expect(host.querySelector(".audit-node--success")).not.toBeNull();
     expect(host.querySelector(".audit-edge.is-traversed")).not.toBeNull();
@@ -86,25 +87,82 @@ describe("graphical audit view", () => {
   });
 
   it("opens event details when a timeline row is selected", () => {
-    const panel = new AuditPanel(host);
-    panel.setRecords([record({ message: "first", decision: "allow", capability: "cap", node_id: "log" })]);
+    panel.setData([record({ message: "first", decision: "allow", capability: "cap", node_id: "log" })]);
     host.querySelector<HTMLButtonElement>(".audit-timeline__row")!.click();
     expect(host.querySelector(".audit-detail")?.textContent).toContain("first");
     expect(host.querySelector(".audit-detail")?.textContent).toContain("cap");
   });
 
   it("opens the full audit workspace", () => {
-    const panel = new AuditPanel(host);
-    panel.setContext({ run: run(), workflow: workflow(), events: [] });
+    panel.setData([], { run: run(), workflow: workflow(), events: [] });
     host.querySelector<HTMLButtonElement>(".audit-visual-toolbar button")!.click();
     expect(host.classList.contains("audit--workspace")).toBe(true);
   });
 
   it("replaces the contents on refresh", () => {
-    const panel = new AuditPanel(host);
-    panel.setRecords([record({ message: "first" })]);
-    panel.setRecords([record({ message: "second" })]);
+    panel.setData([record({ message: "first" })]);
+    panel.setData([record({ message: "second" })]);
     expect(host.textContent).toContain("second");
     expect(host.textContent).not.toContain("first");
+  });
+
+  const mail = { id: "a-1", name: "inventory.eml", content_type: "message/rfc822", size: 250 };
+  function mailEvents(outputs: Record<string, unknown>): EventEnvelope[] {
+    return [
+      { type: "node_started", node_id: "log", node_type: "mail.Digest", input: {
+        inputs: { digest: "PNG (1)\nScreenshot <1>.png" }, config: {}, resolved_config: {}, variables_before: {},
+      } },
+      { type: "node_finished", node_id: "log", duration_ms: 1, outputs },
+    ].map((event, seq) => ({ run_id: run().id, timestamp_ms: 1, seq, event } as EventEnvelope));
+  }
+  function mailContext(events: EventEnvelope[]) {
+    const wf = workflow();
+    wf.nodes[1].type = "mail.Digest";
+    wf.nodes[1].config = { delivery: "smtp" };
+    return { run: run(), workflow: wf, events };
+  }
+
+  it.each([
+    ["preview", "Local preview · Not sent"], ["smtp_accepted", "Accepted by SMTP relay"], [undefined, "Email file"],
+  ])("shows only what the plugin recorded for delivery %s", (delivery, label) => {
+    const context = mailContext(mailEvents({ delivery, message: mail }));
+    panel.setData([], context);
+    expect(host.querySelector(".audit-receipt > span")?.textContent).toBe(label);
+    expect(host.querySelector(".audit-mail-body")?.textContent).toBe("PNG (1)\nScreenshot <1>.png");
+    const link = host.querySelector<HTMLAnchorElement>(".mail-download")!;
+    expect(link.getAttribute("href")).toBe(`/runs/${context.run.id}/artifacts/a-1`);
+    expect(link.download).toBe(mail.name);
+  });
+
+  it("does not carry over a receipt to a failed attempt, missing file, or another run", () => {
+    const context = mailContext(mailEvents({ delivery: "preview", message: mail }));
+    setLocale("zh-CN");
+    panel.setData([], context);
+    expect(host.textContent).toContain("本地预览 · 未发送");
+    const failed: EventEnvelope = { ...context.events[0], event: { type: "node_failed", node_id: "log", code: "deny", message: "denied", retryable: false } };
+    for (const events of [[...context.events, context.events[0]], [...context.events, failed], mailEvents({ delivery: "preview" }), []]) {
+      panel.setData([], { ...context, events });
+      expect(host.querySelector(".audit-receipt")).toBeNull();
+    }
+    panel.setData([], { ...context, run: { ...context.run, id: "another" } });
+    expect(host.querySelector(".audit-receipt")).toBeNull();
+    setLocale("en");
+  });
+
+  it("keeps record selection separate from graph filtering and clears stale details", () => {
+    const records = [record({ node_id: "start" }), record({ seq: 1, node_id: "log", message: "result" })];
+    panel.setData(records, { run: run(), workflow: workflow(), events: [] });
+    const row = host.querySelector<HTMLButtonElement>(".audit-timeline__row")!;
+    row.focus();
+    row.click();
+    expect(document.activeElement?.classList.contains("is-selected")).toBe(true);
+    expect(host.querySelectorAll(".audit-timeline__row")).toHaveLength(2);
+    host.querySelector(".audit-node")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(host.querySelectorAll(".audit-timeline__row")).toHaveLength(1);
+    host.querySelector<HTMLButtonElement>(".audit-filter-clear")!.click();
+    expect(host.querySelectorAll(".audit-timeline__row")).toHaveLength(2);
+    host.querySelector<HTMLButtonElement>(".audit-timeline__row")!.click();
+    panel.setData([record({ run_id: "other", seq: 1 })]);
+    expect(host.querySelector(".audit-detail__raw")).toBeNull();
   });
 });

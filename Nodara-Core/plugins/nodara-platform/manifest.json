@@ -15,14 +15,14 @@
     "Desktop.Capture",
     "Clipboard.Read",
     "Clipboard.Write",
-    "Process.Execute"
+    "Process.Execute", "Screenshot.Index", "Mail.Deliver"
   ],
   "permissions": [
     "input.control",
     "window.control",
     "screen.capture",
     "clipboard",
-    "process.execute"
+    "process.execute", "desktop.list", "mail.send"
   ],
   "node_types": [
     "windows.Input.Keyboard",
@@ -34,9 +34,17 @@
     "windows.Window.Capture",
     "windows.Desktop.Capture",
     "system.Clipboard",
-    "system.Command"
+    "system.Command", "desktop.ScreenshotIndex", "mail.Digest"
   ],
   "features": [
+    {
+      "id": "screenshot-digest",
+      "name": "Screenshot mail digest",
+      "kind": "integration",
+      "capabilities": ["Screenshot.Index", "Mail.Deliver"],
+      "permissions": ["desktop.list", "mail.send"],
+      "node_types": ["desktop.ScreenshotIndex", "mail.Digest"]
+    },
     {
       "id": "input",
       "name": "Keyboard, mouse and text input",

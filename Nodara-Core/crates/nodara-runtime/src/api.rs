@@ -223,6 +223,24 @@ async fn get_run_artifact(
     response
         .headers_mut()
         .insert(header::CONTENT_TYPE, content_type);
+    // The desktop shell opens this URL in a browser, without the Studio link's download attribute.
+    if meta.content_type == "message/rfc822" {
+        let name = if meta.name.ends_with(".eml")
+            && meta
+                .name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+        {
+            &meta.name
+        } else {
+            "message.eml"
+        };
+        response.headers_mut().insert(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_str(&format!("attachment; filename=\"{name}\""))
+                .expect("ASCII mail filename"),
+        );
+    }
     response.headers_mut().insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static("private, max-age=300"),

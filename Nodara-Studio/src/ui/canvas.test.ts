@@ -859,4 +859,28 @@ describe("graph editing on the canvas", () => {
     window.dispatchEvent(new MouseEvent("pointermove", { bubbles: true, clientX: 9999, clientY: 9999 }));
     expect(viewport.getAttribute("transform")).toBe(before);
   });
+
+  it("pans from empty space on touch; only a tap clears the selection", () => {
+    const { canvas } = harness();
+    canvas.select("start");
+    const svg = document.getElementById("canvas")!;
+    const touch = (type: string, x: number, y: number) => {
+      const event = pointerEvent(type, x, y);
+      Object.defineProperties(event, {
+        pointerType: { value: "touch" }, pointerId: { value: 1 }, isPrimary: { value: true },
+      });
+      svg.dispatchEvent(event);
+    };
+    touch("pointerdown", 20, 30);
+    touch("pointermove", 50, 50);
+    touch("pointerup", 50, 50);
+    expect(svg.querySelector("#viewport")?.getAttribute("transform")).toBe("translate(30 20) scale(1)");
+    expect(canvas.selectedNodeId()).toBe("start");
+    touch("pointerdown", 80, 80);
+    touch("pointercancel", 80, 80);
+    expect(canvas.selectedNodeId()).toBe("start");
+    touch("pointerdown", 80, 80);
+    touch("pointerup", 80, 80);
+    expect(canvas.selectedNodeId()).toBeNull();
+  });
 });

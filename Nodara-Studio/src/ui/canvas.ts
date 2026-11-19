@@ -8,6 +8,7 @@
  */
 
 import { localizeProblem, t } from "../i18n";
+import { nodeIcon } from "./node-icon";
 import {
   defaultConfig,
   edgeExists,
@@ -134,7 +135,8 @@ export class Canvas {
   private viewScale = 1;
   private viewX = 0;
   private viewY = 0;
-  private pan: { clientX: number; clientY: number; viewX: number; viewY: number } | null = null;
+  private followFit = false;
+  private pan: { pointerId: number; clientX: number; clientY: number; viewX: number; viewY: number; tapToClear: boolean } | null = null;
   private spaceDown = false;
   private readonly cleanupCallbacks: Array<() => void> = [];
 
@@ -175,13 +177,19 @@ export class Canvas {
       this.contextMenu.hidden = true;
     };
     const pointerMove = (event: PointerEvent) => this.onPointerMove(event);
-    const pointerUp = () => this.endInteraction();
+    const pointerUp = (event: PointerEvent) => {
+      if (this.pan && event.pointerId !== this.pan.pointerId) return;
+      this.endInteraction(event.type === "pointercancel");
+    };
     const svgPointerDown = (event: PointerEvent) => {
       const target = event.target as Element;
       if (target.closest(".node, .edge-hit, .port, .exec-port")) return;
-      if (event.button === 1 || this.spaceDown) {
+      if (this.pan || (event.pointerType === "touch" && !event.isPrimary)) return;
+      if (event.button === 1 || this.spaceDown || event.pointerType === "touch") {
         event.preventDefault();
         this.pan = {
+          pointerId: event.pointerId,
+          tapToClear: event.pointerType === "touch",
           clientX: event.clientX,
           clientY: event.clientY,
           viewX: this.viewX,
@@ -231,7 +239,13 @@ export class Canvas {
       () => window.removeEventListener("keydown", keyDown),
       () => window.removeEventListener("keyup", keyUp),
     );
-    this.applyView();  }
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => { if (this.followFit) this.fitToContent(); });
+      observer.observe(svg);
+      this.cleanupCallbacks.push(() => observer.disconnect());
+    }
+    this.applyView();
+  }
 
   /** Remove global listeners and transient overlays. */
   destroy(): void {
@@ -345,6 +359,7 @@ export class Canvas {
 
     // jsdom (used by unit tests) does not implement SVG path length sampling.
     if (
+      this.status === "paused" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
       typeof requestAnimationFrame !== "function" ||
       typeof path.getTotalLength !== "function" ||
       typeof path.getPointAtLength !== "function"
@@ -545,6 +560,7 @@ export class Canvas {
       }
     }
     if (!center) return;
+    this.followFit = false;
     const rect = this.svg.getBoundingClientRect();
     this.viewX = rect.width / 2 - center.x * this.viewScale;
     this.viewY = rect.height / 2 - center.y * this.viewScale;
@@ -638,6 +654,7 @@ export class Canvas {
   }
 
   resetView(): void {
+    this.followFit = false;
     this.viewScale = 1;
     this.viewX = 0;
     this.viewY = 0;
@@ -649,6 +666,7 @@ export class Canvas {
       this.resetView();
       return;
     }
+    this.followFit = true;
     const rect = this.svg.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
     const xs = this.workflow.nodes.map((node) => node.position?.x ?? 0);
@@ -797,8 +815,14 @@ export class Canvas {
 
   private onPointerMove(event: PointerEvent): void {
     if (this.pan) {
-      this.viewX = this.pan.viewX + event.clientX - this.pan.clientX;
-      this.viewY = this.pan.viewY + event.clientY - this.pan.clientY;
+      if (event.pointerId !== this.pan.pointerId) return;
+      const dx = event.clientX - this.pan.clientX;
+      const dy = event.clientY - this.pan.clientY;
+      if (this.pan.tapToClear && Math.hypot(dx, dy) < 5) return;
+      this.pan.tapToClear = false;
+      this.followFit = false;
+      this.viewX = this.pan.viewX + dx;
+      this.viewY = this.pan.viewY + dy;
       this.applyView();
       return;
     }
@@ -847,8 +871,9 @@ export class Canvas {
     }
   }
 
-  private endInteraction(): void {
+  private endInteraction(cancelled = false): void {
     if (this.pan) {
+      if (this.pan.tapToClear && !cancelled) this.setSelection([], null);
       this.pan = null;
       this.svg.classList.remove("canvas--panning");
     }
@@ -1322,6 +1347,8 @@ export class Canvas {
       const y = node.position?.y ?? 0;
       group.setAttribute("transform", `translate(${x}, ${y})`);
       const customColor = nodeColor(this.workflow, node.id);
+      const { color, icon } = nodeIcon(node.type, 18);
+      group.style.setProperty("--family-color", customColor ?? color);
       if (customColor) group.style.setProperty("--node-color", customColor);
 
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -1331,19 +1358,27 @@ export class Canvas {
       rect.classList.add("node__body");
       group.appendChild(rect);
 
+      const tile = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      tile.setAttribute("x", "11"); tile.setAttribute("y", "10");
+      tile.setAttribute("width", "29"); tile.setAttribute("height", "29"); tile.setAttribute("rx", "6");
+      tile.classList.add("node__tile");
+      icon.setAttribute("x", "16.5"); icon.setAttribute("y", "15.5");
+      icon.classList.add("node__icon");
+      group.append(tile, icon);
+
       const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("x", "10");
-      label.setAttribute("y", "18");
+      label.setAttribute("x", "47");
+      label.setAttribute("y", "22");
       label.classList.add("node__label");
       label.textContent = this.truncateNodeText(
         node.label ?? descriptor?.display_name ?? node.type,
-        25,
+        21,
       );
       group.appendChild(label);
 
       const type = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      type.setAttribute("x", "10");
-      type.setAttribute("y", "34");
+      type.setAttribute("x", "47");
+      type.setAttribute("y", "36");
       type.classList.add("node__type");
       type.textContent = this.truncateNodeText(node.type, 29);
       group.appendChild(type);
@@ -1352,7 +1387,7 @@ export class Canvas {
       if (summaryText) {
         const summary = document.createElementNS("http://www.w3.org/2000/svg", "text");
         summary.setAttribute("x", "10");
-        summary.setAttribute("y", "52");
+        summary.setAttribute("y", "61");
         summary.classList.add("node__summary");
         summary.textContent = summaryText;
         group.appendChild(summary);
@@ -1373,7 +1408,7 @@ export class Canvas {
       if (node.enabled === false) {
         const disabled = document.createElementNS("http://www.w3.org/2000/svg", "text");
         disabled.setAttribute("x", String(NODE_WIDTH - 10));
-        disabled.setAttribute("y", "16");
+        disabled.setAttribute("y", "101");
         disabled.setAttribute("text-anchor", "end");
         disabled.classList.add("node__disabled");
         disabled.textContent = t("canvas.nodeDisabled");
@@ -2315,6 +2350,7 @@ export class Canvas {
   }
 
   private zoomBy(factor: number, anchor?: { x: number; y: number }): void {
+    this.followFit = false;
     const rect = this.svg.getBoundingClientRect();
     const point = anchor ?? { x: rect.width / 2, y: rect.height / 2 };
     const world = this.toCanvas(rect.left + point.x, rect.top + point.y);

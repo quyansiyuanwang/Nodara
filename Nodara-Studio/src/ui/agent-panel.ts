@@ -6,7 +6,10 @@
  * transcript, plan, approvals, run and audit link live.
  */
 
-import { localizeAgentStatus, localizeDiagnostic, t } from "../i18n";
+import { getLocale, localizeAgentStatus, localizeDiagnostic, t } from "../i18n";
+import { isScreenshotMailGoal } from "../model/screenshot-mail";
+import { Dictation } from "./dictation";
+import { createElement, Mic, MicOff } from "lucide";
 import {
   AgentBaseMode,
   AgentMode,
@@ -141,6 +144,8 @@ export class AgentPanel {
   private streamWorkflow: Workflow | null = null;
   private streamTrace: TraceLine[] = [];
   private activeTurnId: string | null = null;
+  private listening: InstanceType<NonNullable<typeof Dictation>> | null = null;
+  private recipeBusy = false;
   private workspaceOpen = this.settings.workspaceOpen;
   private streamFrame: number | null = null;
 
@@ -173,6 +178,26 @@ export class AgentPanel {
   /** Open the configuration dialog. */
   openSettings(): void {
     this.settingsDialog.open(this.settings);
+  }
+
+  suggestScreenshotMail(): void {
+    if (this.busy) return;
+    if (!this.draft.trim()) this.draft = t("recipe.goal");
+    this.render();
+    this.root.querySelector<HTMLTextAreaElement>(".agent-composer textarea")?.focus();
+  }
+
+  stopDictation(): void {
+    this.listening?.abort();
+  }
+
+  revealCanvas(): void {
+    if (this.workspaceOpen) this.setWorkspaceOpen(false);
+  }
+
+  focusApprovals(): void {
+    this.setWorkspaceOpen(true);
+    this.root.querySelector<HTMLButtonElement>(".approval button")?.focus();
   }
 
   /** Expand or collapse the full workspace, persisting the choice. */
@@ -656,7 +681,6 @@ export class AgentPanel {
     input.dataset.agentFocus = "composer";
     input.placeholder = t("agent.promptPlaceholder");
     input.value = draft;
-    input.addEventListener("input", () => { this.draft = input.value; });
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
@@ -675,19 +699,45 @@ export class AgentPanel {
     stop.type = "button";
     stop.className = "btn";
     stop.textContent = t("agent.stop");
-    stop.disabled = !this.busy || !this.activeTurnId;
+    stop.disabled = !this.busy || this.recipeBusy || !this.activeTurnId;
     stop.addEventListener("click", () => void this.stopGeneration());
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "btn btn--primary";
     submit.dataset.agentFocus = "send";
-    submit.disabled = !this.desktopAvailable || this.busy || draft.trim() === "";
-    submit.textContent = this.busy ? t("agent.running") : t("agent.send");
+    const update = () => {
+      const recipe = isScreenshotMailGoal(input.value);
+      submit.disabled = (!recipe && !this.desktopAvailable) || this.busy || !input.value.trim() || !!this.listening;
+      submit.textContent = this.busy ? t("agent.running") : recipe ? t("recipe.build") : t("agent.send");
+      hint.textContent = recipe ? t("recipe.scope") : t("agent.ctrlEnterHint");
+    };
+    input.addEventListener("input", () => { this.draft = input.value; update(); });
+    update();
+    const Recognition = Dictation;
+    if (Recognition) {
+      const mic = document.createElement("button");
+      mic.type = "button"; mic.className = "btn tool-icon"; mic.disabled = this.busy;
+      mic.title = this.listening ? t("recipe.stopVoice") : t("recipe.voice");
+      mic.setAttribute("aria-label", mic.title);
+      mic.setAttribute("aria-pressed", String(!!this.listening));
+      mic.append(createElement(this.listening ? MicOff : Mic, { width: 15, height: 15 }));
+      mic.onclick = () => {
+        if (this.listening) { this.stopDictation(); return; }
+        const speech = new Recognition();
+        this.listening = speech; speech.lang = getLocale();
+        speech.onresult = event => { this.draft = [this.draft, event.results[0]?.[0]?.transcript].filter(Boolean).join(" "); };
+        speech.onerror = () => { this.localError = t("recipe.voiceError"); };
+        speech.onend = () => { this.listening = null; this.render(); };
+        try { speech.start(); } catch { this.listening = null; this.localError = t("recipe.voiceError"); }
+        this.render();
+      };
+      row.append(mic);
+    }
     row.append(status, hint, stop, submit);
     form.append(input, row);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void this.submit(input.value);
+      if (!submit.disabled) void this.submit(input.value);
     });
     return form;
   }
@@ -703,7 +753,7 @@ export class AgentPanel {
     stop.type = "button";
     stop.className = "btn btn--small";
     stop.textContent = t("agent.stop");
-    stop.disabled = !this.busy || !this.activeTurnId;
+    stop.disabled = !this.busy || this.recipeBusy || !this.activeTurnId;
     stop.addEventListener("click", () => void this.stopGeneration());
     header.append(status, stop);
     card.appendChild(header);
@@ -781,7 +831,8 @@ export class AgentPanel {
 
   private async submit(goal: string): Promise<void> {
     const trimmed = goal.trim();
-    if (!trimmed || this.busy) return;
+    if (!trimmed || this.busy || (!this.desktopAvailable && !isScreenshotMailGoal(trimmed))) return;
+    this.recipeBusy = isScreenshotMailGoal(trimmed);
     this.busy = true;
     this.localError = "";
     this.draft = "";
@@ -820,7 +871,7 @@ export class AgentPanel {
   }
 
   private async stopGeneration(): Promise<void> {
-    if (!this.activeTurnId) return;
+    if (!this.activeTurnId || this.recipeBusy) return;
     await this.handlers.onStopGeneration(this.activeTurnId);
     this.busy = false;
     this.activeTurnId = null;

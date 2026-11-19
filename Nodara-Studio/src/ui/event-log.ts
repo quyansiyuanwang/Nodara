@@ -9,7 +9,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { t } from "../i18n";
 import { Canvas } from "./canvas";
-import { EventEnvelope, ExecutionEvent, RunStatus } from "../runtime/types";
+import { ArtifactMeta, EventEnvelope, ExecutionEvent, RunStatus } from "../runtime/types";
+import { artifactMeta, mailDownload } from "./artifact-link";
 
 const MAX_ROWS = 500;
 
@@ -143,6 +144,12 @@ export class EventLog {
     if (!this.artifactUrl) return;
     for (const [port, artifact] of artifactsIn(envelope.event)) {
       const url = this.artifactUrl(envelope.run_id, artifact.id);
+      if (artifact.content_type === "message/rfc822") {
+        const link = mailDownload(url, artifact);
+        link.classList.add("event-mail");
+        entry.appendChild(link);
+        continue;
+      }
       const preview = document.createElement("figure");
       preview.className = "event-artifact";
       const image = document.createElement("img");
@@ -299,33 +306,8 @@ export class EventLog {
   }
 }
 
-interface ArtifactPreviewMeta {
-  id: string;
-  name: string;
-  content_type: string;
-  size: number;
-}
-
-function artifactMeta(value: unknown): ArtifactPreviewMeta | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  if (
-    typeof record.id !== "string" ||
-    typeof record.content_type !== "string" ||
-    typeof record.size !== "number"
-  ) {
-    return null;
-  }
-  return {
-    id: record.id,
-    name: typeof record.name === "string" ? record.name : record.id,
-    content_type: record.content_type,
-    size: record.size,
-  };
-}
-
-/** Image artifacts directly attached to node output or logged as JSON. */
-function artifactsIn(event: ExecutionEvent): Array<[string, ArtifactPreviewMeta]> {
+/** Previewable artifacts attached to node output or logged as JSON. */
+function artifactsIn(event: ExecutionEvent): Array<[string, ArtifactMeta]> {
   const values: Array<[string, unknown]> = [];
   if (event.type === "node_finished") {
     values.push(...Object.entries(event.outputs));
@@ -334,12 +316,12 @@ function artifactsIn(event: ExecutionEvent): Array<[string, ArtifactPreviewMeta]
     if (message !== null) values.push(["log", message]);
   }
 
-  const artifacts: Array<[string, ArtifactPreviewMeta]> = [];
+  const artifacts: Array<[string, ArtifactMeta]> = [];
   const seen = new Set<string>();
   const visit = (value: unknown, path: string): void => {
     const artifact = artifactMeta(value);
     if (artifact) {
-      if (artifact.content_type.startsWith("image/") && !seen.has(artifact.id)) {
+      if ((artifact.content_type.startsWith("image/") || artifact.content_type === "message/rfc822") && !seen.has(artifact.id)) {
         seen.add(artifact.id);
         artifacts.push([path, artifact]);
       }

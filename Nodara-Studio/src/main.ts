@@ -8,6 +8,8 @@
 import "./styles.css";
 
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { createElement, FolderOpen, Download, Undo2, Redo2, Pause, Play, StepForward, Square, RotateCcw, Scan, Workflow as GraphIcon, MailPlus, Plus, Minus, Network } from "lucide";
+import { isScreenshotMailGoal, screenshotMailWorkflow } from "./model/screenshot-mail";
 
 import {
   applyStaticTranslations,
@@ -44,7 +46,7 @@ import {
 } from "./runtime/types";
 import { AgentPanel } from "./ui/agent-panel";
 import type { AgentStreamEvent, AgentSubmitRequest, AgentTurnResponse } from "./ui/agent-panel";
-import { AuditPanel } from "./ui/audit-panel";
+import { AuditContext, AuditPanel } from "./ui/audit-panel";
 import { Canvas } from "./ui/canvas";
 import { EventLog } from "./ui/event-log";
 import { DrawerGroup, FeatureRegistry } from "./ui/feature-registry";
@@ -100,10 +102,12 @@ class Studio {
   private validationState: ValidationState = "unknown";
   private workflowRevision = 0;
   private auditToken = 0;
+  private auditScope: string | undefined | null;
   private auditRefreshTimer: number | null = null;
   private runsToken = 0;
   private extensionsToken = 0;
   private lastAgentPollError: string | null = null;
+  private auditApprovalId: string | null = null;
   private connected = false;
   private currentRunStatus: RunStatus | null = null;
   private runStarting = false;
@@ -203,7 +207,7 @@ class Studio {
         void this.decideApproval(sessionId, approvalId, approve),
       onLoadPlan: (sessionId) => this.loadPlan(sessionId),
       onOpenRun: (runId) => void this.openRun(runId),
-      onOpenAudit: (runId) => this.openAudit(runId),
+      onOpenAudit: (runId) => void this.openRun(runId, "audit"),
       onResumeRun: (runId) => void this.resumeRun(runId),
       onValidatePlan: (workflow) => this.client.validate(workflow),
       onRunPlan: (workflow, sessionId, mode) =>
@@ -212,7 +216,7 @@ class Studio {
       listArtifacts: (runId) => this.client.listArtifacts(runId),
       artifactUrl: (runId, artifactId) => this.client.artifactUrl(runId, artifactId),
     }, isTauri());
-    this.audit = new AuditPanel(element("audit"));
+    this.audit = new AuditPanel(element("audit"), (runId, id) => this.client.artifactUrl(runId, id));
     this.runsPanel = new RunPanel(element("runs"), {
       onOpenRun: (runId) => void this.openRun(runId),
     });
@@ -234,6 +238,7 @@ class Studio {
     this.showTab(this.activeTab);
     this.bindToolbar();
     this.bindResizers();
+    this.canvas.fitToContent();
     this.updateHistoryControls();
     this.renderInspector();
     this.renderWorkspace();
@@ -366,6 +371,26 @@ class Studio {
       invoke: (command) => this.runCommand(command),
     });
     annotateToolbarShortcuts();
+    for (const button of document.querySelectorAll<HTMLButtonElement>(".pane-switch button")) {
+      button.onclick = () => {
+        document.querySelector<HTMLElement>(".workspace")!.dataset.pane = button.dataset.pane;
+        for (const item of document.querySelectorAll(".pane-switch button")) item.setAttribute("aria-pressed", String(item === button));
+      };
+    }
+    for (const [id, glyph] of [["btn-import", FolderOpen], ["btn-export", Download], ["btn-undo", Undo2], ["btn-redo", Redo2], ["btn-restart", RotateCcw], ["btn-pause", Pause], ["btn-resume", Play], ["btn-step", StepForward], ["btn-cancel", Square], ["canvas-zoom-in", Plus], ["canvas-zoom-out", Minus], ["canvas-fit", Scan], ["canvas-layout", Network]] as const) {
+      const button = element<HTMLButtonElement>(id);
+      button.title ||= button.textContent!.trim();
+      button.setAttribute("aria-label", button.title);
+      button.classList.add("tool-icon");
+      button.replaceChildren(createElement(glyph, {width: 15, height: 15}));
+    }
+    element("btn-run").prepend(createElement(Play, {width: 13, height: 13}));
+    element("canvas-recipe").prepend(createElement(MailPlus, {width: 14, height: 14}));
+    element("canvas-name").before(createElement(GraphIcon, {width: 15, height: 15}));
+    element("canvas-recipe").addEventListener("click", () => {
+      this.showTab("agent");
+      this.agents.suggestScreenshotMail();
+    });
 
     element<HTMLInputElement>("event-filter").addEventListener("input", (event) => {
       this.log.filter((event.target as HTMLInputElement).value);
@@ -420,12 +445,17 @@ class Studio {
       tab.addEventListener("click", () => {
         const name = tab.dataset.tab ?? "events";
         this.showTab(name);
-        if (name === "agent") void this.pollAgentSessions();
-        if (name === "audit") void this.refreshAudit();
       });
     }
 
     element("audit-refresh").addEventListener("click", () => void this.refreshAudit());
+    element("audit-approval").addEventListener("click", () => {
+      const id = element("audit-approval").dataset.session;
+      this.auditApprovalId = element("audit-approval").dataset.approval ?? null;
+      if (id) this.agents.selectSession(id);
+      this.showTab("agent");
+      this.agents.focusApprovals();
+    });
     element("audit-current-run").addEventListener("change", () => void this.refreshAudit());
     const runsFilter = element<HTMLInputElement>("runs-filter");
     const runsStatus = element<HTMLSelectElement>("runs-status");
@@ -554,6 +584,7 @@ class Studio {
     const feature = this.features.getPanel(name) ?? this.features.getPanel("events");
     if (!feature) return;
     this.activeTab = feature.id;
+    if (feature.id !== "agent") this.agents.stopDictation();
     try {
       localStorage.setItem(DRAWER_TAB_KEY, feature.id);
     } catch {
@@ -620,6 +651,7 @@ class Studio {
 
   private restoreHistory(snapshot: string): void {
     applyWorkflow(this.workflow, JSON.parse(snapshot) as Workflow);
+    saveDraft(this.workflow);
     this.runOverrides.clear();
     this.diagnostics = [];
     this.workflowRevision += 1;
@@ -694,6 +726,7 @@ class Studio {
 
   /** Render without treating a health poll as a document mutation. */
   private renderWorkspace(): void {
+    element("canvas-name").textContent = this.workflow.metadata.name;
     this.canvas.render();
     this.renderJson();
     this.renderProblems();
@@ -901,6 +934,7 @@ class Studio {
       // already point at a newer run, and the old stream must not touch it.
       this.closeStream = this.client.streamRunEvents(snapshot.id, {
         onEvent: (envelope) => {
+          if (this.runId !== snapshot.id) return;
           this.log.append(envelope);
           this.applyEvent(envelope.event);
           if (!element("panel-audit").hidden) this.scheduleAuditRefresh();
@@ -1006,9 +1040,13 @@ class Studio {
       this.lastAgentPollError = null;
       const pending = list.pending_approvals.length;
       this.setTabBadge("agent", pending > 0 ? String(pending) : "", "warn");
-      if (AgentPanel.needsAttention(list)) {
-        this.pulseAgentTab(true);
-      }
+      this.pulseAgentTab(AgentPanel.needsAttention(list));
+      const gate = list.pending_approvals.find(item => item.approval.run_id === this.runId);
+      const review = element<HTMLButtonElement>("audit-approval");
+      review.hidden = !gate;
+      review.dataset.session = gate?.session_id ?? "";
+      review.dataset.approval = gate?.approval.id ?? "";
+      review.textContent = gate ? `${t("actions.approve")} · ${gate.approval.node_type}` : "";
     } catch (error) {
       // While the runtime is down this fires every tick; only report the
       // transition into failure, not every repeat of the same error.
@@ -1020,7 +1058,7 @@ class Studio {
     } finally {
       // Keep polling only while the tab is visible; a hidden tab costs nothing.
       const visible = !element("panel-agent").hidden;
-      if (visible) {
+      if (visible || ["pending", "running", "paused"].includes(this.currentRunStatus ?? "")) {
         this.agentPoll = window.setTimeout(() => void this.pollAgentSessions(), 1500);
       } else {
         this.agentPoll = null;
@@ -1046,6 +1084,12 @@ class Studio {
         approvalId,
         approve ? "approved" : "denied",
       );
+      if (this.auditApprovalId === approvalId && this.activeTab === "agent") {
+        this.auditApprovalId = null;
+        this.agents.revealCanvas();
+        element("audit-approval").hidden = true;
+        this.showTab("audit");
+      }
       this.pushLocal(t("status.approval", {
         decision: approve ? t("actions.approve") : t("actions.deny"),
         id: approvalId.slice(0, 8),
@@ -1063,6 +1107,10 @@ class Studio {
     turnId: string,
     onEvent: (event: AgentStreamEvent) => void,
   ): Promise<void> {
+    if (isScreenshotMailGoal(request.goal)) {
+      await this.buildScreenshotMail(request, turnId, onEvent);
+      return;
+    }
     if (!isTauri()) throw new Error(t("agent.desktopOnly"));
     const selected = this.agents.selectedSession();
     if (request.baseMode === "last_plan" && !selected?.plan) {
@@ -1112,6 +1160,59 @@ class Studio {
   private async stopAgentTurn(turnId: string): Promise<boolean> {
     if (!isTauri()) return false;
     return invoke<boolean>("stop_agent_turn", { turnId });
+  }
+
+  private async buildScreenshotMail(request: AgentSubmitRequest, turnId: string, onEvent: (event: AgentStreamEvent) => void): Promise<void> {
+    if (!this.connected || !this.descriptors.has("desktop.ScreenshotIndex") || !this.descriptors.has("mail.Digest")) throw new Error(t("recipe.offline"));
+    const revision = this.workflowRevision;
+    const checkCanvas = () => {
+      if (revision !== this.workflowRevision || this.runStarting || ["paused", "running", "pending"].includes(this.currentRunStatus ?? "")) throw new Error(t("recipe.conflict"));
+    };
+    checkCanvas();
+    let workflow = screenshotMailWorkflow();
+    let sessionId: string;
+    if (isTauri()) {
+      // Plan first so Studio can display the validated document before execution starts.
+      const response = await invoke<AgentTurnResponse>("run_agent_turn_stream", {
+        turnId, onEvent: new Channel<AgentStreamEvent>(onEvent),
+        request: { goal: request.goal, recipe: "screenshot_mail", mode: "forbidden", provider: {endpoint: "", model: "recipe"} },
+      });
+      if (!response.accepted || !response.workflow || !response.session_id) throw new Error(t("agent.planRejected", {errors: 1}));
+      workflow = response.workflow;
+      sessionId = response.session_id;
+    } else {
+      // Browser builds can use the fixed local recipe, not a remote model credential.
+      onEvent({type: "turn_started"});
+      const report = await this.client.validate(workflow);
+      const errors = report.diagnostics.filter(d => d.severity === "error");
+      const warnings = report.diagnostics.filter(d => d.severity === "warning").length;
+      onEvent({type: "validation_result", accepted: !errors.length, errors: errors.length, warnings});
+      if (errors.length) throw new Error(errors.map(d => localizeDiagnostic(d).message).join("\n"));
+      const session = await this.client.createAgentSession(request.goal, "recipe:screenshot-mail");
+      sessionId = session.id;
+      await this.client.publishAgentPlan(sessionId, {at_ms: Date.now(), workflow, valid: true, errors: 0, warnings, diagnostics: report.diagnostics});
+      await this.client.appendAgentMessage(sessionId, "agent", t("recipe.plan"));
+      onEvent({type: "plan_ready", workflow});
+    }
+    await this.pollAgentSessions();
+    this.agents.selectSession(sessionId);
+    checkCanvas();
+    this.flushHistory();
+    if (!this.replaceWorkflow(structuredClone(workflow))) return;
+    this.flushHistory();
+    this.canvas.fitToContent();
+    this.agents.revealCanvas();
+    if (request.mode === "forbidden") return;
+    this.runStarting = true;
+    this.updateRunControls();
+    try {
+      const run = await this.client.createRun(workflow, {}, request.mode === "manual", {sessionId, approval: request.mode === "all" ? "auto" : "session"});
+      await this.openRun(run.id, "audit");
+      void this.pollAgentSessions();
+    } finally {
+      this.runStarting = false;
+      this.updateRunControls();
+    }
   }
 
   private async getAgentCredential(profileId: string): Promise<string | null> {
@@ -1226,24 +1327,21 @@ class Studio {
     this.pushLocal(t("status.planLoaded", { id: sessionId.slice(0, 8) }));
   }
 
-  /** Open the durable audit trail for an Agent-created run. */
-  private openAudit(runId: string): void {
-    this.runId = runId;
-    element<HTMLInputElement>("audit-current-run").checked = true;
-    this.showTab("audit");
-    void this.refreshAudit();
-  }
   /** Follow the run a session started. */
-  private async openRun(runId: string): Promise<void> {
+  private async openRun(runId: string, tab: "events" | "audit" = "events"): Promise<void> {
     this.runId = runId;
     this.closeStream?.();
     this.log.clear();
-    this.showTab("events");
+    this.canvas.clearStates();
+    if (tab === "audit") element<HTMLInputElement>("audit-current-run").checked = true;
+    this.showTab(tab);
     try {
       const snapshot = await this.client.getRun(runId);
+      if (this.runId !== runId) return;
       this.setStatus(snapshot.status);
       this.closeStream = this.client.streamRunEvents(runId, {
         onEvent: (envelope) => {
+          if (this.runId !== runId) return;
           this.log.append(envelope);
           this.applyEvent(envelope.event);
           if (!element("panel-audit").hidden) this.scheduleAuditRefresh();
@@ -1259,7 +1357,7 @@ class Studio {
   }
 
   private scheduleAuditRefresh(delay = 180): void {
-    if (this.auditRefreshTimer !== null) window.clearTimeout(this.auditRefreshTimer);
+    if (this.auditRefreshTimer !== null) return;
     this.auditRefreshTimer = window.setTimeout(() => {
       this.auditRefreshTimer = null;
       void this.refreshAudit();
@@ -1268,33 +1366,35 @@ class Studio {
 
   /** Load the audit log, optionally narrowed to the run being watched. */
   private async refreshAudit(): Promise<void> {
-    const onlyCurrent = element<HTMLInputElement>("audit-current-run").checked;
-    // Sequence requests so an out-of-order response cannot show stale records.
+    const scope = element<HTMLInputElement>("audit-current-run").checked ? this.runId : null;
     const token = ++this.auditToken;
+    if (this.auditScope !== scope) {
+      this.auditScope = scope;
+      this.audit.setData([], null, "audit.loading");
+    }
     try {
-      const records = await this.client.audit({
-        runId: onlyCurrent && this.runId ? this.runId : undefined,
-        limit: 500,
-      });
+      const [records, context] = await Promise.all([
+        this.client.audit({ runId: scope ?? undefined, limit: 500 }),
+        scope ? this.auditContext(scope) : null,
+      ]);
       if (token !== this.auditToken) return;
-      if (onlyCurrent && this.runId) {
-        try {
-          const [run, workflow, events] = await Promise.all([
-            this.client.getRun(this.runId),
-            this.client.getRunWorkflow(this.runId),
-            this.client.getRunEvents(this.runId),
-          ]);
-          if (token !== this.auditToken) return;
-          this.audit.setContext({ run, workflow, events });
-        } catch {
-          this.audit.setContext(null);
-        }
-      } else {
-        this.audit.setContext(null);
-      }
-      this.audit.setRecords(records);
+      this.audit.setData(records, context);
     } catch (error) {
+      if (token !== this.auditToken) return;
+      this.audit.setData([], null, "audit.unavailable");
       this.reportError(error);
+    }
+  }
+
+  private async auditContext(id: string): Promise<AuditContext | null> {
+    try {
+      const [run, workflow, events] = await Promise.all([
+        this.client.getRun(id), this.client.getRunWorkflow(id), this.client.getRunEvents(id),
+      ]);
+      return { run, workflow, events };
+    } catch {
+      // Historical records can outlive the captured workflow and event stream.
+      return null;
     }
   }
 
@@ -1328,9 +1428,11 @@ class Studio {
   }
 
   private async refreshRun(): Promise<void> {
-    if (!this.runId) return;
+    const runId = this.runId;
+    if (!runId) return;
     try {
-      const snapshot = await this.client.getRun(this.runId);
+      const snapshot = await this.client.getRun(runId);
+      if (runId !== this.runId) return;
       this.setStatus(snapshot.status);
       if (snapshot.failure) {
         this.pushLocal(t("status.runFailure", {

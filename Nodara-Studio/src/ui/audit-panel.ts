@@ -1,7 +1,10 @@
 /** Graphical audit workspace backed by durable records and run events. */
 
+import { createElement, Mail } from "lucide";
 import { localizeAuditCategory, localizeRunStatus, t } from "../i18n";
+import { artifactMeta, mailDownload } from "./artifact-link";
 import {
+  ArtifactMeta,
   AuditRecord,
   EventEnvelope,
   RunSnapshot,
@@ -14,14 +17,51 @@ export interface AuditContext {
   events: EventEnvelope[];
 }
 
+interface MailReceipt {
+  artifact: ArtifactMeta;
+  label: string;
+  body?: string;
+}
+
+/** Pair the last mail attempt with its own input and successful output, never the current config. */
+function latestMailReceipt({ run, workflow, events }: AuditContext): MailReceipt | null {
+  const mailNodes = new Set(workflow.nodes.filter(node => node.type === "mail.Digest").map(node => node.id));
+  if (!mailNodes.size) return null;
+  let receipt: MailReceipt | null = null;
+  const bodies = new Map<string, string>();
+  for (const { run_id, event } of events) {
+    if (run_id !== run.id || !("node_id" in event) || !event.node_id || !mailNodes.has(event.node_id)) continue;
+    if (event.type === "node_started") {
+      receipt = null;
+      bodies.delete(event.node_id);
+      const body = event.input?.inputs.digest;
+      if (typeof body === "string") bodies.set(event.node_id, body);
+    } else if (event.type === "node_failed") {
+      receipt = null;
+      bodies.delete(event.node_id);
+    } else if (event.type === "node_finished") {
+      const artifact = artifactMeta(event.outputs.message);
+      const delivery = event.outputs.delivery;
+      receipt = artifact?.content_type === "message/rfc822" ? {
+        artifact, body: bodies.get(event.node_id),
+        label: delivery === "preview" ? "audit.mailPreview" : delivery === "smtp_accepted" ? "audit.mailAccepted" : "audit.mailFile",
+      } : null;
+      bodies.delete(event.node_id);
+    }
+  }
+  return receipt;
+}
+
 export class AuditPanel {
   private records: AuditRecord[] = [];
   private context: AuditContext | null = null;
   private selectedRecord: AuditRecord | null = null;
   private selectedNode: string | null = null;
   private workspaceOpen = false;
+  private receipt: MailReceipt | null = null;
+  private catalogueMessage = "audit.empty";
 
-  constructor(private readonly root: HTMLElement) {
+  constructor(private readonly root: HTMLElement, private readonly artifactUrl: (runId: string, artifactId: string) => string) {
     this.root.addEventListener("keydown", (event) => this.onKeyDown(event));
   }
 
@@ -36,25 +76,34 @@ export class AuditPanel {
   private setWorkspaceOpen(open: boolean): void {
     this.workspaceOpen = open;
     this.render();
+    this.root.querySelector<HTMLButtonElement>(".audit-visual-toolbar button")?.focus({ preventScroll: true });
   }
 
-  setRecords(records: AuditRecord[]): void {
+  setData(records: AuditRecord[], context: AuditContext | null = null, catalogueMessage = "audit.empty"): void {
+    const sameRun = this.context?.run.id === context?.run.id;
+    this.catalogueMessage = catalogueMessage;
     this.records = records;
-    if (this.selectedRecord && !records.some((record) => record.seq === this.selectedRecord!.seq)) {
-      this.selectedRecord = null;
-    }
-    this.render();
-  }
-
-  setContext(context: AuditContext | null): void {
     this.context = context;
-    if (this.selectedNode && !context?.workflow.nodes.some((node) => node.id === this.selectedNode)) {
-      this.selectedNode = null;
-    }
+    this.receipt = context && latestMailReceipt(context);
+    const selected = this.selectedRecord;
+    this.selectedRecord = sameRun && selected ? records.find(r => r.run_id === selected.run_id && r.seq === selected.seq) ?? null : null;
+    if (!sameRun || !context?.workflow.nodes.some(node => node.id === this.selectedNode)) this.selectedNode = null;
     this.render();
   }
 
   private render(): void {
+    const focusKey = this.root.querySelector<HTMLElement>(":focus")?.dataset.auditKey;
+    const listTop = this.root.querySelector(".audit-timeline__list")?.scrollTop ?? 0;
+    this.renderContents();
+    const list = this.root.querySelector(".audit-timeline__list");
+    if (list) list.scrollTop = listTop;
+    if (focusKey) {
+      const target = [...this.root.querySelectorAll<HTMLElement>("[data-audit-key]")].find(el => el.dataset.auditKey === focusKey);
+      target?.focus({ preventScroll: true });
+    }
+  }
+
+  private renderContents(): void {
     this.root.replaceChildren();
     this.root.classList.toggle("audit--workspace", this.workspaceOpen);
     document.body.classList.toggle("audit-workspace-open", this.workspaceOpen);
@@ -76,24 +125,25 @@ export class AuditPanel {
   }
 
   private renderCatalogue(): void {
-    if (this.records.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = t("audit.empty");
-      this.root.appendChild(empty);
-      return;
-    }
     const toolbar = document.createElement("div");
     toolbar.className = "audit-visual-toolbar";
     const title = document.createElement("strong");
     title.textContent = t("audit.allRuns");
     const expand = document.createElement("button");
+    expand.dataset.auditKey = "expand";
     expand.type = "button";
     expand.className = "btn btn--small";
     expand.textContent = this.workspaceOpen ? t("audit.collapse") : t("audit.expand");
     expand.addEventListener("click", () => this.setWorkspaceOpen(!this.workspaceOpen));
     toolbar.append(title, expand);
     this.root.appendChild(toolbar);
+    if (this.records.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = t(this.catalogueMessage);
+      this.root.appendChild(empty);
+      return;
+    }
     const summary = document.createElement("div");
     summary.className = "audit-summary";
     for (const [label, value] of this.catalogueSummary()) {
@@ -112,11 +162,24 @@ export class AuditPanel {
     const title = document.createElement("strong");
     title.textContent = `${t("audit.run")} ${this.context!.run.id.slice(0, 8)} · ${localizeRunStatus(this.context!.run.status)}`;
     const expand = document.createElement("button");
+    expand.dataset.auditKey = "expand";
     expand.type = "button";
     expand.className = "btn btn--small";
     expand.textContent = this.workspaceOpen ? t("audit.collapse") : t("audit.expand");
     expand.addEventListener("click", () => this.setWorkspaceOpen(!this.workspaceOpen));
-    toolbar.append(title, expand);
+    toolbar.append(title);
+    if (this.receipt) {
+      const receipt = document.createElement("div");
+      receipt.className = "audit-receipt";
+      const label = document.createElement("span");
+      label.append(createElement(Mail, { width: 15, height: 15, "aria-hidden": "true" }), t(this.receipt.label));
+      const artifact = this.receipt.artifact;
+      const link = mailDownload(this.artifactUrl(this.context!.run.id, artifact.id), artifact);
+      link.dataset.auditKey = `mail:${artifact.id}`;
+      receipt.append(label, link);
+      toolbar.append(receipt);
+    }
+    toolbar.append(expand);
     return toolbar;
   }
 
@@ -204,10 +267,21 @@ export class AuditPanel {
       group.classList.add("audit-node", `audit-node--${state}`);
       if (node.id === this.selectedNode) group.classList.add("is-selected");
       group.setAttribute("transform", `translate(${(node.position?.x ?? 0) - minX}, ${(node.position?.y ?? 0) - minY})`);
-      group.addEventListener("click", () => {
-        this.selectedNode = node.id;
+      group.setAttribute("role", "button");
+      group.setAttribute("tabindex", "0");
+      group.setAttribute("aria-label", node.label ?? node.id);
+      group.setAttribute("aria-pressed", String(node.id === this.selectedNode));
+      group.dataset.auditKey = `node:${node.id}`;
+      const select = () => {
+        this.selectedNode = node.id === this.selectedNode ? null : node.id;
         this.selectedRecord = null;
         this.render();
+      };
+      group.addEventListener("click", select);
+      group.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        select();
       });
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       rect.setAttribute("width", "150");
@@ -253,6 +327,20 @@ export class AuditPanel {
     const title = document.createElement("h4");
     title.textContent = catalogue ? t("audit.recentEvents") : t("audit.timeline");
     section.appendChild(title);
+    if (this.selectedNode) {
+      const clear = document.createElement("button");
+      clear.dataset.auditKey = "all-nodes";
+      clear.type = "button";
+      clear.className = "btn btn--small audit-filter-clear";
+      clear.textContent = t("audit.allNodes");
+      clear.addEventListener("click", () => {
+        this.selectedNode = null;
+        this.selectedRecord = null;
+        this.render();
+        this.root.querySelector<HTMLButtonElement>(".audit-timeline__row")?.focus();
+      });
+      title.append(" · ", this.selectedNode, " ", clear);
+    }
     const list = document.createElement("div");
     list.className = "audit-timeline__list";
     const records = this.selectedNode
@@ -262,7 +350,10 @@ export class AuditPanel {
       const row = document.createElement("button");
       row.type = "button";
       row.className = `audit-timeline__row audit-timeline__row--${record.category.replace(/_/g, "-")}`;
-      if (record.seq === this.selectedRecord?.seq) row.classList.add("is-selected");
+      row.dataset.auditKey = `record:${record.run_id}:${record.seq}`;
+      const selected = record.seq === this.selectedRecord?.seq && record.run_id === this.selectedRecord.run_id;
+      row.classList.toggle("is-selected", selected);
+      row.setAttribute("aria-pressed", String(selected));
       const time = document.createElement("time");
       time.textContent = new Date(record.timestamp_ms).toLocaleTimeString();
       const category = document.createElement("code");
@@ -271,8 +362,7 @@ export class AuditPanel {
       message.textContent = record.message;
       row.append(time, category, message);
       row.addEventListener("click", () => {
-        this.selectedRecord = record;
-        this.selectedNode = record.node_id ?? null;
+        this.selectedRecord = selected ? null : record;
         this.render();
       });
       list.appendChild(row);
@@ -320,6 +410,15 @@ export class AuditPanel {
       raw.className = "audit-detail__raw";
       raw.textContent = JSON.stringify(events, null, 2);
       section.appendChild(raw);
+      return section;
+    }
+    if (this.receipt?.body) {
+      title.textContent = t("audit.mailBody");
+      section.classList.add("audit-detail--mail");
+      const body = document.createElement("pre");
+      body.className = "audit-mail-body";
+      body.textContent = this.receipt.body;
+      section.append(body);
       return section;
     }
     const hint = document.createElement("p");

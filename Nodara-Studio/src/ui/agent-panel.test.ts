@@ -53,6 +53,22 @@ beforeEach(() => {
 });
 
 describe("AgentPanel settings", () => {
+  it("lets the browser submit the local recipe, but not an arbitrary remote turn", async () => {
+    const root = document.createElement("div");
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const panel = new AgentPanel(root, { ...handlers, onSubmit }, false);
+    panel.suggestScreenshotMail();
+    const input = root.querySelector<HTMLTextAreaElement>("textarea")!;
+    const button = root.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    expect(button.disabled).toBe(false);
+    input.value = "A different task";
+    input.dispatchEvent(new Event("input"));
+    expect(button.disabled).toBe(true);
+    input.value = "帮我整理桌面截图，并发邮件。";
+    input.dispatchEvent(new Event("input"));
+    root.querySelector("form")!.dispatchEvent(new Event("submit", {cancelable: true}));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({goal: input.value}), expect.any(String), expect.any(Function));
+  });
   it("does not rerender an unchanged polling response", () => {
     const root = document.createElement("div");
     const panel = new AgentPanel(root, handlers);

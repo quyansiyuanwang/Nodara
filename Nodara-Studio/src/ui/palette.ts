@@ -116,7 +116,9 @@ export class Palette {
         const name = document.createElement("span");
         name.className = "palette__name";
         name.textContent = descriptor.display_name;
-        item.appendChild(name);
+        const { color, icon } = nodeIcon(descriptor.node_type, 15);
+        item.style.setProperty("--family-color", color);
+        item.append(icon, name);
 
         if (descriptor.dangerous) {
           const badge = document.createElement("span");
@@ -181,3 +183,4 @@ export class Palette {
       .join("|");
   }
 }
+import { nodeIcon } from "./node-icon";

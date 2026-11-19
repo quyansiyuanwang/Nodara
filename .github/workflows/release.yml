@@ -52,7 +52,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: Nodara-Studio/package-lock.json
 
@@ -85,6 +85,8 @@ jobs:
             librsvg2-dev \
             libdbus-1-dev \
             libssl-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
             patchelf \
             pkg-config
 
@@ -126,11 +128,11 @@ jobs:
 
       - name: Core clippy
         working-directory: Nodara-Core
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Agent clippy
         working-directory: Nodara-Agent
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Published schemas are up to date
         working-directory: Nodara-Core

@@ -323,6 +323,52 @@
           "if": {
             "properties": {
               "type": {
+                "const": "desktop.ScreenshotIndex"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.desktop.ScreenshotIndex"
+              },
+              "type": {
+                "const": "desktop.ScreenshotIndex",
+                "description": "Groups screenshot filenames by format. Sample mode never accesses the filesystem."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mail.Digest"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/NodeConfig.mail.Digest"
+              },
+              "type": {
+                "const": "mail.Digest",
+                "description": "Saves a local .eml preview or submits the inventory to the host's configured SMTP recipient over TLS."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "system.Clipboard"
               }
             },
@@ -902,6 +948,40 @@
       "title": "Start configuration",
       "type": "object",
       "x-nodara-node-type": "core.Start"
+    },
+    "NodeConfig.desktop.ScreenshotIndex": {
+      "additionalProperties": false,
+      "description": "Groups screenshot filenames by format. Sample mode never accesses the filesystem.",
+      "properties": {
+        "source": {
+          "default": "sample",
+          "enum": [
+            "sample",
+            "desktop"
+          ],
+          "type": "string"
+        }
+      },
+      "title": "Index screenshots configuration",
+      "type": "object",
+      "x-nodara-node-type": "desktop.ScreenshotIndex"
+    },
+    "NodeConfig.mail.Digest": {
+      "additionalProperties": false,
+      "description": "Saves a local .eml preview or submits the inventory to the host's configured SMTP recipient over TLS.",
+      "properties": {
+        "delivery": {
+          "default": "preview",
+          "enum": [
+            "preview",
+            "smtp"
+          ],
+          "type": "string"
+        }
+      },
+      "title": "Deliver inventory configuration",
+      "type": "object",
+      "x-nodara-node-type": "mail.Digest"
     },
     "NodeConfig.system.Clipboard": {
       "additionalProperties": false,
@@ -1770,6 +1850,8 @@
         "core.Log",
         "core.SetVariable",
         "core.Start",
+        "desktop.ScreenshotIndex",
+        "mail.Digest",
         "system.Clipboard",
         "system.Command",
         "system.Delay",

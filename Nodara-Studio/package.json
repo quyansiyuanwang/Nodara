@@ -21,6 +21,7 @@
     "vscode-json-languageservice": "^5.4.4"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.1.1"
+    "@tauri-apps/api": "^2.1.1",
+    "lucide": "1.76.0"
   }
 }

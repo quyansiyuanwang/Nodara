@@ -169,6 +169,8 @@ enum Command {
 /// One turn requested by the Studio desktop shell.
 #[derive(Debug, serde::Deserialize)]
 struct StudioRequest {
+    #[serde(default)]
+    recipe: Option<StudioRecipe>,
     goal: String,
     #[serde(default)]
     constraints: Vec<String>,
@@ -180,6 +182,26 @@ struct StudioRequest {
     variables: serde_json::Value,
     mode: StudioMode,
     provider: StudioProvider,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum StudioRecipe {
+    ScreenshotMail,
+}
+
+impl LlmProvider for StudioRecipe {
+    fn name(&self) -> &'static str {
+        "recipe:screenshot-mail"
+    }
+
+    fn complete(&self, _: &nodara_agent::ChatRequest) -> AgentResult<nodara_agent::ChatResponse> {
+        Ok(nodara_agent::ChatResponse {
+            content: include_str!("../../../../../examples/screenshot-mail.json").into(),
+            model: self.name().into(),
+            usage: Default::default(),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
@@ -541,11 +563,16 @@ fn run_studio_transport(default_runtime: &str, stream: bool) -> AgentResult<()> 
     if stream {
         JsonlObserver::emit(StudioStreamEvent::TurnStarted);
     }
-    let provider = OpenAiProvider::new(
+    let remote = OpenAiProvider::new(
         request.provider.endpoint.clone(),
         request.provider.model.clone(),
         request.provider.api_key.clone(),
     );
+    let provider: &dyn LlmProvider = request
+        .recipe
+        .as_ref()
+        .map(|r| r as &dyn LlmProvider)
+        .unwrap_or(&remote);
     let auto_run = !matches!(request.mode, StudioMode::Forbidden);
     let approval_mode = match request.mode {
         StudioMode::Forbidden | StudioMode::All => RunApprovalMode::Auto,
@@ -554,6 +581,11 @@ fn run_studio_transport(default_runtime: &str, stream: bool) -> AgentResult<()> 
     let config = AgentConfig {
         runtime_url: default_runtime.to_string(),
         auto_run,
+        max_repairs: if request.recipe.is_some() {
+            0
+        } else {
+            AgentConfig::default().max_repairs
+        },
         base_workflow: request.base_workflow,
         session_id: request.session_id,
         approval_mode,
@@ -566,7 +598,7 @@ fn run_studio_transport(default_runtime: &str, stream: bool) -> AgentResult<()> 
         },
         ..AgentConfig::default()
     };
-    let agent = Agent::new(&provider, config);
+    let agent = Agent::new(provider, config);
     let outcome = if stream {
         let mut observer = JsonlObserver;
         let result = if auto_run {
