@@ -104,7 +104,9 @@ Every matrix job runs the same gates:
 
 - the archive hash matches its `.sha256`, and every line of `SHA256SUMS.txt` matches;
 - CLI, runtime, Agent, Studio, both plugins, `studio-web/`, `schema/`, `examples/`
-  and `docs/` exist, and every installer listed in `build-info.json` is present;
+  and `docs/` exist, and every installer listed in `build-info.json` is present and
+  reports the release version (the setup's `ProductVersion` and the MSI's
+  `ProductVersion` property);
 - `build-info.json` names the release version, `Release`, the platform and the
   tagged commit;
 - `nodara-cli --version`, `validate`, `simulate`, `run`, `inspect` and

@@ -37,6 +37,30 @@ function Get-FreePort {
     }
 }
 
+function Get-MsiProductVersion {
+    param([Parameter(Mandatory)][string]$Path)
+
+    try {
+        $installer = New-Object -ComObject WindowsInstaller.Installer
+        $database = $installer.GetType().InvokeMember(
+            "OpenDatabase", "InvokeMethod", $null, $installer, @($Path, 0)
+        )
+        $view = $database.GetType().InvokeMember(
+            "OpenView", "InvokeMethod", $null, $database,
+            @("SELECT Value FROM Property WHERE Property='ProductVersion'")
+        )
+        $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null) | Out-Null
+        $record = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
+        if ($null -eq $record) {
+            return $null
+        }
+        return [string]$record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, @(1))
+    }
+    catch {
+        return $null
+    }
+}
+
 function Invoke-Cli {
     param(
         [Parameter(Mandatory)][string]$Exe,
@@ -165,8 +189,22 @@ try {
     }
     $installers = @($info.installers | Where-Object { $_ })
     foreach ($installer in $installers) {
-        Assert-True (Test-Path -LiteralPath (Join-Path $packageDir "installers/$installer")) `
+        $installerPath = Join-Path $packageDir "installers/$installer"
+        Assert-True (Test-Path -LiteralPath $installerPath) `
             "build-info.json lists a missing installer: $installer"
+        if ($IsWindows -and $installerPath.EndsWith(".exe")) {
+            $reported = (Get-Item -LiteralPath $installerPath).VersionInfo.ProductVersion
+            Assert-True ($reported -eq $Version) `
+                "installer $installer reports version $reported, expected $Version"
+        }
+        if ($IsWindows -and $installerPath.EndsWith(".msi")) {
+            $reported = Get-MsiProductVersion -Path $installerPath
+            Assert-True ($reported -eq $Version) `
+                "installer $installer reports version $reported, expected $Version"
+        }
+    }
+    if ($installers.Count -gt 0) {
+        Write-Host ("ok    {0} installer(s) match version {1}" -f $installers.Count, $Version)
     }
     Write-Host ("ok    build-info.json {0} / {1} / {2} / {3} / {4}" -f $info.version, $info.configuration, $info.platform, $info.arch, $info.source_commit)
 

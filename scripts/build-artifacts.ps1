@@ -106,6 +106,31 @@ function Write-Checksums {
     )
 }
 
+function Select-VersionedBundleFile {
+    param(
+        [Parameter(Mandatory)] [string]$Directory,
+        [Parameter(Mandatory)] [string]$Filter,
+        [Parameter(Mandatory)] [string]$Version
+    )
+
+    if (-not (Test-Path -LiteralPath $Directory)) {
+        return $null
+    }
+    $candidates = @(Get-ChildItem -LiteralPath $Directory -Filter $Filter -File -ErrorAction SilentlyContinue)
+    $matching = @($candidates | Where-Object { $_.Name -like "*_${Version}_*" })
+    if ($matching.Count -gt 0) {
+        return $matching[0]
+    }
+    if ($candidates.Count -gt 0) {
+        # A cached target directory can keep installers from an older release
+        # beside the new ones. Copying the first match silently shipped the old
+        # version once; refuse instead.
+        throw ("no installer for version $Version in ${Directory}; found: " +
+            ($candidates.Name -join ", "))
+    }
+    return $null
+}
+
 function Copy-Installers {
     param(
         [Parameter(Mandatory)] [ValidateSet("Debug", "Release")] [string]$Mode,
@@ -120,22 +145,25 @@ function Copy-Installers {
     $bundle = Join-Path $StudioRoot "src-tauri/target/$($Mode.ToLowerInvariant())/bundle"
     $destination = Join-Path $Stage "installers"
     New-Item -ItemType Directory -Force -Path $destination | Out-Null
-    $copied = @()
 
     function Copy-InstallerFile {
         param([string]$Source, [string]$Name)
+        if ($Source.EndsWith(".exe")) {
+            $reported = (Get-Item -LiteralPath $Source).VersionInfo.ProductVersion
+            if ($reported -and $reported -ne $Version) {
+                throw "installer $Source reports version $reported, expected $Version"
+            }
+        }
         Copy-Item -LiteralPath $Source -Destination (Join-Path $destination $Name) -Force
         $script:copiedInstallers += $Name
     }
 
     if ($IsWindowsHost) {
-        $nsis = Get-ChildItem -LiteralPath (Join-Path $bundle "nsis") -Filter "*setup.exe" -File -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        $nsis = Select-VersionedBundleFile -Directory (Join-Path $bundle "nsis") -Filter "*setup.exe" -Version $Version
         if ($nsis) {
             Copy-InstallerFile $nsis.FullName "Nodara-Studio-$Version-x64-setup.exe"
         }
-        $msi = Get-ChildItem -LiteralPath (Join-Path $bundle "msi") -Filter "*.msi" -File -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        $msi = Select-VersionedBundleFile -Directory (Join-Path $bundle "msi") -Filter "*.msi" -Version $Version
         if ($msi) {
             Copy-InstallerFile $msi.FullName "Nodara-Studio-$Version-x64.msi"
         }
@@ -146,28 +174,25 @@ function Copy-Installers {
         }
     }
     elseif ($IsMacHost) {
-        $dmg = Get-ChildItem -LiteralPath (Join-Path $bundle "dmg") -Filter "*.dmg" -File -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        $dmg = Select-VersionedBundleFile -Directory (Join-Path $bundle "dmg") -Filter "*.dmg" -Version $Version
         if ($dmg) {
             Copy-InstallerFile $dmg.FullName "Nodara-Studio-$Version-$Architecture.dmg"
         }
         else {
-            Write-Warning "the macOS bundle did not produce a DMG; the portable archive is still complete"
+            Write-Warning "the macOS bundle did not produce a $Version DMG; the portable archive is still complete"
         }
     }
     else {
-        $deb = Get-ChildItem -LiteralPath (Join-Path $bundle "deb") -Filter "*.deb" -File -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        $deb = Select-VersionedBundleFile -Directory (Join-Path $bundle "deb") -Filter "*.deb" -Version $Version
         if ($deb) {
             Copy-InstallerFile $deb.FullName "Nodara-Studio-$Version-$Architecture.deb"
         }
-        $appimage = Get-ChildItem -LiteralPath (Join-Path $bundle "appimage") -Filter "*.AppImage" -File -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        $appimage = Select-VersionedBundleFile -Directory (Join-Path $bundle "appimage") -Filter "*.AppImage" -Version $Version
         if ($appimage) {
             Copy-InstallerFile $appimage.FullName "Nodara-Studio-$Version-$Architecture.AppImage"
         }
         if (-not $deb -and -not $appimage) {
-            Write-Warning "the Linux bundle produced neither a DEB nor an AppImage; the portable archive is still complete"
+            Write-Warning "the Linux bundle produced neither a $Version DEB nor an AppImage; the portable archive is still complete"
         }
     }
 
@@ -337,6 +362,13 @@ if (-not $SkipBuild) {
         Invoke-InDirectory $CoreRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $AgentRoot "cargo" @("build", "--workspace", "--release")
         Invoke-InDirectory $StudioRoot "npm" @("run", "build")
+        # A cached target directory keeps the previous release's installers
+        # beside the new ones. Remove the bundle output so this release is the
+        # only thing Copy-Installers can see.
+        $releaseBundle = Join-Path $StudioRoot "src-tauri/target/release/bundle"
+        if (Test-Path -LiteralPath $releaseBundle) {
+            Remove-Item -LiteralPath $releaseBundle -Recurse -Force
+        }
         Invoke-InDirectory $StudioRoot $Tauri @("build", "--ci")
     }
 }

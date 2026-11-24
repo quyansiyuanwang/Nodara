@@ -97,7 +97,8 @@
 
 - 归档哈希与 `.sha256` 一致，`SHA256SUMS.txt` 每一行一致；
 - CLI、runtime、Agent、Studio、两个插件、`studio-web/`、`schema/`、`examples/`、
-  `docs/` 都存在，`build-info.json` 列出的安装器也都在；
+  `docs/` 都存在，`build-info.json` 列出的安装器也都在，并且安装器报告的版本就是
+  发布版本（setup 的 `ProductVersion`、MSI 的 `ProductVersion` 属性）；
 - `build-info.json` 的版本、`Release`、平台、commit 与 tag 一致；
 - `nodara-cli --version`、`validate`、`simulate`、`run`、`inspect`、
   `extensions --json` 均成功；

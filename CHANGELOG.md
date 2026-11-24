@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows installers no longer ship a stale desktop shell. The Release workflow cached `Nodara-Studio/src-tauri/target`, so the previous release's `Nodara Studio_<old-version>_x64-setup.exe` and `.msi` stayed in `target/release/bundle`; `build-artifacts.ps1` then copied the first matching file without checking its version. The script now deletes the release bundle directory before the Tauri build, only accepts installers whose filename carries the release version, and rejects a bundle that contains only older versions. The workflow no longer caches the Tauri target, and `verify-package.ps1` checks the setup's `ProductVersion` and the MSI's `ProductVersion` property before publishing.
+- This affected the **v2.2.0 and v2.3.0 installers**: both shipped the 2.1.0 desktop app and plugins (the MSI and NSIS files were byte-identical to the 2.1.0 dry-run build). Their portable `.zip`/`.tar.gz` archives were built from the correct binaries. Use **v2.3.1 or later** for the installers, or the portable archive for v2.2.0/v2.3.0.
+
 ## [2.3.0] — Studio workflow experience - 2026-11-19
 
 ### Added
