@@ -10,13 +10,13 @@
 ```text
 artifacts/
 ├── debug/
-│   ├── Nodara-2.3.0-windows-x86_64-debug/
-│   ├── Nodara-2.3.0-windows-x86_64-debug.zip
-│   └── Nodara-2.3.0-windows-x86_64-debug.zip.sha256
+│   ├── Nodara-2.3.1-windows-x86_64-debug/
+│   ├── Nodara-2.3.1-windows-x86_64-debug.zip
+│   └── Nodara-2.3.1-windows-x86_64-debug.zip.sha256
 └── release/
-    ├── Nodara-2.3.0-windows-x86_64/
-    ├── Nodara-2.3.0-windows-x86_64.zip
-    └── Nodara-2.3.0-windows-x86_64.zip.sha256
+    ├── Nodara-2.3.1-windows-x86_64/
+    ├── Nodara-2.3.1-windows-x86_64.zip
+    └── Nodara-2.3.1-windows-x86_64.zip.sha256
 ```
 
 | Host | Portable archive | Installers |
@@ -56,7 +56,7 @@ Core, Agent and Studio test suites before a normal build.
 Verify the archive first:
 
 ```powershell
-$archive = ".\artifacts\release\Nodara-2.3.0-windows-x86_64.zip"  # or .tar.gz
+$archive = ".\artifacts\release\Nodara-2.3.1-windows-x86_64.zip"  # or .tar.gz
 $expected = (Get-Content "$archive.sha256").Split()[0]
 $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 $expected -eq $actual
@@ -65,14 +65,14 @@ $expected -eq $actual
 macOS/Linux:
 
 ```bash
-shasum -a 256 -c Nodara-2.3.0-linux-x86_64.tar.gz.sha256
-# or: sha256sum -c Nodara-2.3.0-linux-x86_64.tar.gz.sha256
+shasum -a 256 -c Nodara-2.3.1-linux-x86_64.tar.gz.sha256
+# or: sha256sum -c Nodara-2.3.1-linux-x86_64.tar.gz.sha256
 ```
 
 Then verify the staged files:
 
 ```powershell
-Set-Location .\artifacts\release\Nodara-2.3.0-windows-x86_64
+Set-Location .\artifacts\release\Nodara-2.3.1-windows-x86_64
 Get-Content .\SHA256SUMS.txt
 ```
 
@@ -87,12 +87,12 @@ version, commit and toolchain versions:
 ```json
 {
   "product": "Nodara",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "configuration": "Release",
   "platform": "windows",
   "arch": "x86_64",
   "source_commit": "abc1234",
-  "installers": ["Nodara-Studio-2.3.0-x64-setup.exe", "Nodara-Studio-2.3.0-x64.msi"],
+  "installers": ["Nodara-Studio-2.3.1-x64-setup.exe", "Nodara-Studio-2.3.1-x64.msi"],
   "entrypoints": ["nodara-cli.exe", "nodara-runtime.exe", "nodara-agent.exe", "nodara-studio.exe", "studio-web/index.html"]
 }
 ```
@@ -111,10 +111,10 @@ paths are documented in [releasing.md](releasing.md).
 To fetch and verify a published package:
 
 ```powershell
-gh release download v2.3.0 -D .\artifacts\release
+gh release download v2.3.1 -D .\artifacts\release
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-2.3.0-windows-x86_64.zip `
-  -Version 2.3.0
+  -ZipPath .\artifacts\release\Nodara-2.3.1-windows-x86_64.zip `
+  -Version 2.3.1
 ```
 
 ## Requirements and reproducibility

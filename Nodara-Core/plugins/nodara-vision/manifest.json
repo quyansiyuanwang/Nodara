@@ -1,7 +1,7 @@
 {
   "id": "nodara.vision",
   "name": "Nodara Vision",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "protocol_version": "1",
   "executable": "nodara-vision-plugin.exe",
   "description": "Template matching and pluggable OCR.",

@@ -377,7 +377,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-agent"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "base64",
  "clap",
@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "nodara-schema"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "schemars",
  "serde",

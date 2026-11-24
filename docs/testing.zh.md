@@ -10,7 +10,7 @@
 | 编号 | 检查项 | 通过标准 |
 |---|---|---|
 | A01 | 包完整性 | ZIP SHA-256 与同名 `.sha256` 文件一致，`SHA256SUMS.txt` 校验全部通过 |
-| A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.3.0；构建信息含正确 Git commit |
+| A02 | 版本 | CLI、runtime、Agent、Studio 均为 2.3.1；构建信息含正确 Git commit |
 | A03 | CLI 核心流程 | `validate`、`simulate`、`run` 成功，`extensions --json` 返回统一注册列表 |
 | A04 | 插件进程模式 | runtime 报告 2 个插件、19 个节点 |
 | A05 | HTTP API | health、plugins、extensions、node-types、schema 端点可访问 |
@@ -42,8 +42,8 @@
 
 ```powershell
 .\scripts\verify-package.ps1 `
-  -ZipPath .\artifacts\release\Nodara-2.3.0-windows-x86_64.zip `
-  -Version 2.3.0
+  -ZipPath .\artifacts\release\Nodara-2.3.1-windows-x86_64.zip `
+  -Version 2.3.1
 ```
 
 脚本把包解压到 `artifacts\tmp\`，校验 ZIP 哈希与 `SHA256SUMS.txt` 每一行，
@@ -57,8 +57,8 @@
 ```powershell
 $buildRoot = Resolve-Path .\artifacts\release
 Get-ChildItem $buildRoot -File | Select-Object Name,Length,LastWriteTime
-Get-Content "$buildRoot\Nodara-2.3.0-windows-x86_64.zip.sha256"
-Get-Content (Join-Path $buildRoot "Nodara-2.3.0-windows-x86_64\build-info.json")
+Get-Content "$buildRoot\Nodara-2.3.1-windows-x86_64.zip.sha256"
+Get-Content (Join-Path $buildRoot "Nodara-2.3.1-windows-x86_64\build-info.json")
 [Environment]::OSVersion.VersionString
 $PSVersionTable.PSVersion
 ```
@@ -77,13 +77,13 @@ $PSVersionTable.PSVersion
 在 `artifacts\release` 执行：
 
 ```powershell
-$zip = ".\Nodara-2.3.0-windows-x86_64.zip"
+$zip = ".\Nodara-2.3.1-windows-x86_64.zip"
 $expected = (Get-Content "$zip.sha256").Split()[0]
 $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw "ZIP hash mismatch" }
 
 Expand-Archive $zip -DestinationPath .\verify-release -Force
-Set-Location .\verify-release\Nodara-2.3.0-windows-x86_64
+Set-Location .\verify-release\Nodara-2.3.1-windows-x86_64
 
 $bad = @()
 Get-Content .\SHA256SUMS.txt | ForEach-Object {
@@ -111,8 +111,8 @@ nodara-studio.exe
 plugins\nodara-platform\{manifest.json,nodara-platform-plugin.exe}
 plugins\nodara-vision\{manifest.json,nodara-vision-plugin.exe}
 studio-web\index.html
-installers\Nodara-Studio-2.3.0-x64-setup.exe
-installers\Nodara-Studio-2.3.0-x64.msi
+installers\Nodara-Studio-2.3.1-x64-setup.exe
+installers\Nodara-Studio-2.3.1-x64.msi
 ```
 
 debug 还必须包含：
@@ -234,7 +234,7 @@ $plugins.plugins | Select-Object id,version
 
 分别测试 NSIS 和 MSI 中至少一个：
 
-1. 双击 `installers\Nodara-Studio-2.3.0-x64-setup.exe`；
+1. 双击 `installers\Nodara-Studio-2.3.1-x64-setup.exe`；
 2. 完成当前用户安装；
 3. 从开始菜单启动；
 4. 连接 runtime 并执行 hello-world；
@@ -339,7 +339,7 @@ trace 必须是逐行 JSON，replay 输出应包含目标、模型响应、验�
 建议记录模板：
 
 ```text
-构建：Nodara 2.3.0 / <debug|release> / <commit>
+构建：Nodara 2.3.1 / <debug|release> / <commit>
 环境：Windows 版本、DPI、Defender、WebView2、VC++ 版本
 结果：A01-A10 pass/fail
 失败步骤：

@@ -17,16 +17,16 @@ Windows：
 
 ```powershell
 Set-Location .\artifacts\release
-Expand-Archive .\Nodara-2.3.0-windows-x86_64.zip -DestinationPath .\test-release
-Set-Location .\test-release\Nodara-2.3.0-windows-x86_64
+Expand-Archive .\Nodara-2.3.1-windows-x86_64.zip -DestinationPath .\test-release
+Set-Location .\test-release\Nodara-2.3.1-windows-x86_64
 ```
 
 macOS / Linux：
 
 ```bash
 cd artifacts/release
-tar -xzf Nodara-2.3.0-macos-aarch64.tar.gz   # 或 linux-x86_64 / macos-x86_64
-cd Nodara-2.3.0-macos-aarch64
+tar -xzf Nodara-2.3.1-macos-aarch64.tar.gz   # 或 linux-x86_64 / macos-x86_64
+cd Nodara-2.3.1-macos-aarch64
 ```
 
 先检查文件完整性。目录内已经包含 `SHA256SUMS.txt`：
@@ -39,7 +39,7 @@ Get-FileHash .\nodara-cli.exe -Algorithm SHA256
 macOS/Linux 使用 `shasum -a 256 -c Nodara-*.tar.gz.sha256` 或
 `sha256sum -c Nodara-*.tar.gz.sha256`，然后运行 `./nodara-cli --version`。
 
-预期版本为 `nodara-cli 2.3.0`。
+预期版本为 `nodara-cli 2.3.1`。
 
 > release 包面向验收；Windows debug 包包含 PDB 调试符号，体积更大，适合复现问题。
 > 两者的目录结构和启动命令相同。
